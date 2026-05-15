@@ -275,7 +275,7 @@ batch_drc_analysis <- function(batch_results,
           compound_name  <- if (length(parts) > 1) parts[2] else parts[1]
 
           # --- Highest tested concentration (from concentration column of data table) ---
-          # Rounded to the nearest integer for clean display (e.g. 24.55 µM → 25 µM).
+          # Rounded to the nearest integer for clean display (e.g. 24.55 uM -> 25 uM).
           highest_conc_uM <- NA_real_
           if (!is.null(full_data_df) && nrow(full_data_df) >= 2) {
             log_concs <- suppressWarnings(as.numeric(full_data_df[, 1]))
@@ -464,10 +464,10 @@ batch_drc_analysis <- function(batch_results,
             }
           }
 
-          # IC50 above tested range → add to exclusion
+          # IC50 above tested range -> add to exclusion
           if (ic50_above_range)
             exclusion_collector <- c(exclusion_collector,
-                                     sprintf("IC50 above tested range (>%g µM)", highest_conc_uM))
+                                     sprintf("IC50 above tested range (>%g uM)", highest_conc_uM))
 
           # Set "OK" for empty collectors
           final_warnings <- if (length(warning_collector) > 0) paste(warning_collector, collapse = "; ") else "OK"
@@ -483,7 +483,7 @@ batch_drc_analysis <- function(batch_results,
             Construct = construct_name,
             Compound = compound_name,
             Curve_Type = res_curve_type,
-            `IC50 (µM)` = ic50_uM_final,
+            `IC50 (uM)` = ic50_uM_final,
             `IC50 (nM)` = ic50_nM_final,
             pIC50 = pic50_final,
             check.names = FALSE,
@@ -667,7 +667,7 @@ batch_drc_analysis <- function(batch_results,
         ))
       })
 
-      # ── Normalise summary_table columns for downstream compatibility ──────
+      # -- Normalise summary_table columns for downstream compatibility ------
       # 3PL produces `Ideal_Hill_Slope`; 4PL produces `HillSlope`.
       # Add an `Ideal_Hill_Slope` alias in the 4PL case so that the report
       # generator (which references that column by name) works for both models.

@@ -12,7 +12,7 @@
 
 <meta name="author" content="Thiago Loreto Matos" />
 
-<meta name="date" content="2026-05-10" />
+<meta name="date" content="2026-05-15" />
 
 <title>Introduction to dosefitr</title>
 
@@ -340,7 +340,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 <h1 class="title toc-ignore">Introduction to dosefitr</h1>
 <h4 class="author">Thiago Loreto Matos</h4>
-<h4 class="date">2026-05-10</h4>
+<h4 class="date">2026-05-15</h4>
 
 
 <div id="TOC">
@@ -669,23 +669,44 @@ increases with concentration):</p>
 <span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a>  <span class="at">plate            =</span> <span class="st">&quot;plate_01&quot;</span>,</span>
 <span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a>  <span class="at">compound_indices =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>,</span>
 <span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a>  <span class="at">color_palette    =</span> <span class="st">&quot;colorblind&quot;</span>,</span>
-<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a>  <span class="at">y_limits         =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">100</span>),</span>
+<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a>  <span class="at">y_limits         =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">100</span>),   <span class="co"># or NULL to auto-scale to the data</span></span>
 <span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a>  <span class="at">y_axis_title     =</span> <span class="st">&quot;Normalized BRET ratio [%]&quot;</span>,</span>
 <span id="cb12-8"><a href="#cb12-8" tabindex="-1"></a>  <span class="at">show_error_bars  =</span> <span class="cn">TRUE</span>,</span>
 <span id="cb12-9"><a href="#cb12-9" tabindex="-1"></a>  <span class="at">save_plot        =</span> <span class="cn">TRUE</span></span>
 <span id="cb12-10"><a href="#cb12-10" tabindex="-1"></a>)</span>
 <span id="cb12-11"><a href="#cb12-11" tabindex="-1"></a></span>
 <span id="cb12-12"><a href="#cb12-12" tabindex="-1"></a><span class="co"># By name or partial match</span></span>
-<span id="cb12-13"><a href="#cb12-13" tabindex="-1"></a><span class="fu">plot_multiple_compounds</span>(drc_results, <span class="at">target_compound =</span> <span class="st">&quot;LRRK2&quot;</span>)</span></code></pre></div>
+<span id="cb12-13"><a href="#cb12-13" tabindex="-1"></a><span class="fu">plot_multiple_compounds</span>(drc_results, <span class="at">target_compound =</span> <span class="st">&quot;LRRK2&quot;</span>)</span>
+<span id="cb12-14"><a href="#cb12-14" tabindex="-1"></a></span>
+<span id="cb12-15"><a href="#cb12-15" tabindex="-1"></a><span class="co"># Additional appearance controls</span></span>
+<span id="cb12-16"><a href="#cb12-16" tabindex="-1"></a><span class="fu">plot_multiple_compounds</span>(drc_results,</span>
+<span id="cb12-17"><a href="#cb12-17" tabindex="-1"></a>  <span class="at">compound_indices       =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>,</span>
+<span id="cb12-18"><a href="#cb12-18" tabindex="-1"></a>  <span class="at">x_limits               =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">9</span>, <span class="sc">-</span><span class="dv">5</span>),   <span class="co"># log10 molar; NULL auto-scales</span></span>
+<span id="cb12-19"><a href="#cb12-19" tabindex="-1"></a>  <span class="at">x_limits_scale         =</span> <span class="st">&quot;log10&quot;</span>,      <span class="co"># &quot;log10&quot;, &quot;molar&quot;, &quot;uM&quot;, or &quot;nM&quot;</span></span>
+<span id="cb12-20"><a href="#cb12-20" tabindex="-1"></a>  <span class="at">x_axis_title           =</span> <span class="cn">NULL</span>,         <span class="co"># NULL uses default Log10 Concentration [M]</span></span>
+<span id="cb12-21"><a href="#cb12-21" tabindex="-1"></a>  <span class="at">curve_linewidth        =</span> <span class="dv">1</span>,</span>
+<span id="cb12-22"><a href="#cb12-22" tabindex="-1"></a>  <span class="at">curve_alpha            =</span> <span class="fl">0.7</span>,</span>
+<span id="cb12-23"><a href="#cb12-23" tabindex="-1"></a>  <span class="at">show_ic50_lines        =</span> <span class="cn">TRUE</span>,         <span class="co"># dashed vertical line at each IC50</span></span>
+<span id="cb12-24"><a href="#cb12-24" tabindex="-1"></a>  <span class="at">plot_title_size        =</span> <span class="dv">16</span>,</span>
+<span id="cb12-25"><a href="#cb12-25" tabindex="-1"></a>  <span class="at">axis_line_color        =</span> <span class="st">&quot;black&quot;</span>,</span>
+<span id="cb12-26"><a href="#cb12-26" tabindex="-1"></a>  <span class="at">show_border            =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb12-27"><a href="#cb12-27" tabindex="-1"></a>  <span class="at">transparent_background =</span> <span class="cn">FALSE</span></span>
+<span id="cb12-28"><a href="#cb12-28" tabindex="-1"></a>)</span></code></pre></div>
 <p><strong>Compare the same compound across plates:</strong></p>
 <div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="fu">compare_plates_drc</span>(</span>
 <span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a>  drc_results,</span>
 <span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a>  <span class="at">compare_by    =</span> <span class="st">&quot;compound&quot;</span>,</span>
 <span id="cb13-4"><a href="#cb13-4" tabindex="-1"></a>  <span class="at">color_palette =</span> <span class="st">&quot;set1&quot;</span>,</span>
-<span id="cb13-5"><a href="#cb13-5" tabindex="-1"></a>  <span class="at">y_limits      =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">100</span>),</span>
+<span id="cb13-5"><a href="#cb13-5" tabindex="-1"></a>  <span class="at">y_limits      =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">100</span>),   <span class="co"># or NULL to auto-scale to the data</span></span>
 <span id="cb13-6"><a href="#cb13-6" tabindex="-1"></a>  <span class="at">y_axis_title  =</span> <span class="st">&quot;Normalized BRET ratio [%]&quot;</span>,</span>
-<span id="cb13-7"><a href="#cb13-7" tabindex="-1"></a>  <span class="at">min_plates    =</span> <span class="dv">2</span></span>
-<span id="cb13-8"><a href="#cb13-8" tabindex="-1"></a>)</span></code></pre></div>
+<span id="cb13-7"><a href="#cb13-7" tabindex="-1"></a>  <span class="at">min_plates    =</span> <span class="dv">2</span>,</span>
+<span id="cb13-8"><a href="#cb13-8" tabindex="-1"></a>  <span class="co"># Additional appearance controls (same as plot_multiple_compounds)</span></span>
+<span id="cb13-9"><a href="#cb13-9" tabindex="-1"></a>  <span class="at">x_limits               =</span> <span class="cn">NULL</span>,</span>
+<span id="cb13-10"><a href="#cb13-10" tabindex="-1"></a>  <span class="at">show_ic50_lines        =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb13-11"><a href="#cb13-11" tabindex="-1"></a>  <span class="at">axis_line_color        =</span> <span class="st">&quot;black&quot;</span>,</span>
+<span id="cb13-12"><a href="#cb13-12" tabindex="-1"></a>  <span class="at">show_border            =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb13-13"><a href="#cb13-13" tabindex="-1"></a>  <span class="at">transparent_background =</span> <span class="cn">FALSE</span></span>
+<span id="cb13-14"><a href="#cb13-14" tabindex="-1"></a>)</span></code></pre></div>
 </div>
 <div id="step-5-export-results" class="section level3">
 <h3>Step 5: Export results</h3>
@@ -802,16 +823,32 @@ drop at high concentrations):</p>
 workflow. Pass a custom y-axis label where appropriate:</p>
 <div class="sourceCode" id="cb22"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" tabindex="-1"></a><span class="fu">batch_save_all_drc_plots</span>(drc_results,</span>
 <span id="cb22-2"><a href="#cb22-2" tabindex="-1"></a>  <span class="at">verbose      =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb22-3"><a href="#cb22-3" tabindex="-1"></a>  <span class="at">y_axis_title =</span> <span class="st">&quot;Cell Viability (%)&quot;</span></span>
-<span id="cb22-4"><a href="#cb22-4" tabindex="-1"></a>)</span>
-<span id="cb22-5"><a href="#cb22-5" tabindex="-1"></a></span>
-<span id="cb22-6"><a href="#cb22-6" tabindex="-1"></a><span class="fu">plot_multiple_compounds</span>(drc_results,</span>
-<span id="cb22-7"><a href="#cb22-7" tabindex="-1"></a>  <span class="at">compound_indices =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>,</span>
-<span id="cb22-8"><a href="#cb22-8" tabindex="-1"></a>  <span class="at">color_palette    =</span> <span class="st">&quot;colorblind&quot;</span>,</span>
-<span id="cb22-9"><a href="#cb22-9" tabindex="-1"></a>  <span class="at">y_limits         =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">100</span>),</span>
-<span id="cb22-10"><a href="#cb22-10" tabindex="-1"></a>  <span class="at">y_axis_title     =</span> <span class="st">&quot;Cell Viability (%)&quot;</span>,</span>
-<span id="cb22-11"><a href="#cb22-11" tabindex="-1"></a>  <span class="at">save_plot        =</span> <span class="cn">TRUE</span></span>
-<span id="cb22-12"><a href="#cb22-12" tabindex="-1"></a>)</span></code></pre></div>
+<span id="cb22-3"><a href="#cb22-3" tabindex="-1"></a>  <span class="at">y_axis_title =</span> <span class="st">&quot;Cell Viability (%)&quot;</span>,</span>
+<span id="cb22-4"><a href="#cb22-4" tabindex="-1"></a>  <span class="at">y_limits     =</span> <span class="cn">NULL</span>   <span class="co"># NULL auto-scales each plot; use c(0, 100) for a fixed scale</span></span>
+<span id="cb22-5"><a href="#cb22-5" tabindex="-1"></a>)</span>
+<span id="cb22-6"><a href="#cb22-6" tabindex="-1"></a></span>
+<span id="cb22-7"><a href="#cb22-7" tabindex="-1"></a><span class="fu">plot_multiple_compounds</span>(drc_results,</span>
+<span id="cb22-8"><a href="#cb22-8" tabindex="-1"></a>  <span class="at">compound_indices =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>,</span>
+<span id="cb22-9"><a href="#cb22-9" tabindex="-1"></a>  <span class="at">color_palette    =</span> <span class="st">&quot;colorblind&quot;</span>,</span>
+<span id="cb22-10"><a href="#cb22-10" tabindex="-1"></a>  <span class="at">y_limits         =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">100</span>),   <span class="co"># or NULL to auto-scale to the data</span></span>
+<span id="cb22-11"><a href="#cb22-11" tabindex="-1"></a>  <span class="at">y_axis_title     =</span> <span class="st">&quot;Cell Viability (%)&quot;</span>,</span>
+<span id="cb22-12"><a href="#cb22-12" tabindex="-1"></a>  <span class="at">save_plot        =</span> <span class="cn">TRUE</span></span>
+<span id="cb22-13"><a href="#cb22-13" tabindex="-1"></a>)</span>
+<span id="cb22-14"><a href="#cb22-14" tabindex="-1"></a></span>
+<span id="cb22-15"><a href="#cb22-15" tabindex="-1"></a><span class="co"># Additional appearance controls (same as NanoBRET workflow)</span></span>
+<span id="cb22-16"><a href="#cb22-16" tabindex="-1"></a><span class="fu">plot_multiple_compounds</span>(drc_results,</span>
+<span id="cb22-17"><a href="#cb22-17" tabindex="-1"></a>  <span class="at">compound_indices       =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>,</span>
+<span id="cb22-18"><a href="#cb22-18" tabindex="-1"></a>  <span class="at">x_limits               =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">9</span>, <span class="sc">-</span><span class="dv">5</span>),   <span class="co"># log10 molar; NULL auto-scales</span></span>
+<span id="cb22-19"><a href="#cb22-19" tabindex="-1"></a>  <span class="at">x_limits_scale         =</span> <span class="st">&quot;log10&quot;</span>,      <span class="co"># &quot;log10&quot;, &quot;molar&quot;, &quot;uM&quot;, or &quot;nM&quot;</span></span>
+<span id="cb22-20"><a href="#cb22-20" tabindex="-1"></a>  <span class="at">x_axis_title           =</span> <span class="cn">NULL</span>,</span>
+<span id="cb22-21"><a href="#cb22-21" tabindex="-1"></a>  <span class="at">curve_linewidth        =</span> <span class="dv">1</span>,</span>
+<span id="cb22-22"><a href="#cb22-22" tabindex="-1"></a>  <span class="at">curve_alpha            =</span> <span class="fl">0.7</span>,</span>
+<span id="cb22-23"><a href="#cb22-23" tabindex="-1"></a>  <span class="at">show_ic50_lines        =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb22-24"><a href="#cb22-24" tabindex="-1"></a>  <span class="at">plot_title_size        =</span> <span class="dv">16</span>,</span>
+<span id="cb22-25"><a href="#cb22-25" tabindex="-1"></a>  <span class="at">axis_line_color        =</span> <span class="st">&quot;black&quot;</span>,</span>
+<span id="cb22-26"><a href="#cb22-26" tabindex="-1"></a>  <span class="at">show_border            =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb22-27"><a href="#cb22-27" tabindex="-1"></a>  <span class="at">transparent_background =</span> <span class="cn">FALSE</span></span>
+<span id="cb22-28"><a href="#cb22-28" tabindex="-1"></a>)</span></code></pre></div>
 <hr />
 </div>
 </div>
@@ -830,12 +867,15 @@ functions.</p>
 <span id="cb23-7"><a href="#cb23-7" tabindex="-1"></a>  <span class="at">merged_name =</span> <span class="st">&quot;rep1_rep2&quot;</span></span>
 <span id="cb23-8"><a href="#cb23-8" tabindex="-1"></a>)</span>
 <span id="cb23-9"><a href="#cb23-9" tabindex="-1"></a></span>
-<span id="cb23-10"><a href="#cb23-10" tabindex="-1"></a><span class="co"># Feed into the DRC step as usual</span></span>
-<span id="cb23-11"><a href="#cb23-11" tabindex="-1"></a>drc_results <span class="ot">&lt;-</span> <span class="fu">batch_drc_analysis</span>(</span>
-<span id="cb23-12"><a href="#cb23-12" tabindex="-1"></a>  <span class="at">batch_results =</span> merged,</span>
-<span id="cb23-13"><a href="#cb23-13" tabindex="-1"></a>  <span class="at">normalize     =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb23-14"><a href="#cb23-14" tabindex="-1"></a>  <span class="at">output_dir    =</span> <span class="st">&quot;./drc_results&quot;</span></span>
-<span id="cb23-15"><a href="#cb23-15" tabindex="-1"></a>)</span></code></pre></div>
+<span id="cb23-10"><a href="#cb23-10" tabindex="-1"></a><span class="co"># Save the Excel report to a custom directory (default: drc_quality/ in working dir)</span></span>
+<span id="cb23-11"><a href="#cb23-11" tabindex="-1"></a>merged <span class="ot">&lt;-</span> <span class="fu">merge_plate_replicates</span>(results, <span class="at">output_dir =</span> <span class="st">&quot;./my_reports&quot;</span>)</span>
+<span id="cb23-12"><a href="#cb23-12" tabindex="-1"></a></span>
+<span id="cb23-13"><a href="#cb23-13" tabindex="-1"></a><span class="co"># Feed into the DRC step as usual</span></span>
+<span id="cb23-14"><a href="#cb23-14" tabindex="-1"></a>drc_results <span class="ot">&lt;-</span> <span class="fu">batch_drc_analysis</span>(</span>
+<span id="cb23-15"><a href="#cb23-15" tabindex="-1"></a>  <span class="at">batch_results =</span> merged,</span>
+<span id="cb23-16"><a href="#cb23-16" tabindex="-1"></a>  <span class="at">normalize     =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb23-17"><a href="#cb23-17" tabindex="-1"></a>  <span class="at">output_dir    =</span> <span class="st">&quot;./drc_results&quot;</span></span>
+<span id="cb23-18"><a href="#cb23-18" tabindex="-1"></a>)</span></code></pre></div>
 <p>Replicate columns are renumbered sequentially across plates
 (<code>LRRK2:Compound_A</code>, <code>LRRK2:Compound_A.2</code> from
 plate 1 become <code>LRRK2:Compound_A.3</code>,
@@ -879,7 +919,7 @@ they have — no NA-padding is added.</p>
 <span id="cb24-31"><a href="#cb24-31" tabindex="-1"></a>  <span class="at">plate            =</span> <span class="st">&quot;plate_01&quot;</span>,</span>
 <span id="cb24-32"><a href="#cb24-32" tabindex="-1"></a>  <span class="at">compound_indices =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>,</span>
 <span id="cb24-33"><a href="#cb24-33" tabindex="-1"></a>  <span class="at">color_palette    =</span> <span class="st">&quot;colorblind&quot;</span>,</span>
-<span id="cb24-34"><a href="#cb24-34" tabindex="-1"></a>  <span class="at">y_limits         =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">100</span>),</span>
+<span id="cb24-34"><a href="#cb24-34" tabindex="-1"></a>  <span class="at">y_limits         =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">100</span>),   <span class="co"># or NULL to auto-scale</span></span>
 <span id="cb24-35"><a href="#cb24-35" tabindex="-1"></a>  <span class="at">y_axis_title     =</span> <span class="st">&quot;Normalized BRET ratio [%]&quot;</span>,</span>
 <span id="cb24-36"><a href="#cb24-36" tabindex="-1"></a>  <span class="at">save_plot        =</span> <span class="cn">TRUE</span></span>
 <span id="cb24-37"><a href="#cb24-37" tabindex="-1"></a>)</span>
@@ -943,7 +983,7 @@ they have — no NA-padding is added.</p>
 <span id="cb25-36"><a href="#cb25-36" tabindex="-1"></a><span class="fu">plot_multiple_compounds</span>(drc_results,</span>
 <span id="cb25-37"><a href="#cb25-37" tabindex="-1"></a>  <span class="at">compound_indices =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>,</span>
 <span id="cb25-38"><a href="#cb25-38" tabindex="-1"></a>  <span class="at">color_palette    =</span> <span class="st">&quot;colorblind&quot;</span>,</span>
-<span id="cb25-39"><a href="#cb25-39" tabindex="-1"></a>  <span class="at">y_limits         =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">100</span>),</span>
+<span id="cb25-39"><a href="#cb25-39" tabindex="-1"></a>  <span class="at">y_limits         =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">100</span>),   <span class="co"># or NULL to auto-scale</span></span>
 <span id="cb25-40"><a href="#cb25-40" tabindex="-1"></a>  <span class="at">y_axis_title     =</span> <span class="st">&quot;Cell Viability (%)&quot;</span>,</span>
 <span id="cb25-41"><a href="#cb25-41" tabindex="-1"></a>  <span class="at">save_plot        =</span> <span class="cn">TRUE</span></span>
 <span id="cb25-42"><a href="#cb25-42" tabindex="-1"></a>)</span>

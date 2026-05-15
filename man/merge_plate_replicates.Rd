@@ -29,6 +29,11 @@ returned list (default \code{"merged"}).}
 an error when the \code{log(inhibitor)} columns of the plates being merged
 are not identical.}
 
+\item{output_dir}{Character string.  Directory where the Excel report is
+saved when \code{generate_reports = TRUE}.  A \code{drc_quality/}
+sub-folder is created inside this directory (default \code{NULL}, which
+uses the current working directory).}
+
 \item{generate_reports}{Logical.  Save a
 \code{merged_results_<merged_name>.xlsx} workbook inside a
 \code{drc_quality/} sub-folder of the current working directory

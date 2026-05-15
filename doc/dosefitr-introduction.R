@@ -71,7 +71,7 @@ knitr::opts_chunk$set(
 #   plate            = "plate_01",
 #   compound_indices = 1:6,
 #   color_palette    = "colorblind",
-#   y_limits         = c(0, 100),
+#   y_limits         = c(0, 100),   # or NULL to auto-scale to the data
 #   y_axis_title     = "Normalized BRET ratio [%]",
 #   show_error_bars  = TRUE,
 #   save_plot        = TRUE
@@ -79,15 +79,36 @@ knitr::opts_chunk$set(
 # 
 # # By name or partial match
 # plot_multiple_compounds(drc_results, target_compound = "LRRK2")
+# 
+# # Additional appearance controls
+# plot_multiple_compounds(drc_results,
+#   compound_indices       = 1:6,
+#   x_limits               = c(-9, -5),   # log10 molar; NULL auto-scales
+#   x_limits_scale         = "log10",      # "log10", "molar", "uM", or "nM"
+#   x_axis_title           = NULL,         # NULL uses default Log10 Concentration [M]
+#   curve_linewidth        = 1,
+#   curve_alpha            = 0.7,
+#   show_ic50_lines        = TRUE,         # dashed vertical line at each IC50
+#   plot_title_size        = 16,
+#   axis_line_color        = "black",
+#   show_border            = FALSE,
+#   transparent_background = FALSE
+# )
 
 ## ----nanobret-step4-compare---------------------------------------------------
 # compare_plates_drc(
 #   drc_results,
 #   compare_by    = "compound",
 #   color_palette = "set1",
-#   y_limits      = c(0, 100),
+#   y_limits      = c(0, 100),   # or NULL to auto-scale to the data
 #   y_axis_title  = "Normalized BRET ratio [%]",
-#   min_plates    = 2
+#   min_plates    = 2,
+#   # Additional appearance controls (same as plot_multiple_compounds)
+#   x_limits               = NULL,
+#   show_ic50_lines        = FALSE,
+#   axis_line_color        = "black",
+#   show_border            = FALSE,
+#   transparent_background = FALSE
 # )
 
 ## ----nanobret-step5-reshape---------------------------------------------------
@@ -174,15 +195,31 @@ knitr::opts_chunk$set(
 ## ----viability-step4----------------------------------------------------------
 # batch_save_all_drc_plots(drc_results,
 #   verbose      = TRUE,
-#   y_axis_title = "Cell Viability (%)"
+#   y_axis_title = "Cell Viability (%)",
+#   y_limits     = NULL   # NULL auto-scales each plot; use c(0, 100) for a fixed scale
 # )
 # 
 # plot_multiple_compounds(drc_results,
 #   compound_indices = 1:6,
 #   color_palette    = "colorblind",
-#   y_limits         = c(0, 100),
+#   y_limits         = c(0, 100),   # or NULL to auto-scale to the data
 #   y_axis_title     = "Cell Viability (%)",
 #   save_plot        = TRUE
+# )
+# 
+# # Additional appearance controls (same as NanoBRET workflow)
+# plot_multiple_compounds(drc_results,
+#   compound_indices       = 1:6,
+#   x_limits               = c(-9, -5),   # log10 molar; NULL auto-scales
+#   x_limits_scale         = "log10",      # "log10", "molar", "uM", or "nM"
+#   x_axis_title           = NULL,
+#   curve_linewidth        = 1,
+#   curve_alpha            = 0.7,
+#   show_ic50_lines        = TRUE,
+#   plot_title_size        = 16,
+#   axis_line_color        = "black",
+#   show_border            = FALSE,
+#   transparent_background = FALSE
 # )
 
 ## ----merge--------------------------------------------------------------------
@@ -194,6 +231,9 @@ knitr::opts_chunk$set(
 #   plates      = c("plate_01", "plate_02"),
 #   merged_name = "rep1_rep2"
 # )
+# 
+# # Save the Excel report to a custom directory (default: drc_quality/ in working dir)
+# merged <- merge_plate_replicates(results, output_dir = "./my_reports")
 # 
 # # Feed into the DRC step as usual
 # drc_results <- batch_drc_analysis(
@@ -236,7 +276,7 @@ knitr::opts_chunk$set(
 #   plate            = "plate_01",
 #   compound_indices = 1:6,
 #   color_palette    = "colorblind",
-#   y_limits         = c(0, 100),
+#   y_limits         = c(0, 100),   # or NULL to auto-scale
 #   y_axis_title     = "Normalized BRET ratio [%]",
 #   save_plot        = TRUE
 # )
@@ -298,7 +338,7 @@ knitr::opts_chunk$set(
 # plot_multiple_compounds(drc_results,
 #   compound_indices = 1:6,
 #   color_palette    = "colorblind",
-#   y_limits         = c(0, 100),
+#   y_limits         = c(0, 100),   # or NULL to auto-scale
 #   y_axis_title     = "Cell Viability (%)",
 #   save_plot        = TRUE
 # )

@@ -725,6 +725,7 @@ merged <- merge_plate_replicates(results,
 | `plates` | character vector | `NULL` | Plate names to merge; `NULL` merges all plates |
 | `merged_name` | character | `"merged"` | Name of the new merged entry in the returned list |
 | `check_concentrations` | logical | `TRUE` | Stop with an error if the `log(inhibitor)` columns differ between plates |
+| `output_dir` | character | `NULL` | Directory for the Excel report; `NULL` writes to `drc_quality/` in the working directory |
 | `generate_reports` | logical | `TRUE` | Save `merged_results_<merged_name>.xlsx` into `drc_quality/`; set `FALSE` to skip |
 | `verbose` | logical | `TRUE` | Print a summary of compounds and replicate counts |
 
@@ -777,6 +778,9 @@ drc_quality/
 # Default — saves to drc_quality/ in the working directory
 merged <- merge_plate_replicates(results)
 
+# Save report to a custom directory
+merged <- merge_plate_replicates(results, output_dir = "./my_reports")
+
 # Skip the report entirely
 merged <- merge_plate_replicates(results, generate_reports = FALSE)
 ```
@@ -790,7 +794,8 @@ merged <- merge_plate_replicates(results, generate_reports = FALSE)
 batch_save_all_drc_plots(
   batch_drc_results = drc_results,
   verbose           = TRUE,
-  y_axis_title      = "Cell Viability (%)"   # optional custom y-axis label
+  y_axis_title      = "Cell Viability (%)",  # optional custom y-axis label
+  y_limits          = NULL                   # NULL auto-scales each plot; use c(0, 100) for a fixed scale
 )
 ```
 
@@ -834,7 +839,7 @@ plot_multiple_compounds(
   plate            = "plate_01",
   compound_indices = c(1, 3, 5),
   color_palette    = "colorblind",   # see palette list below
-  y_limits         = c(0, 100),
+  y_limits         = c(0, 100),      # or NULL to auto-scale to the data
   y_axis_title     = "% Normalized Luminescence",
   plot_title       = "GSK Compounds",
   axis_text_size   = 18,
@@ -849,6 +854,30 @@ plot_multiple_compounds(
   plot_height      = 8,
   plot_dpi         = 600,
   save_plot        = TRUE
+)
+```
+
+**Additional appearance controls** (new parameters):
+
+```r
+plot_multiple_compounds(
+  drc_results,
+  compound_indices       = 1:5,
+  # Axis range
+  x_limits               = c(-9, -5),   # log10 molar; or NULL to auto-scale
+  x_limits_scale         = "log10",      # "log10" (default), "molar", "uM", "nM"
+  x_axis_title           = NULL,         # NULL uses default Log10 Concentration [M]
+  # Curve appearance
+  curve_linewidth        = 1,            # fitted curve line width
+  curve_alpha            = 0.7,          # fitted curve opacity (0–1)
+  # IC50 reference lines
+  show_ic50_lines        = TRUE,         # dashed vertical line at each IC50
+  # Title and axis styling
+  plot_title_size        = 16,           # NULL inherits axis_title_size + 2
+  axis_line_color        = "black",      # colour of axis lines and ticks
+  show_border            = FALSE,        # rectangular panel border
+  # Background
+  transparent_background = FALSE         # TRUE for transparent PNG export
 )
 ```
 
@@ -895,14 +924,38 @@ compare_plates_drc(
   compare_by       = "compound",
   output_dir       = "plate_comparison_plots",
   color_palette    = "set1",
-  y_limits         = c(0, 100),
+  y_limits         = c(0, 100),   # or NULL to auto-scale to the data
   y_axis_title     = "Normalized BRET ratio [%]",
   show_error_bars  = TRUE,
-  min_plates       = 2,          # skip entities found in fewer than 2 plates
+  min_plates       = 2,           # skip entities found in fewer than 2 plates
   selected_entities = c("MDKM34", "GSK3357679A"),  # restrict to specific compounds
   plot_width       = 10,
   plot_height      = 8,
   plot_dpi         = 600
+)
+```
+
+**Additional appearance controls** (mirrors `plot_multiple_compounds()`):
+
+```r
+compare_plates_drc(
+  drc_results,
+  compare_by             = "compound",
+  # Axis range
+  x_limits               = c(-9, -5),   # log10 molar; or NULL to auto-scale
+  x_limits_scale         = "log10",      # "log10" (default), "molar", "uM", "nM"
+  x_axis_title           = NULL,         # NULL uses default Log10 Concentration [M]
+  # Curve appearance
+  curve_linewidth        = 1,
+  curve_alpha            = 0.7,
+  # IC50 reference lines
+  show_ic50_lines        = TRUE,
+  # Title and axis styling
+  plot_title_size        = 16,
+  axis_line_color        = "black",
+  show_border            = FALSE,
+  # Background
+  transparent_background = FALSE
 )
 ```
 
