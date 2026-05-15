@@ -1,0 +1,602 @@
+---
+title: "Introduction to dosefitr"
+author: "Thiago Loreto Matos"
+date: "`r Sys.Date()`"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 3
+vignette: >
+  %\VignetteIndexEntry{Introduction to dosefitr}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse  = TRUE,
+  comment   = "#>",
+  eval      = FALSE
+)
+```
+
+## Overview
+
+`dosefitr` provides an end-to-end dose-response analysis pipeline for two
+assay types commonly used in drug discovery:
+
+- **NanoBRET kinase binding assays** — reads raw BMG PHERAstar plate-reader
+  exports, computes BRET ratios, and derives IC50 / pIC50 values for kinase
+  inhibitors.
+- **Cell viability assays** — reads luminescence or fluorescence plate-reader
+  exports and fits dose-response curves to quantify compound cytotoxicity.
+
+Both workflows share the same pipeline structure and downstream functions
+(outlier removal, curve fitting, plotting, and Excel export), so switching
+between assay types requires changing only one or two arguments.
+
+### Pipeline overview
+
+```
+Raw Excel files
+      │
+      ▼
+batch_ratio_analysis()        ← NanoBRET: reads plates, computes BRET ratios
+batch_viability_analysis()    ← Viability: reads plates, normalises signal
+      │
+      ▼
+rout_outliers_batch()         ← detects and removes outliers  [optional]
+      │
+      ▼
+batch_drc_analysis()          ← fits 3PL or 4PL dose-response curves
+      │
+      ├──▶ batch_save_all_drc_plots()   ← one plot per compound
+      ├──▶ plot_multiple_compounds()    ← overlay selected compounds
+      ├──▶ compare_plates_drc()         ← compare compound across plates
+      ├──▶ reshape_dr_table()           ← reshape summary for Excel
+      ├──▶ save_multiple_sheets()       ← write multiple sheets to Excel
+      └──▶ scarab_table()              ← Scarab-format export (NanoBRET)
+```
+
+---
+
+## Installation
+
+```{r install}
+# Install from GitHub
+remotes::install_github("AKKDataAnalysis/dosefitr")
+```
+
+```{r load}
+library(dosefitr)
+```
+
+---
+
+## Input files
+
+### Directory layout
+
+All files for a single experiment should live in the same folder:
+
+```
+experiment_folder/
+├── info_tables.xlsx      ← metadata file (one sheet per plate)
+├── raw_data_1.xlsx       ← plate-reader export for plate 1
+├── raw_data_2.xlsx       ← plate-reader export for plate 2
+└── raw_data_3.xlsx       ← plate-reader export for plate 3
+```
+
+Each sheet in `info_tables.xlsx` is matched to a raw data file by the
+trailing number in the filename (e.g. sheet `Plate_1` → `raw_data_1.xlsx`).
+
+### The metadata file (`info_tables.xlsx`)
+
+This is the only file you need to create manually. It is an Excel workbook
+with **one sheet per plate**. Each sheet must contain at least four columns
+(column names can be anything; position matters):
+
+| Position | Content | Example |
+|---|---|---|
+| 1 | Log~10~ inhibitor concentrations | `-9`, `-8.5`, `-8`, ... |
+| 2 | Plate row letter(s) for this compound | `A`, `B`, `C`, ... |
+| 3 | Construct / kinase name | `LRRK2`, `AAK1` |
+| 4 | Compound / inhibitor name | `Compound_A`, `GSK123` |
+
+A minimal example for two compounds tested at eight concentrations in
+duplicate plate rows:
+
+| log(inhibitor) | Plate_Row | Construct | Compound   |
+|---|---|---|---|
+| -9.0 | A | LRRK2 | Compound_A |
+| -8.5 | B | LRRK2 | Compound_A |
+| -8.0 | C | LRRK2 | Compound_A |
+| -7.5 | D | LRRK2 | Compound_A |
+| -7.0 | E | LRRK2 | Compound_A |
+| -6.5 | F | LRRK2 | Compound_A |
+| -6.0 | G | LRRK2 | Compound_A |
+| -5.5 | H | LRRK2 | Compound_A |
+| -9.0 | I | LRRK2 | Compound_B |
+| -8.5 | J | LRRK2 | Compound_B |
+| ...  | ... | ... | ... |
+
+Columns 3 and 4 are combined as `Construct:Compound` (e.g. `LRRK2:Compound_A`)
+to label all output columns, plots, and export tables throughout the pipeline.
+
+---
+
+## Workflow 1 — NanoBRET kinase binding assay
+
+### Step 1: Process raw plates
+
+`batch_ratio_analysis()` reads all PHERAstar Excel files in the working
+directory, pairs them with the metadata file, computes BRET ratios
+(acceptor / donor × 1000), and returns a named list with one entry per plate.
+
+```{r nanobret-step1}
+results <- batch_ratio_analysis(
+  control_0perc       = 24,    # plate column for 0% control (e.g. DMSO)
+  control_100perc     = 12,    # plate column for 100% control (e.g. staurosporine)
+  output_dir          = "./qc_output",
+  low_value_threshold = 1000,  # donor-channel values below this → NA
+  verbose             = TRUE
+)
+```
+
+Wells where the donor-channel signal falls below `low_value_threshold` are
+set to `NA` before the ratio is calculated, excluding failed or empty wells.
+
+**Using duplicate 100% control columns (v2 mode):**
+
+When the 100% control is measured in two columns that should be averaged, or
+when the 0% control is a fixed instrument background value, use
+`function_version = "v2"`:
+
+```{r nanobret-step1-v2}
+results <- batch_ratio_analysis(
+  control_0perc       = 16,         # fixed background value
+  control_100perc     = c(12, 24),  # two columns averaged into one
+  low_value_threshold = 3000,
+  function_version    = "v2",
+  verbose             = TRUE
+)
+```
+
+### Step 2: Remove outliers (optional)
+
+`rout_outliers_batch()` applies the ROUT method to each compound curve
+independently. The `Q` parameter is the maximum acceptable false discovery
+rate for outlier labelling (lower = more conservative).
+
+```{r nanobret-step2}
+results_clean <- rout_outliers_batch(results, Q = 0.01)
+
+# Inspect flagged points
+head(results_clean$outlier_summary)
+
+# Visualise outlier-flagged curves
+plot_outliers_batch_curves(results_clean)
+```
+
+`rout_outliers_batch()` overwrites `modified_ratio_table` in-place with the
+cleaned data and preserves the original as `modified_ratio_table_original`.
+Pass `results_clean` (not `results`) to `batch_drc_analysis()` to use the
+cleaned data.
+
+### Step 3: Fit dose-response curves
+
+`batch_drc_analysis()` fits a three-parameter logistic (3PL) model to each
+compound curve and returns IC50, pIC50, R², Hill slope, and confidence
+intervals.
+
+```{r nanobret-step3}
+drc_results <- batch_drc_analysis(
+  batch_results = results_clean,  # use results if you skipped Step 2
+  normalize     = TRUE,
+  assay_type    = "nanobret",
+  output_dir    = "./drc_results",
+  verbose       = TRUE
+)
+```
+
+**3PL vs 4PL:**
+
+- `model = "3pl"` (default): Hill slope fixed at −1. Recommended for standard
+  sigmoidal inhibition curves with fewer free parameters.
+- `model = "4pl"`: Hill slope freely estimated. Use when cooperative binding
+  or mixed mechanisms are expected.
+
+**Handling non-inhibitory curves:**
+
+Flat curves (no meaningful response across the concentration range) always
+have their IC50 and pIC50 reported as `"N/D"` (not determined). To also
+suppress IC50 for activation curves (response increases with concentration):
+
+```{r nanobret-step3-nd}
+drc_results <- batch_drc_analysis(
+  batch_results    = results_clean,
+  normalize        = TRUE,
+  nd_if_activation = TRUE   # activation curves → N/D
+)
+```
+
+**Accessing results:**
+
+```{r nanobret-step3-access}
+# Final summary table for plate 1 (IC50, pIC50, R², Hill slope, ...)
+summary_table <- drc_results$drc_results$plate_01$drc_result$final_summary_table
+
+# Quality metrics table
+quality_table <- drc_results$drc_results$plate_01$drc_result$curve_quality_table
+```
+
+### Step 4: Visualise results
+
+**Save one plot per compound:**
+
+```{r nanobret-step4-all}
+batch_save_all_drc_plots(drc_results, verbose = TRUE)
+```
+
+**Overlay selected compounds on one plot:**
+
+```{r nanobret-step4-overlay}
+# By index
+plot_multiple_compounds(drc_results,
+  plate            = "plate_01",
+  compound_indices = 1:6,
+  color_palette    = "colorblind",
+  y_limits         = c(0, 100),
+  y_axis_title     = "Normalized BRET ratio [%]",
+  show_error_bars  = TRUE,
+  save_plot        = TRUE
+)
+
+# By name or partial match
+plot_multiple_compounds(drc_results, target_compound = "LRRK2")
+```
+
+**Compare the same compound across plates:**
+
+```{r nanobret-step4-compare}
+compare_plates_drc(
+  drc_results,
+  compare_by    = "compound",
+  color_palette = "set1",
+  y_limits      = c(0, 100),
+  y_axis_title  = "Normalized BRET ratio [%]",
+  min_plates    = 2
+)
+```
+
+### Step 5: Export results
+
+**Reshape the summary table and save to Excel:**
+
+```{r nanobret-step5-reshape}
+final_table <- drc_results$drc_results$plate_01$drc_result$final_summary_table
+
+excel_table <- reshape_dr_table(
+  final_table,
+  decimal_comma = FALSE,
+  output_file   = "results_plate01.xlsx"
+)
+```
+
+**Save multiple data frames to one workbook:**
+
+```{r nanobret-step5-multi}
+original_table <- results_clean$plate_01$result$modified_ratio_table_original
+
+save_multiple_sheets(
+  "final_data.xlsx",
+  original_table,
+  excel_table,
+  decimal_comma  = TRUE,
+  decimal_places = 3,
+  round_sheets   = 1:2
+)
+```
+
+**Generate a Scarab-format export table (NanoBRET):**
+
+`scarab_table()` produces a 76-row Scarab-format data frame combining
+experimental metadata, curve parameters, QC metrics, and raw BRET values.
+The output is saved as an `.xlsx` file with two sheets: `Scarab_Table`
+(fields as rows, compounds as columns) and `Scarab_Table_Transposed`
+(compounds as rows — easier for filtering in Excel).
+
+```{r nanobret-step5-scarab}
+scarab_table(
+  results_list              = results,
+  drc_results_list          = drc_results,
+  plate_name                = "plate_01",
+  date                      = "260323",
+  experimenter_abbrev       = "TL",
+  nLuc_orientation          = "C",       # "N" or "C" terminus
+  tracer                    = "Tracer K10",
+  tracer_kd_app             = -7.5,
+  tracer_concentration_used = -7.5,
+  decimal_separator         = ",",       # use "." for English format
+  eubscarab_ready           = "No"
+)
+```
+
+Per-kinase parameters (`nLuc_orientation`, `tracer`, `tracer_kd_app`,
+`tracer_concentration_used`) accept a single value (applied to all kinases),
+a named vector (keyed by kinase name), or an unnamed vector (applied in order
+of unique kinases on the plate):
+
+```{r nanobret-step5-scarab-multi}
+scarab_table(
+  results_list     = results,
+  drc_results_list = drc_results,
+  plate_name       = "plate_01",
+  date             = "260323",
+  experimenter_abbrev = "TL",
+  nLuc_orientation = c(LRRK2 = "C", AAK1 = "N"),
+  tracer           = c(LRRK2 = "Tracer K10", AAK1 = "Tracer 236"),
+  tracer_kd_app    = c(LRRK2 = -7.5, AAK1 = -8.0),
+  tracer_concentration_used = c(LRRK2 = -7.5, AAK1 = -8.0),
+  decimal_separator = ","
+)
+```
+
+---
+
+## Workflow 2 — Cell viability assay
+
+The viability workflow is structurally identical to the NanoBRET workflow.
+Replace `batch_ratio_analysis()` with `batch_viability_analysis()` in Step 1
+and pass `assay_type = "viability"` to `batch_drc_analysis()` in Step 3.
+All other functions work without modification.
+
+### Step 1: Process raw plates
+
+```{r viability-step1}
+via_results <- batch_viability_analysis(
+  directory       = "data/viability/",
+  control_0perc   = 1,    # column for background / vehicle control
+  control_100perc = 24,   # column for untreated cells (maximum signal)
+  output_dir      = "./qc_output",
+  verbose         = TRUE
+)
+```
+
+To exclude outer control columns from the compound data:
+
+```{r viability-step1-cols}
+via_results <- batch_viability_analysis(
+  control_0perc    = 13,
+  control_100perc  = 12,
+  selected_columns = 2:23   # exclude columns 1 and 24
+)
+```
+
+Per-plate quality metrics (CV%, Z-prime, signal-to-background) are computed
+automatically and saved in the `Quality_Metrics` sheet of each per-plate
+Excel file.
+
+### Step 2: Remove outliers (optional)
+
+Use `keep_cytotoxic = TRUE` to retain data points that resemble outliers but
+are part of a genuine cytotoxic response (sharp drop at high concentrations):
+
+```{r viability-step2}
+results_clean <- rout_outliers_batch(via_results,
+  Q              = 0.01,
+  keep_cytotoxic = TRUE
+)
+```
+
+### Step 3: Fit dose-response curves
+
+```{r viability-step3}
+drc_results <- batch_drc_analysis(
+  batch_results = results_clean,  # use via_results if you skipped Step 2
+  normalize     = TRUE,
+  assay_type    = "viability",    # applies viability-appropriate parameter limits
+  output_dir    = "./drc_results",
+  verbose       = TRUE
+)
+```
+
+### Step 4: Visualise and export
+
+All plotting and export functions work identically to the NanoBRET workflow.
+Pass a custom y-axis label where appropriate:
+
+```{r viability-step4}
+batch_save_all_drc_plots(drc_results,
+  verbose      = TRUE,
+  y_axis_title = "Cell Viability (%)"
+)
+
+plot_multiple_compounds(drc_results,
+  compound_indices = 1:6,
+  color_palette    = "colorblind",
+  y_limits         = c(0, 100),
+  y_axis_title     = "Cell Viability (%)",
+  save_plot        = TRUE
+)
+```
+
+---
+
+## Merging replicate plates
+
+When the same experiment is run across multiple plates (biological
+replicates), `merge_plate_replicates()` combines their data tables into a
+single entry that feeds directly into all downstream functions.
+
+```{r merge}
+# Merge all plates
+merged <- merge_plate_replicates(results)
+
+# Merge a subset, keeping others separate
+merged <- merge_plate_replicates(results,
+  plates      = c("plate_01", "plate_02"),
+  merged_name = "rep1_rep2"
+)
+
+# Feed into the DRC step as usual
+drc_results <- batch_drc_analysis(
+  batch_results = merged,
+  normalize     = TRUE,
+  output_dir    = "./drc_results"
+)
+```
+
+Replicate columns are renumbered sequentially across plates
+(`LRRK2:Compound_A`, `LRRK2:Compound_A.2` from plate 1 become
+`LRRK2:Compound_A.3`, `LRRK2:Compound_A.4` from plate 2, and so on).
+Compounds that appear in only some plates are included with however many
+replicates they have — no NA-padding is added.
+
+---
+
+## Complete example — NanoBRET
+
+```{r full-nanobret}
+library(dosefitr)
+
+setwd("path/to/experiment")
+
+# 1. Process raw plates
+results <- batch_ratio_analysis(
+  control_0perc       = 24,
+  control_100perc     = 12,
+  output_dir          = "./qc_output",
+  low_value_threshold = 1000,
+  verbose             = TRUE
+)
+
+# 2. Remove outliers
+results_clean <- rout_outliers_batch(results, Q = 0.01)
+plot_outliers_batch_curves(results_clean)
+
+# 3. Fit dose-response curves
+drc_results <- batch_drc_analysis(
+  batch_results = results_clean,
+  normalize     = TRUE,
+  output_dir    = "./drc_results",
+  verbose       = TRUE
+)
+
+# 4. Save all individual plots
+batch_save_all_drc_plots(drc_results, verbose = TRUE)
+
+# 5. Overlay selected compounds
+plot_multiple_compounds(drc_results,
+  plate            = "plate_01",
+  compound_indices = 1:6,
+  color_palette    = "colorblind",
+  y_limits         = c(0, 100),
+  y_axis_title     = "Normalized BRET ratio [%]",
+  save_plot        = TRUE
+)
+
+# 6. Compare the same compound across plates
+compare_plates_drc(drc_results, compare_by = "compound")
+
+# 7. Export Scarab table
+scarab_table(
+  results_list              = results,
+  drc_results_list          = drc_results,
+  plate_name                = "plate_01",
+  date                      = "260323",
+  experimenter_abbrev       = "TL",
+  nLuc_orientation          = "C",
+  tracer                    = "Tracer K10",
+  tracer_kd_app             = -7.5,
+  tracer_concentration_used = -7.5,
+  decimal_separator         = ",",
+  eubscarab_ready           = "No"
+)
+```
+
+---
+
+## Complete example — Cell viability
+
+```{r full-viability}
+library(dosefitr)
+
+setwd("path/to/experiment")
+
+# 1. Process raw plates
+via_results <- batch_viability_analysis(
+  control_0perc    = 13,
+  control_100perc  = 12,
+  selected_columns = 2:23,
+  verbose          = TRUE
+)
+
+# 2. Remove outliers (keep cytotoxic points)
+results_clean <- rout_outliers_batch(via_results,
+  Q              = 0.01,
+  keep_cytotoxic = TRUE
+)
+plot_outliers_batch_curves(results_clean)
+
+# 3. Fit dose-response curves
+drc_results <- batch_drc_analysis(
+  batch_results = results_clean,
+  normalize     = TRUE,
+  assay_type    = "viability",
+  output_dir    = "./drc_results",
+  verbose       = TRUE
+)
+
+# 4. Save all individual plots
+batch_save_all_drc_plots(drc_results,
+  verbose      = TRUE,
+  y_axis_title = "Cell Viability (%)"
+)
+
+# 5. Overlay selected compounds
+plot_multiple_compounds(drc_results,
+  compound_indices = 1:6,
+  color_palette    = "colorblind",
+  y_limits         = c(0, 100),
+  y_axis_title     = "Cell Viability (%)",
+  save_plot        = TRUE
+)
+
+# 6. Export summary table
+final_table <- drc_results$drc_results$plate_01$drc_result$final_summary_table
+excel_table <- reshape_dr_table(final_table,
+  decimal_comma = FALSE,
+  output_file   = "results.xlsx"
+)
+
+# 7. Save combined workbook
+original_table <- results_clean$plate_01$result$modified_ratio_table_original
+save_multiple_sheets("final_data.xlsx",
+  original_table, excel_table,
+  decimal_comma  = TRUE,
+  decimal_places = 3,
+  round_sheets   = 1:2
+)
+```
+
+---
+
+## Function reference
+
+| Function | Description |
+|---|---|
+| `batch_ratio_analysis()` | Read raw NanoBRET plates, compute BRET ratios |
+| `batch_viability_analysis()` | Read raw viability plates, normalise signal |
+| `merge_plate_replicates()` | Merge replicate plates into a single combined result |
+| `rout_outliers_batch()` | ROUT outlier detection across all plates |
+| `plot_outliers_batch_curves()` | Visualise outlier-flagged curves |
+| `batch_drc_analysis()` | Fit 3PL or 4PL dose-response curves across all plates |
+| `fit_drc_3pl()` | Fit a single plate with a 3-parameter logistic model |
+| `fit_drc_4pl()` | Fit a single plate with a 4-parameter logistic model |
+| `batch_save_all_drc_plots()` | Save one plot per compound across all plates |
+| `plot_multiple_compounds()` | Overlay selected compounds on one plot |
+| `compare_plates_drc()` | Compare the same compound across plates |
+| `reshape_dr_table()` | Reshape summary table for Excel export |
+| `save_multiple_sheets()` | Save multiple data frames to one Excel workbook |
+| `scarab_table()` | Generate Scarab-format export table (NanoBRET) |

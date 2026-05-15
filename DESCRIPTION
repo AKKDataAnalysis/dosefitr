@@ -1,0 +1,50 @@
+Package: dosefitr
+Title: Dose-Response Curve Fitting for NanoBRET and Cell Viability Assays
+Version: 1.0.0
+Authors@R: 
+    person("Thiago", "Loreto Matos", 
+           email = "thiago-loreto@hotmail.com", 
+           role = c("aut", "cre"))
+Maintainer: Thiago Loreto Matos <thiago-loreto@hotmail.com>
+Description: 
+    End-to-end dose-response analysis pipeline for NanoBRET kinase binding
+    assays and cell viability experiments. Reads raw BMG PHERAstar plate-reader
+    exports, computes BRET ratios, detects and removes outliers (ROUT method),
+    and fits three- or four-parameter logistic models to derive IC50 and pIC50
+    values with confidence intervals. Provides automatic quality control metrics
+    (Z-prime, assay window, signal-to-background, CV%), batch processing across
+    multiple plates, outlier visualisation, multi-compound overlay plots, and
+    plate-comparison plots. Exports results to Excel and generates
+    Scarab-formatted tables for NanoBRET kinase profiling data submission.
+License: MIT + file LICENSE
+URL: https://github.com/AKKDataAnalysis/dosefitr
+BugReports: https://github.com/AKKDataAnalysis/dosefitr/issues
+Depends: R (>= 4.1.0)
+Imports: 
+    ggplot2,
+    stats,
+    grDevices,
+    graphics,
+    utils,
+    dplyr,
+    openxlsx,
+    RColorBrewer,
+    scales,
+    tidyr,
+    tibble,
+    ggsci,
+    viridisLite,
+    OptimModel,
+    ggprism,
+    ggrepel,
+    patchwork
+Suggests: 
+    knitr,
+    rmarkdown,
+    stringr,
+    lmtest,
+    testthat (>= 3.0.0)
+VignetteBuilder: knitr
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
