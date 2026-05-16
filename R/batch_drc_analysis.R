@@ -134,18 +134,18 @@ batch_drc_analysis <- function(batch_results,
                                assay_type = "nanobret",
                                nd_if_activation = FALSE,
                                verbose = TRUE) {
-
+  
   # ============================================================================
   # 1. SETUP & DEPENDENCIES
   # ============================================================================
   if (!requireNamespace("dplyr", quietly = TRUE)) stop("Package 'dplyr' is required.")
   if (generate_reports && !requireNamespace("openxlsx", quietly = TRUE)) stop("Package 'openxlsx' is required.")
-
+  
   # Helper: Safe fallback operator
   `%||%` <- function(a, b) {
     if (is.null(a) || length(a) == 0 || all(is.na(a))) b else a
   }
-
+  
   # Helper: Filename sanitization
   sanitize_filename <- function(name, max_len = 50) {
     clean <- gsub("[^A-Za-z0-9_.-]", "_", name)
@@ -153,38 +153,38 @@ batch_drc_analysis <- function(batch_results,
     if (nchar(clean) > max_len) clean <- substr(clean, 1, max_len)
     return(clean)
   }
-
+  
   # Model validation
   model <- tolower(model)
   if (!model %in% c("3pl", "4pl"))
     stop("model must be either '3pl' or '4pl'.")
-
+  
   # Input validation
   if (!is.list(batch_results) || length(batch_results) == 0) {
     stop("batch_results must be a non-empty list.")
   }
-
+  
   # Directory setup
   if (is.null(output_dir)) output_dir <- getwd()
   if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
-
+  
   detailed_dir <- file.path(output_dir, "Detailed_Reports")
   if (generate_reports && !dir.exists(detailed_dir)) {
     dir.create(detailed_dir, recursive = TRUE)
   }
-
+  
   # ============================================================================
   # 2. INTERNAL FUNCTIONS
   # ============================================================================
-
+  
   generate_drc_batch_report <- function(drc_results, main_dir, sub_dir, verbose = TRUE) {
-
+    
     # Helper for safe Excel sheet names
     get_safe_sheet_name <- function(base_name, suffix = "", existing_names = c()) {
       max_len <- 31 - nchar(suffix) - 3
       clean_base <- gsub("[^A-Za-z0-9_]", "_", base_name)
       candidate_base <- substr(clean_base, 1, max_len)
-
+      
       final_name <- paste0(candidate_base, suffix)
       counter <- 1
       while (final_name %in% existing_names) {
@@ -193,43 +193,43 @@ batch_drc_analysis <- function(batch_results,
       }
       return(final_name)
     }
-
+    
     path_pharma <- file.path(main_dir, "Pharmacology_Summary.xlsx")
     path_details <- file.path(sub_dir, "Batch_Analysis_Details.xlsx")
-
+    
     wb_pharma <- openxlsx::createWorkbook()
     wb_details <- openxlsx::createWorkbook()
-
+    
     # Accumulator lists
     summary_list <- list()
     all_results_list <- list()
     quality_list <- list()
     pharm_list <- list()
-
+    
     used_sheet_names <- c("Summary", "All_Results", "Curve_Quality")
-
+    
     # --- REPORT GENERATION LOOP ---
     for (plate_name in names(drc_results)) {
       plate_res_obj <- drc_results[[plate_name]]
-
+      
       if (is.null(plate_res_obj$drc_result) || is.null(plate_res_obj$drc_result$summary_table)) next
       drc_summary <- plate_res_obj$drc_result$summary_table
       if (nrow(drc_summary) == 0) next
-
+      
       # --- Access full data table (with replicates) ---
       # Use the table used for fitting (Raw or Normalized) to maintain scale consistency
       used_norm <- plate_res_obj$data_tables$fitting_normalization %||% FALSE
-
+      
       full_data_df <- if (used_norm) {
         plate_res_obj$data_tables$normalized_data
       } else {
         plate_res_obj$data_tables$raw_data
       }
-
+      
       # 1. Standard Summary
       n_compounds <- nrow(drc_summary)
       successful_fits <- sum(!is.na(drc_summary$IC50))
-
+      
       summary_list[[length(summary_list) + 1]] <- data.frame(
         Plate_Name = plate_name,
         Data_File = plate_res_obj$plate_info$data_file,
@@ -240,14 +240,14 @@ batch_drc_analysis <- function(batch_results,
         Good_Curves = sum(grepl("Good curve", drc_summary$Curve_Quality, ignore.case = TRUE)),
         stringsAsFactors = FALSE
       )
-
+      
       # 2. All Results
       drc_summary_copy <- drc_summary
       drc_summary_copy$Plate <- plate_name
       cols_order <- c("Plate", setdiff(names(drc_summary_copy), "Plate"))
       drc_summary_copy <- drc_summary_copy[, cols_order, drop = FALSE]
       all_results_list[[length(all_results_list) + 1]] <- drc_summary_copy
-
+      
       # 3. Quality List
       desired_cols <- c("Plate", "Compound", "Curve_Quality", "R_squared", "Max_Slope",
                         "Ideal_Hill_Slope", "HillSlope",
@@ -255,27 +255,27 @@ batch_drc_analysis <- function(batch_results,
                         "Bottom", "Top", "LogIC50", "IC50")
       existing_cols <- intersect(desired_cols, names(drc_summary_copy))
       quality_list[[length(quality_list) + 1]] <- drc_summary_copy[, existing_cols, drop = FALSE]
-
+      
       # 4. PHARMACOLOGY SUMMARY
       res_root <- plate_res_obj$drc_result
       detailed_res <- res_root$detailed_results %||% res_root$curve_results %||% res_root$fits
       if (!is.list(detailed_res)) detailed_res <- list()
-
+      
       if (length(detailed_res) > 0) {
-
+        
         for (i in seq_along(detailed_res)) {
           res <- detailed_res[[i]]
           if (is.null(res$success) || !isTRUE(res$success)) next
-
+          
           # Name parsing
           clean_name <- gsub("\\.\\d+$", "", res$compound %||% "Unknown")
           parts <- strsplit(clean_name, " \\| |:")[[1]]
           parts <- trimws(parts)
           construct_name <- parts[1]
           compound_name  <- if (length(parts) > 1) parts[2] else parts[1]
-
+          
           # --- Highest tested concentration (from concentration column of data table) ---
-          # Rounded to the nearest integer for clean display (e.g. 24.55 uM -> 25 uM).
+          # Rounded to the nearest integer for clean display (e.g. 24.55 µM → 25 µM).
           highest_conc_uM <- NA_real_
           if (!is.null(full_data_df) && nrow(full_data_df) >= 2) {
             log_concs <- suppressWarnings(as.numeric(full_data_df[, 1]))
@@ -283,7 +283,7 @@ batch_drc_analysis <- function(batch_results,
             if (length(log_concs) > 0)
               highest_conc_uM <- round(max(10^log_concs * 1e6))
           }
-
+          
           # --- pIC50 ---
           log_ic50 <- NA_real_
           if (!is.null(res$parameters) && length(res$parameters$Value) >= 3) {
@@ -292,13 +292,13 @@ batch_drc_analysis <- function(batch_results,
           pic50    <- if (!is.na(log_ic50)) -log_ic50 else NA_real_
           ic50_uM  <- if (!is.na(log_ic50)) 10^log_ic50 * 1e6  else NA_real_
           ic50_nM  <- if (!is.na(log_ic50)) 10^log_ic50 * 1e9  else NA_real_
-
+          
           # --- N/D: replace IC50 and pIC50 with "N/D" for flat (always) or
           #         activation (when nd_if_activation = TRUE) curves ---
           res_curve_type <- res$curve_type %||% "unknown"
           is_nd <- (res_curve_type == "flat") ||
             (nd_if_activation && res_curve_type == "activation")
-
+          
           # --- IC50 display: replace with ">highest" if IC50 exceeds tested range ---
           ic50_above_range <- !is.na(ic50_uM) && !is.na(highest_conc_uM) &&
             ic50_uM > highest_conc_uM
@@ -316,7 +316,7 @@ batch_drc_analysis <- function(batch_results,
           } else {
             NA_character_
           }
-
+          
           # --- CI ---
           ci_log_lower_bound <- NA_real_
           ci_log_upper_bound <- NA_real_
@@ -324,7 +324,7 @@ batch_drc_analysis <- function(batch_results,
             ci_log_lower_bound <- res$confidence_intervals$LogIC50[1]
             ci_log_upper_bound <- res$confidence_intervals$LogIC50[2]
           }
-
+          
           pic50_diff_upper <- NA_real_
           pic50_diff_lower <- NA_real_
           if (!is.na(pic50) && !is.na(ci_log_lower_bound) && !is.na(ci_log_upper_bound)) {
@@ -333,12 +333,12 @@ batch_drc_analysis <- function(batch_results,
             pic50_diff_upper <- abs_pic50_upper - pic50
             pic50_diff_lower <- pic50 - abs_pic50_lower
           }
-
+          
           # --- NORMALIZED SPAN CALCULATION ---
           span_ratio <- NA_real_
-
+          
           if (!is.null(full_data_df) && nrow(full_data_df) >= 2) {
-
+            
             # Locate all replicate columns for this compound by base name.
             # This works for any number of replicates (2, 4, 6, ...) produced
             # by merge_plate_replicates() or a standard single-plate run.
@@ -346,31 +346,31 @@ batch_drc_analysis <- function(batch_results,
             base_col_names <- sub("\\.\\d+$", "", data_col_names)  # strip .2/.3/.4
             compound_base  <- res$compound %||% ""
             rep_positions  <- which(base_col_names == compound_base) + 1L  # +1 for conc col
-
+            
             if (length(rep_positions) > 0) {
-
+              
               # 1. Mean across ALL replicates at the FIRST concentration row
               mean_start_row <- mean(
                 as.numeric(unlist(full_data_df[1, rep_positions])), na.rm = TRUE)
-
+              
               # 2. Mean across ALL replicates at the LAST concentration row
               last_idx <- nrow(full_data_df)
               mean_end_row <- mean(
                 as.numeric(unlist(full_data_df[last_idx, rep_positions])), na.rm = TRUE)
-
+              
               # 3. Fitted Span (Parameter 5)
               fit_span <- NA_real_
               if (length(res$parameters$Value) >= 5) fit_span <- res$parameters$Value[5]
-
+              
               # 4. Calculation: abs(fit_span) / abs(mean_end_row - mean_start_row)
               diff_window <- abs(mean_end_row - mean_start_row)
-
+              
               if (!is.na(diff_window) && diff_window > 1e-6 && !is.na(fit_span)) {
                 span_ratio <- abs(fit_span) / diff_window
               }
             }
           }
-
+          
           # For 3PL: ideal_hill_slope is stored directly on the result.
           # For 4PL: it is NULL; fall back to the estimated HillSlope (Value[4]).
           ideal_hill <- if (!is.null(res$ideal_hill_slope)) {
@@ -380,11 +380,11 @@ batch_drc_analysis <- function(batch_results,
           } else {
             NA_real_
           }
-
+          
           # --- WARNING AND EXCLUSION FLAGS ---
           warning_collector <- character()
           exclusion_collector <- character()
-
+          
           # CI Analysis
           if (is.na(pic50_diff_lower) || is.na(pic50_diff_upper)) {
             exclusion_collector <- c(exclusion_collector, "Undefined CI")
@@ -393,19 +393,19 @@ batch_drc_analysis <- function(batch_results,
             # 5-fold = log10(5) = 0.69897
             ci_warnings <- character()
             ci_exclusions <- character()
-
+            
             if (pic50_diff_lower > 0.69897) {
               ci_exclusions <- c(ci_exclusions, sprintf("Lower CI >5-fold (%.3f)", pic50_diff_lower))
             } else if (pic50_diff_lower > 0.47712) {
               ci_warnings <- c(ci_warnings, sprintf("Lower CI >3-fold (%.3f)", pic50_diff_lower))
             }
-
+            
             if (pic50_diff_upper > 0.69897) {
               ci_exclusions <- c(ci_exclusions, sprintf("Upper CI >5-fold (%.3f)", pic50_diff_upper))
             } else if (pic50_diff_upper > 0.47712) {
               ci_warnings <- c(ci_warnings, sprintf("Upper CI >3-fold (%.3f)", pic50_diff_upper))
             }
-
+            
             if (length(ci_warnings) > 0) {
               warning_collector <- c(warning_collector, paste(ci_warnings, collapse = "; "))
             }
@@ -413,12 +413,12 @@ batch_drc_analysis <- function(batch_results,
               exclusion_collector <- c(exclusion_collector, paste(ci_exclusions, collapse = "; "))
             }
           }
-
+          
           # Hill Slope Analysis
           if (!is.na(ideal_hill)) {
             curve_type <- res$curve_type %||% "unknown"
             hill_message <- ""
-
+            
             if (curve_type == "activation") {
               if (ideal_hill < 0.5 || ideal_hill > 1.5) {
                 hill_message <- sprintf("Hill Slope (expected 0.5-1.5): %.3f", ideal_hill)
@@ -428,12 +428,12 @@ batch_drc_analysis <- function(batch_results,
                 hill_message <- sprintf("Hill Slope (expected -1.5 to -0.5): %.3f", ideal_hill)
               }
             }
-
+            
             if (nchar(hill_message) > 0) {
               warning_collector <- c(warning_collector, hill_message)
             }
           }
-
+          
           # Normalized Span Analysis
           if (!is.na(span_ratio)) {
             if (span_ratio < 0.5) {
@@ -442,7 +442,7 @@ batch_drc_analysis <- function(batch_results,
               exclusion_collector <- c(exclusion_collector, sprintf("Norm Span > 1.5 (%.2f)", span_ratio))
             }
           }
-
+          
           # Assay Quality Metrics (from batch_results interval_means)
           # interval_means is stored transposed: rows = metrics, cols = constructs.
           # If any of the three quality comments is "insufficient", flag it.
@@ -463,27 +463,26 @@ batch_drc_analysis <- function(batch_results,
                 exclusion_collector <- c(exclusion_collector, paste(insuf_metrics, collapse = "; "))
             }
           }
-
-          # IC50 above tested range -> add to exclusion
+          
+          # IC50 above tested range → add to exclusion
           if (ic50_above_range)
             exclusion_collector <- c(exclusion_collector,
-                                     sprintf("IC50 above tested range (>%g uM)", highest_conc_uM))
-
+                                     sprintf("IC50 above tested range (>%g µM)", highest_conc_uM))
+          
           # Set "OK" for empty collectors
           final_warnings <- if (length(warning_collector) > 0) paste(warning_collector, collapse = "; ") else "OK"
           final_exclusions <- if (length(exclusion_collector) > 0) paste(exclusion_collector, collapse = "; ") else "OK"
-
+          
           # Apply N/D for flat (always) or activation (if nd_if_activation = TRUE)
           ic50_uM_final <- if (is_nd) "N/D" else ic50_uM_display
           ic50_nM_final <- if (is_nd) "N/D" else ic50_nM_display
           pic50_final   <- if (is_nd) "N/D" else as.character(round(pic50, 3))
-
+          
           pharm_list[[length(pharm_list) + 1]] <- data.frame(
             Plate = plate_name,
             Construct = construct_name,
             Compound = compound_name,
-            Curve_Type = res_curve_type,
-            `IC50 (uM)` = ic50_uM_final,
+            `IC50 (µM)` = ic50_uM_final,
             `IC50 (nM)` = ic50_nM_final,
             pIC50 = pic50_final,
             check.names = FALSE,
@@ -498,13 +497,13 @@ batch_drc_analysis <- function(batch_results,
         }
       }
     }
-
+    
     # Consolidation
     summary_data <- if (length(summary_list) > 0) dplyr::bind_rows(summary_list) else data.frame()
     all_results_combined <- if (length(all_results_list) > 0) dplyr::bind_rows(all_results_list) else data.frame()
     quality_combined <- if (length(quality_list) > 0) dplyr::bind_rows(quality_list) else data.frame()
     pharm_combined <- if (length(pharm_list) > 0) dplyr::bind_rows(pharm_list) else data.frame()
-
+    
     # Remove placeholder rows where Construct or Compound is exactly NA, NA_2,
     # NA_3, etc. (artifacts from unnamed columns). Uses a strict regex so that
     # real gene names containing "NA" (e.g. NAGA, CANAL) are never removed.
@@ -516,7 +515,7 @@ batch_drc_analysis <- function(batch_results,
         grepl(na_pattern, pharm_combined$Compound)
       pharm_combined  <- pharm_combined[!(is_na_construct | is_na_compound), , drop = FALSE]
     }
-
+    
     # --- EXCEL WRITING ---
     openxlsx::addWorksheet(wb_pharma, "Pharmacology_Summary")
     if (nrow(pharm_combined) > 0) {
@@ -525,30 +524,30 @@ batch_drc_analysis <- function(batch_results,
       openxlsx::writeData(wb_pharma, "Pharmacology_Summary", data.frame(Note = "No pharmacology data available"))
     }
     openxlsx::saveWorkbook(wb_pharma, path_pharma, overwrite = TRUE)
-
+    
     openxlsx::addWorksheet(wb_details, "Summary")
     openxlsx::writeData(wb_details, "Summary", summary_data)
     openxlsx::addWorksheet(wb_details, "All_Results")
     if (nrow(all_results_combined) > 0) openxlsx::writeData(wb_details, "All_Results", all_results_combined)
     openxlsx::addWorksheet(wb_details, "Curve_Quality")
     if (nrow(quality_combined) > 0) openxlsx::writeData(wb_details, "Curve_Quality", quality_combined)
-
+    
     for (plate_name in names(drc_results)) {
       plate_res_obj <- drc_results[[plate_name]]
       if (is.null(plate_res_obj$drc_result$summary_table)) next
-
+      
       sheet_sum <- get_safe_sheet_name(plate_name, "_sum", used_sheet_names)
       used_sheet_names <- c(used_sheet_names, sheet_sum)
       openxlsx::addWorksheet(wb_details, sheet_sum)
       openxlsx::writeData(wb_details, sheet_sum, plate_res_obj$drc_result$summary_table)
-
+      
       if (!is.null(plate_res_obj$data_tables$raw_data)) {
         sheet_raw <- get_safe_sheet_name(plate_name, "_raw", used_sheet_names)
         used_sheet_names <- c(used_sheet_names, sheet_raw)
         openxlsx::addWorksheet(wb_details, sheet_raw)
         openxlsx::writeData(wb_details, sheet_raw, plate_res_obj$data_tables$raw_data)
       }
-
+      
       if (!is.null(plate_res_obj$data_tables$normalized_data)) {
         sheet_norm <- get_safe_sheet_name(plate_name, "_norm", used_sheet_names)
         used_sheet_names <- c(used_sheet_names, sheet_norm)
@@ -556,16 +555,16 @@ batch_drc_analysis <- function(batch_results,
         openxlsx::writeData(wb_details, sheet_norm, plate_res_obj$data_tables$normalized_data)
       }
     }
-
+    
     openxlsx::saveWorkbook(wb_details, path_details, overwrite = TRUE)
-
+    
     if (verbose) {
       message("Reports generated successfully:")
       message("  1. ", path_pharma)
       message("  2. ", path_details)
     }
   }
-
+  
   # Robust data extraction function
   extract_data_for_drc <- function(plate_result) {
     search_locations <- list()
@@ -600,11 +599,11 @@ batch_drc_analysis <- function(batch_results,
     }
     return(NULL)
   }
-
+  
   # ============================================================================
   # 3. MAIN EXECUTION
   # ============================================================================
-
+  
   if (verbose) {
     message("==========================================================")
     message("STARTING BATCH DOSE-RESPONSE ANALYSIS")
@@ -613,27 +612,27 @@ batch_drc_analysis <- function(batch_results,
     if (model == "4pl") message("Assay type: ", assay_type)
     message("Main Output: ", output_dir)
   }
-
+  
   drc_results <- list()
   failed_plates <- character()
   total_plates <- length(batch_results)
-
+  
   for (i in seq_along(batch_results)) {
     plate_name <- names(batch_results)[i]
     if (verbose) message(sprintf("\nProcessing %d/%d: %s", i, total_plates, plate_name))
-
+    
     tryCatch({
       proc_start <- Sys.time()
-
+      
       data_table <- extract_data_for_drc(batch_results[[plate_name]])
       if (is.null(data_table)) stop("No valid data table found in plate result.")
-
+      
       output_file <- NULL
       if (generate_reports) {
         clean_name <- sanitize_filename(plate_name)
         output_file <- file.path(detailed_dir, paste0("drc_", clean_name, ".xlsx"))
       }
-
+      
       plate_drc_result <- tryCatch({
         if (model == "3pl") {
           fit_drc_3pl(
@@ -666,8 +665,8 @@ batch_drc_analysis <- function(batch_results,
           error = e$message
         ))
       })
-
-      # -- Normalise summary_table columns for downstream compatibility ------
+      
+      # ── Normalise summary_table columns for downstream compatibility ──────
       # 3PL produces `Ideal_Hill_Slope`; 4PL produces `HillSlope`.
       # Add an `Ideal_Hill_Slope` alias in the 4PL case so that the report
       # generator (which references that column by name) works for both models.
@@ -679,11 +678,11 @@ batch_drc_analysis <- function(batch_results,
         plate_drc_result$summary_table$Ideal_Hill_Slope <-
           plate_drc_result$summary_table$HillSlope
       }
-
+      
       d_file <- batch_results[[plate_name]]$data_file %||% "unknown"
       i_sheet <- batch_results[[plate_name]]$info_sheet %||% "unknown"
       s_num <- batch_results[[plate_name]]$sheet_number %||% "unknown"
-
+      
       drc_results[[plate_name]] <- list(
         plate_info = list(original_name = plate_name, data_file = d_file, info_sheet = i_sheet, sheet_number = s_num),
         drc_result = plate_drc_result,
@@ -694,23 +693,23 @@ batch_drc_analysis <- function(batch_results,
         ),
         processing_time = as.numeric(difftime(Sys.time(), proc_start, units = "secs"))
       )
-
+      
       if (verbose) {
         succ <- plate_drc_result$successful_fits %||% 0
         tot <- plate_drc_result$n_compounds %||% 0
         message(sprintf("  -> Success: %d/%d compounds (%.1f sec)", succ, tot, difftime(Sys.time(), proc_start, units = "secs")))
       }
-
+      
     }, error = function(e) {
       warning(sprintf("Failed to process plate '%s': %s", plate_name, e$message))
       failed_plates <- c(failed_plates, plate_name)
     })
   }
-
+  
   # ============================================================================
   # 4. REPORTING & RETURN
   # ============================================================================
-
+  
   report_info <- NULL
   if (length(drc_results) > 0 && generate_reports) {
     if (verbose) {
@@ -723,13 +722,13 @@ batch_drc_analysis <- function(batch_results,
       warning("Failed to generate master reports: ", e$message)
     })
   }
-
+  
   if (verbose) {
     message("\n", paste(rep("=", 50), collapse = ""))
     message("BATCH ANALYSIS COMPLETE")
     message(paste(rep("=", 50), collapse = ""))
   }
-
+  
   return(invisible(list(
     drc_results = drc_results,
     metadata = list(
@@ -744,3 +743,4 @@ batch_drc_analysis <- function(batch_results,
     report_info = report_info
   )))
 }
+
