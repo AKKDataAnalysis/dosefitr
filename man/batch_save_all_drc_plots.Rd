@@ -20,6 +20,7 @@ batch_save_all_drc_plots(
   plot_title = FALSE,
   point_size = 2,
   y_limits = NULL,
+  y_axis_title = NULL,
   ...
 )
 }
@@ -67,6 +68,12 @@ If \code{NULL}, all plates are processed.}
 \item{y_limits}{Numeric vector of length 2 specifying the y-axis limits
 (e.g. \code{c(0, 100)}).  If \code{NULL} (default), each plot auto-scales
 to its own data range.  Passed directly to \code{plot_dose_response()}.}
+
+\item{y_axis_title}{Character string for the y-axis label.  If \code{NULL}
+(default), auto-detected from the batch result: \code{"Cell Viability (\%)"}
+or \code{"Luminescence"} for viability assays, \code{"Normalized BRET ratio [\%]"}
+or \code{"BRET ratio"} for NanoBRET assays (depending on whether
+\code{normalize} was \code{TRUE} or \code{FALSE}).}
 
 \item{...}{Additional arguments passed to \code{plot_dose_response()}.}
 }

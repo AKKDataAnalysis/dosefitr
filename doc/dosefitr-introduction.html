@@ -12,7 +12,7 @@
 
 <meta name="author" content="Thiago Loreto Matos" />
 
-<meta name="date" content="2026-05-15" />
+<meta name="date" content="2026-05-17" />
 
 <title>Introduction to dosefitr</title>
 
@@ -340,7 +340,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 <h1 class="title toc-ignore">Introduction to dosefitr</h1>
 <h4 class="author">Thiago Loreto Matos</h4>
-<h4 class="date">2026-05-15</h4>
+<h4 class="date">2026-05-17</h4>
 
 
 <div id="TOC">
@@ -630,10 +630,9 @@ slope, and confidence intervals.</p>
 <div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>drc_results <span class="ot">&lt;-</span> <span class="fu">batch_drc_analysis</span>(</span>
 <span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>  <span class="at">batch_results =</span> results_clean,  <span class="co"># use results if you skipped Step 2</span></span>
 <span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>  <span class="at">normalize     =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>  <span class="at">assay_type    =</span> <span class="st">&quot;nanobret&quot;</span>,</span>
-<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>  <span class="at">output_dir    =</span> <span class="st">&quot;./drc_results&quot;</span>,</span>
-<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a>  <span class="at">verbose       =</span> <span class="cn">TRUE</span></span>
-<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a>)</span></code></pre></div>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>  <span class="at">output_dir    =</span> <span class="st">&quot;./drc_results&quot;</span>,</span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>  <span class="at">verbose       =</span> <span class="cn">TRUE</span></span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a>)</span></code></pre></div>
 <p><strong>3PL vs 4PL:</strong></p>
 <ul>
 <li><code>model = &quot;3pl&quot;</code> (default): Hill slope fixed at −1.
@@ -774,9 +773,9 @@ vector (applied in order of unique kinases on the plate):</p>
 <h2>Workflow 2 — Cell viability assay</h2>
 <p>The viability workflow is structurally identical to the NanoBRET
 workflow. Replace <code>batch_ratio_analysis()</code> with
-<code>batch_viability_analysis()</code> in Step 1 and pass
-<code>assay_type = &quot;viability&quot;</code> to
-<code>batch_drc_analysis()</code> in Step 3. All other functions work
+<code>batch_viability_analysis()</code> in Step 1
+<code>batch_drc_analysis()</code> automatically detects the assay type
+from its input — no extra parameter needed. All other functions work
 without modification.</p>
 <div id="step-1-process-raw-plates-1" class="section level3">
 <h3>Step 1: Process raw plates</h3>
@@ -812,10 +811,9 @@ drop at high concentrations):</p>
 <div class="sourceCode" id="cb21"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" tabindex="-1"></a>drc_results <span class="ot">&lt;-</span> <span class="fu">batch_drc_analysis</span>(</span>
 <span id="cb21-2"><a href="#cb21-2" tabindex="-1"></a>  <span class="at">batch_results =</span> results_clean,  <span class="co"># use via_results if you skipped Step 2</span></span>
 <span id="cb21-3"><a href="#cb21-3" tabindex="-1"></a>  <span class="at">normalize     =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb21-4"><a href="#cb21-4" tabindex="-1"></a>  <span class="at">assay_type    =</span> <span class="st">&quot;viability&quot;</span>,    <span class="co"># applies viability-appropriate parameter limits</span></span>
-<span id="cb21-5"><a href="#cb21-5" tabindex="-1"></a>  <span class="at">output_dir    =</span> <span class="st">&quot;./drc_results&quot;</span>,</span>
-<span id="cb21-6"><a href="#cb21-6" tabindex="-1"></a>  <span class="at">verbose       =</span> <span class="cn">TRUE</span></span>
-<span id="cb21-7"><a href="#cb21-7" tabindex="-1"></a>)</span></code></pre></div>
+<span id="cb21-4"><a href="#cb21-4" tabindex="-1"></a>  <span class="at">output_dir    =</span> <span class="st">&quot;./drc_results&quot;</span>,</span>
+<span id="cb21-5"><a href="#cb21-5" tabindex="-1"></a>  <span class="at">verbose       =</span> <span class="cn">TRUE</span></span>
+<span id="cb21-6"><a href="#cb21-6" tabindex="-1"></a>)</span></code></pre></div>
 </div>
 <div id="step-4-visualise-and-export" class="section level3">
 <h3>Step 4: Visualise and export</h3>
@@ -823,7 +821,7 @@ drop at high concentrations):</p>
 workflow. Pass a custom y-axis label where appropriate:</p>
 <div class="sourceCode" id="cb22"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" tabindex="-1"></a><span class="fu">batch_save_all_drc_plots</span>(drc_results,</span>
 <span id="cb22-2"><a href="#cb22-2" tabindex="-1"></a>  <span class="at">verbose      =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb22-3"><a href="#cb22-3" tabindex="-1"></a>  <span class="at">y_axis_title =</span> <span class="st">&quot;Cell Viability (%)&quot;</span>,</span>
+<span id="cb22-3"><a href="#cb22-3" tabindex="-1"></a>  <span class="at">y_axis_title =</span> <span class="st">&quot;% Cell Survival&quot;</span>,  <span class="co"># optional override; auto-detects &quot;Cell Viability (%)&quot; by default</span></span>
 <span id="cb22-4"><a href="#cb22-4" tabindex="-1"></a>  <span class="at">y_limits     =</span> <span class="cn">NULL</span>   <span class="co"># NULL auto-scales each plot; use c(0, 100) for a fixed scale</span></span>
 <span id="cb22-5"><a href="#cb22-5" tabindex="-1"></a>)</span>
 <span id="cb22-6"><a href="#cb22-6" tabindex="-1"></a></span>
@@ -831,7 +829,7 @@ workflow. Pass a custom y-axis label where appropriate:</p>
 <span id="cb22-8"><a href="#cb22-8" tabindex="-1"></a>  <span class="at">compound_indices =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>,</span>
 <span id="cb22-9"><a href="#cb22-9" tabindex="-1"></a>  <span class="at">color_palette    =</span> <span class="st">&quot;colorblind&quot;</span>,</span>
 <span id="cb22-10"><a href="#cb22-10" tabindex="-1"></a>  <span class="at">y_limits         =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">100</span>),   <span class="co"># or NULL to auto-scale to the data</span></span>
-<span id="cb22-11"><a href="#cb22-11" tabindex="-1"></a>  <span class="at">y_axis_title     =</span> <span class="st">&quot;Cell Viability (%)&quot;</span>,</span>
+<span id="cb22-11"><a href="#cb22-11" tabindex="-1"></a>  <span class="at">y_axis_title     =</span> <span class="st">&quot;% Cell Survival&quot;</span>,  <span class="co"># optional override; auto-detects &quot;Cell Viability (%)&quot; by default</span></span>
 <span id="cb22-12"><a href="#cb22-12" tabindex="-1"></a>  <span class="at">save_plot        =</span> <span class="cn">TRUE</span></span>
 <span id="cb22-13"><a href="#cb22-13" tabindex="-1"></a>)</span>
 <span id="cb22-14"><a href="#cb22-14" tabindex="-1"></a></span>
@@ -968,41 +966,40 @@ they have — no NA-padding is added.</p>
 <span id="cb25-21"><a href="#cb25-21" tabindex="-1"></a>drc_results <span class="ot">&lt;-</span> <span class="fu">batch_drc_analysis</span>(</span>
 <span id="cb25-22"><a href="#cb25-22" tabindex="-1"></a>  <span class="at">batch_results =</span> results_clean,</span>
 <span id="cb25-23"><a href="#cb25-23" tabindex="-1"></a>  <span class="at">normalize     =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb25-24"><a href="#cb25-24" tabindex="-1"></a>  <span class="at">assay_type    =</span> <span class="st">&quot;viability&quot;</span>,</span>
-<span id="cb25-25"><a href="#cb25-25" tabindex="-1"></a>  <span class="at">output_dir    =</span> <span class="st">&quot;./drc_results&quot;</span>,</span>
-<span id="cb25-26"><a href="#cb25-26" tabindex="-1"></a>  <span class="at">verbose       =</span> <span class="cn">TRUE</span></span>
-<span id="cb25-27"><a href="#cb25-27" tabindex="-1"></a>)</span>
-<span id="cb25-28"><a href="#cb25-28" tabindex="-1"></a></span>
-<span id="cb25-29"><a href="#cb25-29" tabindex="-1"></a><span class="co"># 4. Save all individual plots</span></span>
-<span id="cb25-30"><a href="#cb25-30" tabindex="-1"></a><span class="fu">batch_save_all_drc_plots</span>(drc_results,</span>
-<span id="cb25-31"><a href="#cb25-31" tabindex="-1"></a>  <span class="at">verbose      =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb25-32"><a href="#cb25-32" tabindex="-1"></a>  <span class="at">y_axis_title =</span> <span class="st">&quot;Cell Viability (%)&quot;</span></span>
-<span id="cb25-33"><a href="#cb25-33" tabindex="-1"></a>)</span>
-<span id="cb25-34"><a href="#cb25-34" tabindex="-1"></a></span>
-<span id="cb25-35"><a href="#cb25-35" tabindex="-1"></a><span class="co"># 5. Overlay selected compounds</span></span>
-<span id="cb25-36"><a href="#cb25-36" tabindex="-1"></a><span class="fu">plot_multiple_compounds</span>(drc_results,</span>
-<span id="cb25-37"><a href="#cb25-37" tabindex="-1"></a>  <span class="at">compound_indices =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>,</span>
-<span id="cb25-38"><a href="#cb25-38" tabindex="-1"></a>  <span class="at">color_palette    =</span> <span class="st">&quot;colorblind&quot;</span>,</span>
-<span id="cb25-39"><a href="#cb25-39" tabindex="-1"></a>  <span class="at">y_limits         =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">100</span>),   <span class="co"># or NULL to auto-scale</span></span>
-<span id="cb25-40"><a href="#cb25-40" tabindex="-1"></a>  <span class="at">y_axis_title     =</span> <span class="st">&quot;Cell Viability (%)&quot;</span>,</span>
-<span id="cb25-41"><a href="#cb25-41" tabindex="-1"></a>  <span class="at">save_plot        =</span> <span class="cn">TRUE</span></span>
-<span id="cb25-42"><a href="#cb25-42" tabindex="-1"></a>)</span>
-<span id="cb25-43"><a href="#cb25-43" tabindex="-1"></a></span>
-<span id="cb25-44"><a href="#cb25-44" tabindex="-1"></a><span class="co"># 6. Export summary table</span></span>
-<span id="cb25-45"><a href="#cb25-45" tabindex="-1"></a>final_table <span class="ot">&lt;-</span> drc_results<span class="sc">$</span>drc_results<span class="sc">$</span>plate_01<span class="sc">$</span>drc_result<span class="sc">$</span>final_summary_table</span>
-<span id="cb25-46"><a href="#cb25-46" tabindex="-1"></a>excel_table <span class="ot">&lt;-</span> <span class="fu">reshape_dr_table</span>(final_table,</span>
-<span id="cb25-47"><a href="#cb25-47" tabindex="-1"></a>  <span class="at">decimal_comma =</span> <span class="cn">FALSE</span>,</span>
-<span id="cb25-48"><a href="#cb25-48" tabindex="-1"></a>  <span class="at">output_file   =</span> <span class="st">&quot;results.xlsx&quot;</span></span>
-<span id="cb25-49"><a href="#cb25-49" tabindex="-1"></a>)</span>
-<span id="cb25-50"><a href="#cb25-50" tabindex="-1"></a></span>
-<span id="cb25-51"><a href="#cb25-51" tabindex="-1"></a><span class="co"># 7. Save combined workbook</span></span>
-<span id="cb25-52"><a href="#cb25-52" tabindex="-1"></a>original_table <span class="ot">&lt;-</span> results_clean<span class="sc">$</span>plate_01<span class="sc">$</span>result<span class="sc">$</span>modified_ratio_table_original</span>
-<span id="cb25-53"><a href="#cb25-53" tabindex="-1"></a><span class="fu">save_multiple_sheets</span>(<span class="st">&quot;final_data.xlsx&quot;</span>,</span>
-<span id="cb25-54"><a href="#cb25-54" tabindex="-1"></a>  original_table, excel_table,</span>
-<span id="cb25-55"><a href="#cb25-55" tabindex="-1"></a>  <span class="at">decimal_comma  =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb25-56"><a href="#cb25-56" tabindex="-1"></a>  <span class="at">decimal_places =</span> <span class="dv">3</span>,</span>
-<span id="cb25-57"><a href="#cb25-57" tabindex="-1"></a>  <span class="at">round_sheets   =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">2</span></span>
-<span id="cb25-58"><a href="#cb25-58" tabindex="-1"></a>)</span></code></pre></div>
+<span id="cb25-24"><a href="#cb25-24" tabindex="-1"></a>  <span class="at">output_dir    =</span> <span class="st">&quot;./drc_results&quot;</span>,</span>
+<span id="cb25-25"><a href="#cb25-25" tabindex="-1"></a>  <span class="at">verbose       =</span> <span class="cn">TRUE</span></span>
+<span id="cb25-26"><a href="#cb25-26" tabindex="-1"></a>)</span>
+<span id="cb25-27"><a href="#cb25-27" tabindex="-1"></a></span>
+<span id="cb25-28"><a href="#cb25-28" tabindex="-1"></a><span class="co"># 4. Save all individual plots</span></span>
+<span id="cb25-29"><a href="#cb25-29" tabindex="-1"></a><span class="fu">batch_save_all_drc_plots</span>(drc_results,</span>
+<span id="cb25-30"><a href="#cb25-30" tabindex="-1"></a>  <span class="at">verbose      =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb25-31"><a href="#cb25-31" tabindex="-1"></a>  <span class="at">y_axis_title =</span> <span class="st">&quot;% Cell Survival&quot;</span>  <span class="co"># optional override; auto-detects &quot;Cell Viability (%)&quot; by default</span></span>
+<span id="cb25-32"><a href="#cb25-32" tabindex="-1"></a>)</span>
+<span id="cb25-33"><a href="#cb25-33" tabindex="-1"></a></span>
+<span id="cb25-34"><a href="#cb25-34" tabindex="-1"></a><span class="co"># 5. Overlay selected compounds</span></span>
+<span id="cb25-35"><a href="#cb25-35" tabindex="-1"></a><span class="fu">plot_multiple_compounds</span>(drc_results,</span>
+<span id="cb25-36"><a href="#cb25-36" tabindex="-1"></a>  <span class="at">compound_indices =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>,</span>
+<span id="cb25-37"><a href="#cb25-37" tabindex="-1"></a>  <span class="at">color_palette    =</span> <span class="st">&quot;colorblind&quot;</span>,</span>
+<span id="cb25-38"><a href="#cb25-38" tabindex="-1"></a>  <span class="at">y_limits         =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">100</span>),   <span class="co"># or NULL to auto-scale</span></span>
+<span id="cb25-39"><a href="#cb25-39" tabindex="-1"></a>  <span class="at">y_axis_title     =</span> <span class="st">&quot;% Cell Survival&quot;</span>,  <span class="co"># optional override; auto-detects &quot;Cell Viability (%)&quot; by default</span></span>
+<span id="cb25-40"><a href="#cb25-40" tabindex="-1"></a>  <span class="at">save_plot        =</span> <span class="cn">TRUE</span></span>
+<span id="cb25-41"><a href="#cb25-41" tabindex="-1"></a>)</span>
+<span id="cb25-42"><a href="#cb25-42" tabindex="-1"></a></span>
+<span id="cb25-43"><a href="#cb25-43" tabindex="-1"></a><span class="co"># 6. Export summary table</span></span>
+<span id="cb25-44"><a href="#cb25-44" tabindex="-1"></a>final_table <span class="ot">&lt;-</span> drc_results<span class="sc">$</span>drc_results<span class="sc">$</span>plate_01<span class="sc">$</span>drc_result<span class="sc">$</span>final_summary_table</span>
+<span id="cb25-45"><a href="#cb25-45" tabindex="-1"></a>excel_table <span class="ot">&lt;-</span> <span class="fu">reshape_dr_table</span>(final_table,</span>
+<span id="cb25-46"><a href="#cb25-46" tabindex="-1"></a>  <span class="at">decimal_comma =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb25-47"><a href="#cb25-47" tabindex="-1"></a>  <span class="at">output_file   =</span> <span class="st">&quot;results.xlsx&quot;</span></span>
+<span id="cb25-48"><a href="#cb25-48" tabindex="-1"></a>)</span>
+<span id="cb25-49"><a href="#cb25-49" tabindex="-1"></a></span>
+<span id="cb25-50"><a href="#cb25-50" tabindex="-1"></a><span class="co"># 7. Save combined workbook</span></span>
+<span id="cb25-51"><a href="#cb25-51" tabindex="-1"></a>original_table <span class="ot">&lt;-</span> results_clean<span class="sc">$</span>plate_01<span class="sc">$</span>result<span class="sc">$</span>modified_ratio_table_original</span>
+<span id="cb25-52"><a href="#cb25-52" tabindex="-1"></a><span class="fu">save_multiple_sheets</span>(<span class="st">&quot;final_data.xlsx&quot;</span>,</span>
+<span id="cb25-53"><a href="#cb25-53" tabindex="-1"></a>  original_table, excel_table,</span>
+<span id="cb25-54"><a href="#cb25-54" tabindex="-1"></a>  <span class="at">decimal_comma  =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb25-55"><a href="#cb25-55" tabindex="-1"></a>  <span class="at">decimal_places =</span> <span class="dv">3</span>,</span>
+<span id="cb25-56"><a href="#cb25-56" tabindex="-1"></a>  <span class="at">round_sheets   =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">2</span></span>
+<span id="cb25-57"><a href="#cb25-57" tabindex="-1"></a>)</span></code></pre></div>
 <hr />
 </div>
 <div id="function-reference" class="section level2">

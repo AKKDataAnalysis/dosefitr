@@ -193,7 +193,6 @@ intervals.
 drc_results <- batch_drc_analysis(
   batch_results = results_clean,  # use results if you skipped Step 2
   normalize     = TRUE,
-  assay_type    = "nanobret",
   output_dir    = "./drc_results",
   verbose       = TRUE
 )
@@ -369,7 +368,7 @@ scarab_table(
 
 The viability workflow is structurally identical to the NanoBRET workflow.
 Replace `batch_ratio_analysis()` with `batch_viability_analysis()` in Step 1
-and pass `assay_type = "viability"` to `batch_drc_analysis()` in Step 3.
+`batch_drc_analysis()` automatically detects the assay type from its input — no extra parameter needed.
 All other functions work without modification.
 
 ### Step 1: Process raw plates
@@ -416,7 +415,6 @@ results_clean <- rout_outliers_batch(via_results,
 drc_results <- batch_drc_analysis(
   batch_results = results_clean,  # use via_results if you skipped Step 2
   normalize     = TRUE,
-  assay_type    = "viability",    # applies viability-appropriate parameter limits
   output_dir    = "./drc_results",
   verbose       = TRUE
 )
@@ -430,7 +428,7 @@ Pass a custom y-axis label where appropriate:
 ```{r viability-step4}
 batch_save_all_drc_plots(drc_results,
   verbose      = TRUE,
-  y_axis_title = "Cell Viability (%)",
+  y_axis_title = "% Cell Survival",  # optional override; auto-detects "Cell Viability (%)" by default
   y_limits     = NULL   # NULL auto-scales each plot; use c(0, 100) for a fixed scale
 )
 
@@ -438,7 +436,7 @@ plot_multiple_compounds(drc_results,
   compound_indices = 1:6,
   color_palette    = "colorblind",
   y_limits         = c(0, 100),   # or NULL to auto-scale to the data
-  y_axis_title     = "Cell Viability (%)",
+  y_axis_title     = "% Cell Survival",  # optional override; auto-detects "Cell Viability (%)" by default
   save_plot        = TRUE
 )
 
@@ -583,7 +581,6 @@ plot_outliers_batch_curves(results_clean)
 drc_results <- batch_drc_analysis(
   batch_results = results_clean,
   normalize     = TRUE,
-  assay_type    = "viability",
   output_dir    = "./drc_results",
   verbose       = TRUE
 )
@@ -591,7 +588,7 @@ drc_results <- batch_drc_analysis(
 # 4. Save all individual plots
 batch_save_all_drc_plots(drc_results,
   verbose      = TRUE,
-  y_axis_title = "Cell Viability (%)"
+  y_axis_title = "% Cell Survival"  # optional override; auto-detects "Cell Viability (%)" by default
 )
 
 # 5. Overlay selected compounds
@@ -599,7 +596,7 @@ plot_multiple_compounds(drc_results,
   compound_indices = 1:6,
   color_palette    = "colorblind",
   y_limits         = c(0, 100),   # or NULL to auto-scale
-  y_axis_title     = "Cell Viability (%)",
+  y_axis_title     = "% Cell Survival",  # optional override; auto-detects "Cell Viability (%)" by default
   save_plot        = TRUE
 )
 

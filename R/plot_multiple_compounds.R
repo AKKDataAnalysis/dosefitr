@@ -58,8 +58,11 @@
 #'   around the plot panel (using \code{axis_line_color}).  Default: \code{FALSE}.
 #' @param x_axis_title Character string for a custom x-axis label.  If \code{NULL}
 #'   (default), the label is \code{Log10 Concentration [M]}.
-#' @param y_axis_title Character string for custom y-axis title. If NULL, automatically
-#'   determined based on whether normalized data is detected.
+#' @param y_axis_title Character string for the y-axis label.  If \code{NULL}
+#'   (default), auto-detected from the batch result: \code{"Cell Viability (\%)"}
+#'   or \code{"Luminescence"} for viability assays, \code{"Normalized BRET ratio [\%]"}
+#'   or \code{"BRET ratio"} for NanoBRET assays (depending on whether
+#'   \code{normalize} was \code{TRUE} or \code{FALSE}).
 #' @param axis_text_color Character string specifying color for axis text. Default is "black".
 #' @param show_error_bars Logical indicating whether to display error bars around data points
 #' @param error_bar_width Numeric value controlling the width of error bars
@@ -1270,10 +1273,20 @@ plot_multiple_compounds <- function(results,
   
   is_normalized <- if (!is.null(results$normalized)) results$normalized else FALSE
   
-  y_axis_title_final <- if (is.null(y_axis_title)) {
-    ifelse(is_normalized, "Normalized BRET ratio [%]", "BRET ratio")
-  } else {
+  # Auto-detect y-axis title from assay type when not supplied by the user.
+  # Reads assay_type and normalize from the batch_drc_analysis() metadata if
+  # available; falls back to the legacy normalization-only heuristic otherwise.
+  y_axis_title_final <- if (!is.null(y_axis_title)) {
     y_axis_title
+  } else {
+    assay_src  <- results$metadata$assay_type
+    normalized <- if (!is.null(results$metadata$normalize)) results$metadata$normalize else is_normalized
+    if (!is.null(assay_src) && assay_src == "viability") {
+      if (normalized) "Cell Viability (%)" else "Luminescence"
+    } else {
+      # nanobret or unknown — legacy behaviour
+      if (normalized) "Normalized BRET ratio [%]" else "BRET ratio"
+    }
   }
   
   # ============================================================================
@@ -1783,4 +1796,3 @@ plot_multiple_compounds <- function(results,
   
   return(p)
 }
-

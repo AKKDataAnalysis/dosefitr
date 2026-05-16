@@ -33,9 +33,11 @@
 #' @param plot_dpi Numeric.  Resolution for saved PNGs.  Default: `600`.
 #' @param y_limits Numeric vector of length 2 for fixed y-axis limits, or
 #'   `NULL` (default) to let each plot auto-scale.
-#' @param y_axis_title Character.  Y-axis label.  `NULL` auto-detects from
-#'   the data (normalised -> `"Normalised BRET ratio [%]"`, raw ->
-#'   `"BRET ratio"`).
+#' @param y_axis_title Character string for the y-axis label.  If \code{NULL}
+#'   (default), auto-detected from the batch result: \code{"Cell Viability (\%)"}
+#'   or \code{"Luminescence"} for viability assays, \code{"Normalized BRET ratio [\%]"}
+#'   or \code{"BRET ratio"} for NanoBRET assays (depending on whether
+#'   \code{normalize} was \code{TRUE} or \code{FALSE}).
 #' @param color_palette Character.  Any palette name accepted by
 #'   [`plot_multiple_compounds()`] (e.g. `"set1"`, `"okabe_ito"`,
 #'   `"nature"`).  Default: `"set1"`.
@@ -178,32 +180,32 @@ compare_plates_drc <- function(batch_drc_result,
                                show_border            = FALSE,
                                transparent_background = FALSE,
                                verbose                = TRUE) {
-
+  
   # ============================================================================
   # 1. VALIDATION
   # ============================================================================
-
+  
   compare_by <- tolower(compare_by)
   if (!compare_by %in% c("compound", "construct"))
     stop("compare_by must be either 'compound' or 'construct'.")
-
+  
   if (!is.list(batch_drc_result) || is.null(batch_drc_result$drc_results))
     stop("batch_drc_result must be the list returned by batch_drc_analysis().")
-
+  
   drc_results <- batch_drc_result$drc_results
   if (length(drc_results) == 0)
     stop("No plate results found in batch_drc_result$drc_results.")
-
+  
   if (!dir.exists(output_dir))
     dir.create(output_dir, recursive = TRUE)
-
+  
   # ============================================================================
   # 2. HELPERS
   # ============================================================================
-
+  
   # Safe fallback operator
   `%||%` <- function(a, b) if (is.null(a) || length(a) == 0) b else a
-
+  
   # Parse "Construct:Compound" or plain name into target + compound parts
   parse_name <- function(raw_name) {
     # Strip trailing replicate suffix (.2, .3, ...) added by split_replicates
@@ -216,7 +218,7 @@ compare_plates_drc <- function(batch_drc_result,
       list(construct = clean, compound = clean)
     }
   }
-
+  
   # Sanitise a string for use as a filename
   safe_filename <- function(x, max_len = 60) {
     x <- gsub("[^A-Za-z0-9_.-]", "_", x)
@@ -225,34 +227,34 @@ compare_plates_drc <- function(batch_drc_result,
     if (nchar(x) > max_len) x <- substr(x, 1, max_len)
     x
   }
-
+  
   # ============================================================================
   # 3. COLLECT ALL ENTRIES ACROSS PLATES
   # ============================================================================
   # Build a flat list: each element = one successful compound fit on one plate.
   # Fields: plate_name, construct, compound, full_label, result (the fit object)
-
+  
   all_entries <- list()
-
+  
   for (plate_name in names(drc_results)) {
     plate_obj  <- drc_results[[plate_name]]
     drc_result <- plate_obj$drc_result
-
+    
     if (is.null(drc_result) || is.null(drc_result$detailed_results)) next
     if (!is.list(drc_result$detailed_results))                         next
-
+    
     # Read normalisation flag at the plate level (most reliable source)
     plate_is_norm <- isTRUE(drc_result$used_normalized_data) ||
       isTRUE(drc_result$normalized)
-
+    
     for (res in drc_result$detailed_results) {
       if (is.null(res$success) || !isTRUE(res$success)) next
       if (is.null(res$model))                            next
-
+      
       # Compound label as stored: "Construct:Compound | replicate" or plain
       raw_label <- strsplit(res$compound %||% "Unknown", " \\| ")[[1]][1]
       parsed    <- parse_name(raw_label)
-
+      
       all_entries[[length(all_entries) + 1]] <- list(
         plate_name = plate_name,
         construct  = parsed$construct,
@@ -263,11 +265,11 @@ compare_plates_drc <- function(batch_drc_result,
       )
     }
   }
-
+  
   if (length(all_entries) == 0)
     stop("No successful compound fits found across any plate.")
-
-  # -- Filter out NA placeholder entries -------------------------------------
+  
+  # -- Filter out NA placeholder entries --------------------------------------
   # Removes entries where construct or compound is exactly NA, NA_2, NA_3, ...
   # (unnamed columns from the data). Uses a strict anchored regex so that real
   # gene/compound names containing "NA" (e.g. NAGA, CANAL, NAT1) are kept.
@@ -279,10 +281,10 @@ compare_plates_drc <- function(batch_drc_result,
     construct_ok && compound_ok
   }, all_entries)
   n_removed <- n_before - length(all_entries)
-
+  
   if (length(all_entries) == 0)
     stop("No valid entries remain after removing NA placeholders.")
-
+  
   if (verbose) {
     message(sprintf("Collected %d successful fits across %d plates.",
                     n_before, length(drc_results)))
@@ -290,39 +292,39 @@ compare_plates_drc <- function(batch_drc_result,
       message(sprintf("  Removed %d NA placeholder entr%s (construct or compound matched ^NA(_\\d+)?$).",
                       n_removed, if (n_removed == 1) "y" else "ies"))
   }
-
+  
   # ============================================================================
   # 4. GROUP BY CHOSEN DIMENSION
   # ============================================================================
-
+  
   # Always group by the full construct:compound pair so that the same compound
   # tested on different constructs always produces separate plots.
   # The plot title is always 'Construct - Compound'.
   group_key <- function(entry) {
     paste0(entry$construct, ":", entry$compound)
   }
-
+  
   entity_map <- list()   # "construct:compound" -> list of entries
   for (entry in all_entries) {
     key <- group_key(entry)
     entity_map[[key]] <- c(entity_map[[key]], list(entry))
   }
-
+  
   # Apply selected_entities filter
   if (!is.null(selected_entities)) {
     entity_map <- entity_map[names(entity_map) %in% selected_entities]
     if (length(entity_map) == 0)
       stop("None of the selected_entities were found in the data.")
   }
-
+  
   # Apply min_plates filter - count distinct plates per entity
   n_plates_per_entity <- sapply(entity_map, function(entries) {
     length(unique(sapply(entries, `[[`, "plate_name")))
   })
-
+  
   skipped <- names(n_plates_per_entity)[n_plates_per_entity < min_plates]
   entity_map <- entity_map[n_plates_per_entity >= min_plates]
-
+  
   if (verbose && length(skipped) > 0)
     message(sprintf(
       "Skipping %d entit%s with fewer than %d plates: %s",
@@ -331,17 +333,17 @@ compare_plates_drc <- function(batch_drc_result,
       min_plates,
       paste(skipped, collapse = ", ")
     ))
-
+  
   if (length(entity_map) == 0)
     stop(sprintf(
       "No entities found on >= %d plates. Lower min_plates or check your data.",
       min_plates
     ))
-
+  
   if (verbose)
     message(sprintf("Will generate %d comparison plot(s) (titles showing %s name).",
                     length(entity_map), compare_by))
-
+  
   # ============================================================================
   # 5. BUILD A SYNTHETIC fit_drc RESULT FOR plot_multiple_compounds()
   # ============================================================================
@@ -352,11 +354,11 @@ compare_plates_drc <- function(batch_drc_result,
   # We construct one such object per entity, where each element of
   # detailed_results is one plate's fit for that entity.  We rename the
   # compound label to the plate name so the legend reads "Plate X".
-
+  
   build_synthetic_result <- function(entries) {
     # Use the plate-level normalisation flag collected during data gathering
     is_norm <- any(sapply(entries, function(e) isTRUE(e$is_norm)))
-
+    
     synthetic_detailed <- lapply(entries, function(e) {
       r <- e$result
       # Relabel compound so the legend shows only the plate name.
@@ -366,56 +368,68 @@ compare_plates_drc <- function(batch_drc_result,
       r$compound <- paste0("plate:", e$plate_name)
       r
     })
-
+    
     list(
       detailed_results = synthetic_detailed,
       normalized       = is_norm
     )
   }
-
+  
   # ============================================================================
   # 6. PLOT LOOP
   # ============================================================================
-
+  
   output_list <- list()
   total <- length(entity_map)
-
+  
   for (ei in seq_along(entity_map)) {
     entity_name <- names(entity_map)[ei]
     entries     <- entity_map[[entity_name]]
-
+    
     # Parse the group key back into construct + compound parts
     key_parts        <- strsplit(entity_name, ":", fixed = TRUE)[[1]]
     entity_construct <- key_parts[1]
     entity_compound  <- if (length(key_parts) > 1)
       paste(key_parts[-1], collapse = ":") else key_parts[1]
-
+    
     plates_present <- unique(sapply(entries, `[[`, "plate_name"))
     n_pl           <- length(plates_present)
-
+    
     if (verbose)
       message(sprintf("\n[%d/%d] '%s - %s'  (%d plate%s: %s)",
                       ei, total, entity_construct, entity_compound,
                       n_pl, if (n_pl == 1) "" else "s",
                       paste(plates_present, collapse = ", ")))
-
+    
     # Build the synthetic result object
     synthetic <- build_synthetic_result(entries)
-
-    # Auto y-axis title
-    y_title_final <- y_axis_title %||%
-      if (isTRUE(synthetic$normalized)) "Normalised BRET ratio [%]" else "BRET ratio"
-
+    
+    # Auto y-axis title: use assay_type + normalize from batch metadata when
+    # available; fall back to normalization-only heuristic otherwise.
+    y_title_final <- if (!is.null(y_axis_title)) {
+      y_axis_title
+    } else {
+      assay_src  <- batch_drc_result$metadata$assay_type
+      normalized <- if (!is.null(batch_drc_result$metadata$normalize))
+        batch_drc_result$metadata$normalize
+      else isTRUE(synthetic$normalized)
+      if (!is.null(assay_src) && assay_src == "viability") {
+        if (normalized) "Cell Viability (%)" else "Luminescence"
+      } else {
+        if (normalized) "Normalised BRET ratio [%]" else "BRET ratio"
+      }
+    }
+    
     # Plot title: compound name when compare_by = "compound", construct otherwise
     plot_title_str <- if (compare_by == "compound") entity_compound else entity_construct
-
+    
     # Filename: "Construct__Compound.png" (always encodes both to avoid collisions)
     fname <- file.path(
       output_dir,
       paste0(safe_filename(entity_construct), "__",
              safe_filename(entity_compound), ".png")
     )
-
+    
     # Call plot_multiple_compounds - suppress its print() so we control output
     p <- tryCatch({
       suppressMessages(
@@ -464,7 +478,7 @@ compare_plates_drc <- function(batch_drc_result,
       warning(sprintf("Failed to plot '%s': %s", entity_name, e$message))
       NULL
     })
-
+    
     if (!is.null(p)) {
       if (verbose) message("  Saved: ", fname)
       output_list[[entity_name]] <- list(
@@ -478,14 +492,14 @@ compare_plates_drc <- function(batch_drc_result,
       )
     }
   }
-
+  
   # ============================================================================
   # 7. SUMMARY
   # ============================================================================
-
+  
   n_ok   <- length(output_list)
   n_fail <- total - n_ok
-
+  
   if (verbose) {
     message("\n", paste(rep("=", 55), collapse = ""))
     message(sprintf("PLATE COMPARISON COMPLETE - %d plot%s saved to: %s",
@@ -496,6 +510,6 @@ compare_plates_drc <- function(batch_drc_result,
                       n_fail, if (n_fail == 1) "" else "s"))
     message(paste(rep("=", 55), collapse = ""))
   }
-
+  
   invisible(output_list)
 }

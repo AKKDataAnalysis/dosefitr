@@ -24,12 +24,6 @@
 #'   the fitted curve to stay above `bottom_threshold`.
 #' @param bottom_threshold Numeric. Minimum acceptable bottom asymptote value.
 #' @param r_sqr_threshold Minimum acceptable R-squared for accepting a curve fit.
-#' @param assay_type Character string passed directly to [`fit_drc_3pl()`] to
-#'   set biologically plausible parameter limits.  \code{"nanobret"} (default)
-#'   uses NanoBRET BRET-ratio limits.  \code{"viability"} uses 0-100\% limits
-#'   when \code{normalize = TRUE}, or disables the check when
-#'   \code{normalize = FALSE} (raw counts have no meaningful absolute limits).
-#'   Any other value disables the check entirely.
 #' @param model Character. Which dose-response model to use for fitting.
 #'   `"3pl"` (default) calls [`fit_drc_3pl()`] (3-parameter logistic, Hill
 #'   slope fixed at \eqn{\pm 1}).  `"4pl"` calls [`fit_drc_4pl()`]
@@ -131,7 +125,6 @@ batch_drc_analysis <- function(batch_results,
                                output_dir = NULL,
                                generate_reports = TRUE,
                                model = "3pl",
-                               assay_type = "nanobret",
                                nd_if_activation = FALSE,
                                verbose = TRUE) {
   
@@ -162,6 +155,23 @@ batch_drc_analysis <- function(batch_results,
   # Input validation
   if (!is.list(batch_results) || length(batch_results) == 0) {
     stop("batch_results must be a non-empty list.")
+  }
+  
+  # Detect the assay type from the source attribute stamped by
+  # batch_ratio_analysis() ("nanobret") or batch_viability_analysis()
+  # ("viability"). Falls back to "nanobret" with a warning for manually
+  # constructed lists that carry no such attribute.
+  detected_assay <- attr(batch_results, "assay_source")
+  if (!is.null(detected_assay)) {
+    assay_type <- detected_assay
+    if (verbose)
+      message("Assay type auto-detected: \"", assay_type, "\".")
+  } else {
+    warning("Could not auto-detect assay type from batch_results ",
+            "(no 'assay_source' attribute found); defaulting to \"nanobret\". ",
+            "Ensure batch_results comes from batch_ratio_analysis() or ",
+            "batch_viability_analysis().")
+    assay_type <- "nanobret"
   }
   
   # Directory setup
@@ -275,7 +285,7 @@ batch_drc_analysis <- function(batch_results,
           compound_name  <- if (length(parts) > 1) parts[2] else parts[1]
           
           # --- Highest tested concentration (from concentration column of data table) ---
-          # Rounded to the nearest integer for clean display (e.g. 24.55 µM → 25 µM).
+          # Rounded to the nearest integer for clean display (e.g. 24.55 uM -> 25 uM).
           highest_conc_uM <- NA_real_
           if (!is.null(full_data_df) && nrow(full_data_df) >= 2) {
             log_concs <- suppressWarnings(as.numeric(full_data_df[, 1]))
@@ -464,10 +474,10 @@ batch_drc_analysis <- function(batch_results,
             }
           }
           
-          # IC50 above tested range → add to exclusion
+          # IC50 above tested range -> add to exclusion
           if (ic50_above_range)
             exclusion_collector <- c(exclusion_collector,
-                                     sprintf("IC50 above tested range (>%g µM)", highest_conc_uM))
+                                     sprintf("IC50 above tested range (>%g uM)", highest_conc_uM))
           
           # Set "OK" for empty collectors
           final_warnings <- if (length(warning_collector) > 0) paste(warning_collector, collapse = "; ") else "OK"
@@ -482,7 +492,7 @@ batch_drc_analysis <- function(batch_results,
             Plate = plate_name,
             Construct = construct_name,
             Compound = compound_name,
-            `IC50 (µM)` = ic50_uM_final,
+            `IC50 (uM)` = ic50_uM_final,
             `IC50 (nM)` = ic50_nM_final,
             pIC50 = pic50_final,
             check.names = FALSE,
@@ -609,7 +619,7 @@ batch_drc_analysis <- function(batch_results,
     message("STARTING BATCH DOSE-RESPONSE ANALYSIS")
     message("==========================================================")
     message("Model: ", toupper(model), " (", if (model == "3pl") "Hill slope fixed at +/-1" else "Hill slope freely estimated", ")")
-    if (model == "4pl") message("Assay type: ", assay_type)
+    message("Assay type: ", assay_type)
     message("Main Output: ", output_dir)
   }
   
@@ -666,7 +676,7 @@ batch_drc_analysis <- function(batch_results,
         ))
       })
       
-      # ── Normalise summary_table columns for downstream compatibility ──────
+      # -- Normalise summary_table columns for downstream compatibility --------
       # 3PL produces `Ideal_Hill_Slope`; 4PL produces `HillSlope`.
       # Add an `Ideal_Hill_Slope` alias in the 4PL case so that the report
       # generator (which references that column by name) works for both models.
@@ -737,7 +747,8 @@ batch_drc_analysis <- function(batch_results,
       failed_plates = failed_plates,
       output_directory = output_dir,
       model = model,
-      assay_type = if (model == "4pl") assay_type else NULL,
+      assay_type = assay_type,
+      normalize = normalize,
       timestamp = Sys.time()
     ),
     report_info = report_info

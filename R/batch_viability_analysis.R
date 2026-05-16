@@ -130,59 +130,59 @@ batch_viability_analysis <- function(directory           = getwd(),
                                      generate_reports    = TRUE,
                                      selected_columns    = NULL,
                                      verbose             = TRUE) {
-
-  # -- Dependency check ------------------------------------------------------
+  
+  # -- Dependency check -------------------------------------------------------
   if (!requireNamespace("openxlsx", quietly = TRUE))
     stop("Package 'openxlsx' is required. Please install it.")
-
-  # -- Verify process_viability_data is available ----------------------------
+  
+  # -- Verify process_viability_data is available -----------------------------
   if (!exists("process_viability_data", mode = "function"))
     stop(paste0(
       "process_viability_data() not found. ",
       "Please source the script containing it before calling this function."))
-
-  # -- Input validation ------------------------------------------------------
+  
+  # -- Input validation -------------------------------------------------------
   if (!is.null(control_0perc) &&
       !(is.numeric(control_0perc) && length(control_0perc) == 1L &&
         control_0perc >= 1 && control_0perc <= 24))
     stop("control_0perc must be a single integer between 1 and 24.")
-
+  
   if (!is.null(control_100perc) &&
       !(is.numeric(control_100perc) && length(control_100perc) == 1L &&
         control_100perc >= 1 && control_100perc <= 24))
     stop("control_100perc must be a single integer between 1 and 24.")
-
-  # -- Directory / output setup ----------------------------------------------
+  
+  # -- Directory / output setup -----------------------------------------------
   if (!dir.exists(directory))
     stop("Directory not found: ", directory)
-
+  
   if (is.null(output_dir)) {
     output_dir <- directory
   } else if (!dir.exists(output_dir)) {
     dir.create(output_dir, recursive = TRUE)
     if (verbose) message("Created output directory: ", output_dir)
   }
-
-  # -- Locate info file ------------------------------------------------------
+  
+  # -- Locate info file -------------------------------------------------------
   info_path <- file.path(directory, info_file)
   if (!file.exists(info_path))
     stop("Info file not found: ", info_path)
-
-  # -- Discover data files ---------------------------------------------------
+  
+  # -- Discover data files ----------------------------------------------------
   data_files <- list.files(directory, pattern = data_pattern, full.names = FALSE)
   data_files <- data_files[!grepl("^~\\$", data_files)]
-
-  # -- Read info sheet names -------------------------------------------------
+  
+  # -- Read info sheet names --------------------------------------------------
   info_sheets   <- openxlsx::getSheetNames(info_path)
   number_sheets <- info_sheets[grepl("\\d+$", info_sheets)]
-
+  
   if (length(number_sheets) == 0L)
     stop("No valid numbered sheets found in info file: ", info_path)
-
+  
   if (verbose)
     message("Found ", length(number_sheets), " plate sheet(s): ",
             paste(number_sheets, collapse = ", "))
-
+  
   # -- Internal helper: compute per-construct quality metrics -----------------
   # Viability-appropriate metrics for raw (non-normalized) data.
   #
@@ -210,28 +210,28 @@ batch_viability_analysis <- function(directory           = getwd(),
   # Returns a data.frame (constructs as columns, metrics as rows), or NULL when
   # the required inputs (controls + info_table) are not available.
   compute_quality_metrics <- function(result) {
-
+    
     proc_info_list <- result$processing_info
     if (is.null(proc_info_list)) return(NULL)
-
+    
     viability_data   <- proc_info_list$viability_data
     control_0_info   <- proc_info_list$control_0_info
     control_100_info <- proc_info_list$control_100_info
     info_tbl         <- proc_info_list$info_table
-
+    
     if (is.null(viability_data) || is.null(control_0_info) ||
         is.null(control_100_info) || is.null(info_tbl)) return(NULL)
-
+    
     if (!"Construct_Modified" %in% colnames(info_tbl))
       info_tbl$Construct_Modified <- info_tbl[[3]]
-
+    
     plate_row_values  <- info_tbl[[2]]
     construct_values  <- info_tbl$Construct_Modified
     unique_constructs <- unique(construct_values)
-
+    
     # Map plate-row letters (A-P) to numeric row indices 1-16
     row_index_map <- stats::setNames(seq_len(16L), LETTERS[seq_len(16L)])
-
+    
     construct_groups <- lapply(
       stats::setNames(unique_constructs, unique_constructs),
       function(cn) {
@@ -240,13 +240,13 @@ batch_viability_analysis <- function(directory           = getwd(),
       }
     )
     construct_groups <- Filter(function(x) length(x) > 0L, construct_groups)
-
+    
     ctrl0_col   <- control_0_info$name
     ctrl100_col <- control_100_info$name
-
+    
     if (!ctrl0_col   %in% colnames(viability_data) ||
         !ctrl100_col %in% colnames(viability_data)) return(NULL)
-
+    
     # CV% uses inverted thresholds: lower CV = better quality.
     # Classify by checking upper bounds from best to worst.
     cv_quality_level <- function(cv_val) {
@@ -255,7 +255,7 @@ batch_viability_analysis <- function(directory           = getwd(),
       if (cv_val <= 20)  return("medium (10-20%)")
       return("low (>20%)")
     }
-
+    
     # Return the lowest quality level across all supplied label strings.
     # Quality order: insufficient < low < medium < high.
     lowest_quality <- function(...) {
@@ -269,41 +269,41 @@ batch_viability_analysis <- function(directory           = getwd(),
       scores[is.na(scores)] <- 1L
       quality_order[min(scores)]
     }
-
+    
     rows_list <- lapply(names(construct_groups), function(cn) {
       valid_rows <- construct_groups[[cn]]
       valid_rows <- valid_rows[
         !is.na(valid_rows) & valid_rows >= 1L & valid_rows <= nrow(viability_data)
       ]
       if (length(valid_rows) == 0L) return(NULL)
-
+      
       bg_vals  <- viability_data[valid_rows, ctrl0_col]
       pos_vals <- viability_data[valid_rows, ctrl100_col]
-
+      
       mean_bg  <- mean(bg_vals,  na.rm = TRUE)
       sd_bg    <- stats::sd(bg_vals,  na.rm = TRUE)
       mean_pos <- mean(pos_vals, na.rm = TRUE)
       sd_pos   <- stats::sd(pos_vals, na.rm = TRUE)
-
+      
       # CV% - guard against division by zero / near-zero mean
       cv_bg  <- if (!is.na(mean_bg)  && abs(mean_bg)  > 1e-9)
         (sd_bg  / mean_bg)  * 100 else NA_real_
       cv_pos <- if (!is.na(mean_pos) && abs(mean_pos) > 1e-9)
         (sd_pos / mean_pos) * 100 else NA_real_
-
+      
       # Signal-to-background ratio
       sb_ratio <- if (!is.na(mean_bg) && abs(mean_bg) > 1e-9)
         mean_pos / mean_bg else NA_real_
-
+      
       # Quality comments - CV% only; S/B has no comment (descriptive only)
       cv_bg_comment  <- cv_quality_level(cv_bg)
       cv_pos_comment <- cv_quality_level(cv_pos)
-
+      
       # Overall driven by CV% of both controls only
       overall <- lowest_quality(cv_bg_comment, cv_pos_comment)
-
+      
       row_range <- paste(LETTERS[range(valid_rows)], collapse = "-")
-
+      
       data.frame(
         Construct              = cn,
         Mean_Background        = round(mean_bg,   3L),
@@ -321,28 +321,28 @@ batch_viability_analysis <- function(directory           = getwd(),
         stringsAsFactors       = FALSE
       )
     })
-
+    
     rows_df <- do.call(rbind, Filter(Negate(is.null), rows_list))
     if (is.null(rows_df) || nrow(rows_df) == 0L) return(NULL)
-
+    
     # Transpose: constructs as columns, metrics as rows
     metrics_cols <- setdiff(colnames(rows_df), "Construct")
     mat          <- as.data.frame(t(rows_df[, metrics_cols, drop = FALSE]))
     colnames(mat) <- rows_df$Construct
     mat
   }
-
-  # -- Internal helper: consolidated batch report ----------------------------
+  
+  # -- Internal helper: consolidated batch report -----------------------------
   generate_batch_report <- function(results, out_dir) {
-
+    
     quality_dir <- file.path(out_dir, "drc_quality")
     if (!dir.exists(quality_dir))
       dir.create(quality_dir, recursive = TRUE)
-
+    
     report_path  <- file.path(quality_dir, "batch_viability_report.xlsx")
     wb           <- openxlsx::createWorkbook()
     openxlsx::addWorksheet(wb, "Summary")
-
+    
     header_style <- openxlsx::createStyle(
       fontColour     = "#FFFFFF",
       fgFill         = "#4F81BD",
@@ -351,15 +351,15 @@ batch_viability_analysis <- function(directory           = getwd(),
       border         = "TopBottom",
       borderColour   = "#4F81BD"
     )
-
+    
     summary_rows <- lapply(names(results), function(sheet_name) {
       entry  <- results[[sheet_name]]
       res    <- entry$result
-
+      
       n_compounds <- if (!is.null(res$modified_ratio_table))
         (ncol(res$modified_ratio_table) - 1L) %/% 2L
       else 0L
-
+      
       data.frame(
         Sheet_Name       = sheet_name,
         Sheet_Number     = entry$sheet_number,
@@ -376,47 +376,47 @@ batch_viability_analysis <- function(directory           = getwd(),
         stringsAsFactors = FALSE
       )
     })
-
+    
     summary_data <- do.call(rbind, summary_rows)
     openxlsx::writeData(wb, "Summary", summary_data)
     openxlsx::addStyle(wb, "Summary", header_style,
                        rows = 1L, cols = seq_len(ncol(summary_data)))
-
+    
     openxlsx::saveWorkbook(wb, report_path, overwrite = TRUE)
-
-
+    
+    
   }
-
-  # -- Main processing loop --------------------------------------------------
+  
+  # -- Main processing loop ---------------------------------------------------
   results <- list()
-
+  
   for (info_sheet in number_sheets) {
-
+    
     sheet_number   <- gsub("^.*?(\\d+)$", "\\1", info_sheet)
     pattern        <- paste0("_", sheet_number, "\\.xlsx$")
     matching_files <- data_files[grepl(pattern, data_files)]
-
+    
     if (length(matching_files) == 0L) {
       if (verbose)
         message(sprintf("  [skip] No data file found for sheet '%s' (number %s)",
                         info_sheet, sheet_number))
       next
     }
-
+    
     data_filename <- matching_files[1L]
     if (length(matching_files) > 1L)
       warning(sprintf("Multiple files match sheet '%s'. Using: %s",
                       info_sheet, data_filename))
-
+    
     data_path <- file.path(directory, data_filename)
-
+    
     if (verbose) message("\nProcessing ", info_sheet, " - ", data_filename)
-
+    
     tryCatch({
-
+      
       # -- Read info table for this plate -------------------------------------
       info_table <- openxlsx::read.xlsx(info_path, sheet = info_sheet)
-
+      
       # -- Read raw viability data --------------------------------------------
       raw_data <- openxlsx::read.xlsx(
         data_path,
@@ -425,11 +425,11 @@ batch_viability_analysis <- function(directory           = getwd(),
         skipEmptyRows = FALSE,
         skipEmptyCols = FALSE
       )
-
+      
       if (verbose)
         message("  [read] ", nrow(raw_data), " rows x ", ncol(raw_data),
                 " cols in '", data_filename, "'")
-
+      
       # -- Call process_viability_data ----------------------------------------
       result <- process_viability_data(
         data                = raw_data,
@@ -443,29 +443,29 @@ batch_viability_analysis <- function(directory           = getwd(),
         apply_control_means = apply_control_means,
         auto_detect         = auto_detect
       )
-
+      
       # -- Rename $modified_table -> $modified_ratio_table --------------------
       if (!is.null(result$modified_table)) {
         result$modified_ratio_table <- result$modified_table
         result$modified_table       <- NULL
       }
-
+      
       # -- Compute quality metrics --------------------------------------------
       quality_metrics <- compute_quality_metrics(result)
-
-
-
+      
+      
+      
       # -- Optional per-plate Excel report ------------------------------------
       if (generate_reports) {
-
+        
         quality_dir <- file.path(output_dir, "drc_quality")
         if (!dir.exists(quality_dir))
           dir.create(quality_dir, recursive = TRUE)
-
+        
         excel_path <- file.path(quality_dir,
                                 paste0("viability_results_", sheet_number, ".xlsx"))
         wb <- openxlsx::createWorkbook()
-
+        
         header_style <- openxlsx::createStyle(
           fontColour     = "#FFFFFF",
           fgFill         = "#4F81BD",
@@ -474,7 +474,7 @@ batch_viability_analysis <- function(directory           = getwd(),
           border         = "TopBottom",
           borderColour   = "#4F81BD"
         )
-
+        
         # Sheet 1: Quality metrics (first for quick inspection)
         if (!is.null(quality_metrics)) {
           openxlsx::addWorksheet(wb, "Quality_Metrics")
@@ -489,7 +489,7 @@ batch_viability_analysis <- function(directory           = getwd(),
             cols = seq_len(ncol(quality_metrics) + 1L)
           )
         }
-
+        
         # Sheet 2: Modified table
         openxlsx::addWorksheet(wb, "Modified_Table")
         openxlsx::writeData(
@@ -503,7 +503,7 @@ batch_viability_analysis <- function(directory           = getwd(),
           rows = 1L,
           cols = seq_len(ncol(result$modified_ratio_table) + 1L)
         )
-
+        
         # Sheet 3: Original table
         if (!is.null(result$original_table)) {
           openxlsx::addWorksheet(wb, "Original_Table")
@@ -519,7 +519,7 @@ batch_viability_analysis <- function(directory           = getwd(),
             cols = seq_len(ncol(result$original_table) + 1L)
           )
         }
-
+        
         # Processing info
         openxlsx::addWorksheet(wb, "Processing_Info")
         proc_info_df <- data.frame(
@@ -549,18 +549,18 @@ batch_viability_analysis <- function(directory           = getwd(),
         openxlsx::writeData(wb, "Processing_Info", proc_info_df)
         openxlsx::addStyle(wb, "Processing_Info", header_style,
                            rows = 1L, cols = seq_len(2L))
-
+        
         openxlsx::saveWorkbook(wb, excel_path, overwrite = TRUE)
-
+        
         if (verbose)
           message("  Saved: ", basename(excel_path))
       }
-
+      
       # -- Store result -------------------------------------------------------
       n_compounds <- if (!is.null(result$modified_ratio_table))
         (ncol(result$modified_ratio_table) - 1L) %/% 2L
       else 0L
-
+      
       results[[info_sheet]] <- list(
         data_file        = data_filename,
         info_sheet       = info_sheet,
@@ -570,10 +570,10 @@ batch_viability_analysis <- function(directory           = getwd(),
         selected_columns = selected_columns,
         result           = result
       )
-
+      
       if (verbose)
-        message("(OK) ", info_sheet, " done")
-
+        message("OK - ", info_sheet, " done")
+      
     }, error = function(e) {
       warning(sprintf("Failed to process sheet '%s' (%s): %s",
                       info_sheet, data_filename, e$message))
@@ -581,7 +581,7 @@ batch_viability_analysis <- function(directory           = getwd(),
         message("X Failed to process sheet ", info_sheet)
     })
   }
-
+  
   # -- Consolidated report ----------------------------------------------------
   if (length(results) > 0L) {
     if (generate_reports)
@@ -589,7 +589,7 @@ batch_viability_analysis <- function(directory           = getwd(),
   } else {
     warning("No plates were successfully processed.")
   }
-
+  
   # -- Final summary ----------------------------------------------------------
   if (verbose) {
     message("\n=== BATCH COMPLETE ===")
@@ -599,6 +599,7 @@ batch_viability_analysis <- function(directory           = getwd(),
               file.path(output_dir, "batch_viability_report.xlsx"))
     message("======================\n")
   }
-
+  
+  attr(results, "assay_source") <- "viability"
   return(invisible(results))
 }

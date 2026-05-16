@@ -73,9 +73,11 @@ Defaults: \code{10} x \code{8}.}
 \item{y_limits}{Numeric vector of length 2 for fixed y-axis limits, or
 \code{NULL} (default) to let each plot auto-scale.}
 
-\item{y_axis_title}{Character.  Y-axis label.  \code{NULL} auto-detects from
-the data (normalised -> \code{"Normalised BRET ratio [\%]"}, raw ->
-\code{"BRET ratio"}).}
+\item{y_axis_title}{Character string for the y-axis label.  If \code{NULL}
+(default), auto-detected from the batch result: \code{"Cell Viability (\%)"}
+or \code{"Luminescence"} for viability assays, \code{"Normalized BRET ratio [\%]"}
+or \code{"BRET ratio"} for NanoBRET assays (depending on whether
+\code{normalize} was \code{TRUE} or \code{FALSE}).}
 
 \item{color_palette}{Character.  Any palette name accepted by
 \code{\link[=plot_multiple_compounds]{plot_multiple_compounds()}} (e.g. \code{"set1"}, \code{"okabe_ito"},

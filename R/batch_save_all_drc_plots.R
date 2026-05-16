@@ -36,6 +36,11 @@
 #' @param y_limits Numeric vector of length 2 specifying the y-axis limits
 #'   (e.g. \code{c(0, 100)}).  If \code{NULL} (default), each plot auto-scales
 #'   to its own data range.  Passed directly to \code{plot_dose_response()}.
+#' @param y_axis_title Character string for the y-axis label.  If \code{NULL}
+#'   (default), auto-detected from the batch result: \code{"Cell Viability (\%)"}
+#'   or \code{"Luminescence"} for viability assays, \code{"Normalized BRET ratio [\%]"}
+#'   or \code{"BRET ratio"} for NanoBRET assays (depending on whether
+#'   \code{normalize} was \code{TRUE} or \code{FALSE}).
 #' @param ... Additional arguments passed to \code{plot_dose_response()}.
 #'
 #' @details
@@ -110,18 +115,19 @@ batch_save_all_drc_plots <- function(batch_drc_results,
                                      show_ic50_line = FALSE,
                                      plot_title = FALSE,
                                      point_size = 2,
-                                     y_limits   = NULL,
+                                     y_limits     = NULL,
+                                     y_axis_title = NULL,
                                      ...) {
-
+  
   # ============================================================================
   # 1. VALIDATION AND SETUP
   # ============================================================================
-
+  
   # Check if required packages are installed
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
     stop("Package 'ggplot2' is required. Please install it.")
   }
-
+  
   # Helper function for safe filename generation
   safe_filename <- function(string) {
     if (is.null(string) || is.na(string)) return("unknown")
@@ -132,51 +138,51 @@ batch_save_all_drc_plots <- function(batch_drc_results,
     if (nchar(s) == 0) return("unknown")
     return(s)
   }
-
+  
   # Helper function to extract compound name properly
   extract_compound_name <- function(compound_string) {
     if (is.null(compound_string)) return("Unknown")
-
+    
     # Remove replicate suffix if present (.1, .2, etc.)
     name <- gsub("\\.\\d+$", "", compound_string)
-
+    
     # Handle "Construct | Compound" format
     if (grepl(" \\| ", name)) {
       parts <- strsplit(name, " \\| ")[[1]]
       return(trimws(parts[2]))
     }
-
+    
     # Handle "Construct:Compound" format
     if (grepl(":", name)) {
       parts <- strsplit(name, ":")[[1]]
       return(trimws(parts[2]))
     }
-
+    
     return(name)
   }
-
+  
   # Helper function to extract construct name
   extract_construct_name <- function(compound_string) {
     if (is.null(compound_string)) return("Unknown")
-
+    
     # Remove replicate suffix if present (.1, .2, etc.)
     name <- gsub("\\.\\d+$", "", compound_string)
-
+    
     # Handle "Construct | Compound" format
     if (grepl(" \\| ", name)) {
       parts <- strsplit(name, " \\| ")[[1]]
       return(trimws(parts[1]))
     }
-
+    
     # Handle "Construct:Compound" format
     if (grepl(":", name)) {
       parts <- strsplit(name, ":")[[1]]
       return(trimws(parts[1]))
     }
-
+    
     return("Unknown")
   }
-
+  
   # Extract drc_results if batch_drc_results is the wrapper object
   if (is.list(batch_drc_results)) {
     if ("drc_results" %in% names(batch_drc_results)) {
@@ -188,13 +194,13 @@ batch_save_all_drc_plots <- function(batch_drc_results,
   } else {
     stop("batch_drc_results must be a list")
   }
-
+  
   # Get plate names
   plate_names <- names(drc_results)
   if (is.null(plate_names) || length(plate_names) == 0) {
     stop("No plates found in drc_results")
   }
-
+  
   # Filter plates if specified
   if (!is.null(plates_to_plot)) {
     plate_names <- intersect(plate_names, plates_to_plot)
@@ -202,55 +208,66 @@ batch_save_all_drc_plots <- function(batch_drc_results,
       stop("No valid plates specified")
     }
   }
-
+  
   if (verbose) {
     message("Found ", length(plate_names), " plates to process")
     message("Output directory: ", output_dir)
   }
-
+  
   # Create main output directory
   if (!dir.exists(output_dir)) {
     dir.create(output_dir, recursive = TRUE)
   }
-
+  
   # ============================================================================
   # 2. SCAN FOR VALID COMPOUNDS ACROSS ALL PLATES
   # ============================================================================
-
+  
+  # Auto-detect y_axis_title from batch metadata when not supplied.
+  if (is.null(y_axis_title)) {
+    assay_src  <- batch_drc_results$metadata$assay_type
+    normalized <- isTRUE(batch_drc_results$metadata$normalize)
+    y_axis_title <- if (!is.null(assay_src) && assay_src == "viability") {
+      if (normalized) "Cell Viability (%)" else "Luminescence"
+    } else {
+      if (normalized) "Normalized BRET ratio [%]" else "BRET ratio"
+    }
+  }
+  
   if (verbose) message("\nScanning for valid compounds...")
-
+  
   compounds_list <- list()
-
+  
   for (plate_name in plate_names) {
     plate <- drc_results[[plate_name]]
-
+    
     # Check if plate has drc_result
     if (is.null(plate$drc_result)) {
       if (verbose > 1) message("  Skipping ", plate_name, ": no drc_result")
       next
     }
-
+    
     # Get detailed results
     detailed <- plate$drc_result$detailed_results
     if (is.null(detailed) || !is.list(detailed)) {
       if (verbose > 1) message("  Skipping ", plate_name, ": no detailed_results")
       next
     }
-
+    
     # For each compound in the plate
     for (i in seq_along(detailed)) {
       result <- detailed[[i]]
-
+      
       # Check if fit was successful
       if (!isTRUE(result$success)) next
-
+      
       # Get compound and construct names
       compound_name <- extract_compound_name(result$compound)
       construct_name <- extract_construct_name(result$compound)
-
+      
       # Filter by compound if specified
       if (!is.null(compounds_to_plot) && !compound_name %in% compounds_to_plot) next
-
+      
       # Store compound info
       compounds_list <- append(compounds_list, list(list(
         plate = plate_name,
@@ -262,21 +279,21 @@ batch_save_all_drc_plots <- function(batch_drc_results,
       )))
     }
   }
-
+  
   if (length(compounds_list) == 0) {
     stop("No valid compounds found to plot")
   }
-
+  
   if (verbose) {
     message("Found ", length(compounds_list), " valid compounds")
     message("  - Plates: ", paste(unique(sapply(compounds_list, function(x) x$plate)), collapse = ", "))
     message("  - Compounds: ", length(unique(sapply(compounds_list, function(x) x$compound))))
   }
-
+  
   # ============================================================================
   # 3. CREATE DIRECTORY STRUCTURE
   # ============================================================================
-
+  
   if (organize_by == "plate") {
     # Create subfolders for each plate
     for (plate_name in unique(sapply(compounds_list, function(x) x$plate))) {
@@ -294,27 +311,27 @@ batch_save_all_drc_plots <- function(batch_drc_results,
       }
     }
   }
-
+  
   # ============================================================================
   # 4. GENERATE ALL PLOTS
   # ============================================================================
-
+  
   if (verbose) message("\nGenerating plots...")
-
+  
   total <- length(compounds_list)
   successes <- 0
   failures <- 0
   failed_list <- character()
   error_messages <- list()
-
+  
   # Progress bar
   if (verbose) {
     pb <- txtProgressBar(min = 0, max = total, style = 3)
   }
-
+  
   for (i in seq_along(compounds_list)) {
     info <- compounds_list[[i]]
-
+    
     # Determine output path based on organization
     if (organize_by == "plate") {
       # plate/compound.format
@@ -329,10 +346,10 @@ batch_save_all_drc_plots <- function(batch_drc_results,
       filename <- paste0(safe_filename(info$plate), "_", safe_filename(info$compound), ".", format)
       output_path <- file.path(output_dir, filename)
     }
-
+    
     # Create directory if it doesn't exist
     dir.create(dirname(output_path), showWarnings = FALSE, recursive = TRUE)
-
+    
     # Generate plot
     tryCatch({
       # Call plot_dose_response with the correct parameters
@@ -349,7 +366,8 @@ batch_save_all_drc_plots <- function(batch_drc_results,
         verbose = FALSE,
         plot_title = plot_title,
         point_size = point_size,
-        y_limits   = y_limits,
+        y_limits     = y_limits,
+        y_axis_title = y_axis_title,
         ...  # Pass any additional arguments to plot_dose_response
       )
       successes <- successes + 1
@@ -358,16 +376,16 @@ batch_save_all_drc_plots <- function(batch_drc_results,
       failed_list <<- c(failed_list, paste(info$plate, info$compound, sep = "/"))
       error_messages[[length(error_messages) + 1]] <<- paste(info$plate, info$compound, ":", e$message)
     })
-
+    
     if (verbose) setTxtProgressBar(pb, i)
   }
-
+  
   if (verbose) close(pb)
-
+  
   # ============================================================================
   # 5. SUMMARY AND RETURN
   # ============================================================================
-
+  
   if (verbose) {
     message("\n")
     message("========================================")
@@ -378,13 +396,13 @@ batch_save_all_drc_plots <- function(batch_drc_results,
     message("Failed: ", failures)
     message("Point color: ", point_color)
     message("Output directory: ", normalizePath(output_dir))
-
+    
     if (failures > 0) {
       message("\nFailed compounds:")
       for (f in failed_list) {
         message("  - ", f)
       }
-
+      
       if (verbose > 1) {
         message("\nError details:")
         for (err in error_messages) {
@@ -392,7 +410,7 @@ batch_save_all_drc_plots <- function(batch_drc_results,
         }
       }
     }
-
+    
     # Show directory structure
     message("\nDirectory structure:")
     if (organize_by == "plate") {
@@ -410,11 +428,11 @@ batch_save_all_drc_plots <- function(batch_drc_results,
       message("  Flat structure: ", length(all_files), " files in root")
     }
   }
-
+  
   # ============================================================================
   # 6. RETURN INVISIBLE SUMMARY
   # ============================================================================
-
+  
   invisible(list(
     total = total,
     successes = successes,
@@ -427,4 +445,3 @@ batch_save_all_drc_plots <- function(batch_drc_results,
     timestamp = Sys.time()
   ))
 }
-

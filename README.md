@@ -369,7 +369,6 @@ drc_results <- batch_drc_analysis(
 |---|---|
 | `normalize` | Normalise responses to 0–100% before fitting |
 | `model` | `"3pl"` (default, Hill slope fixed at ±1) or `"4pl"` (Hill slope freely estimated) |
-| `assay_type` | `"nanobret"` (default) or `"viability"` — sets biologically plausible parameter limits |
 | `r_sqr_threshold` | Minimum R² to accept a fit (default `0.8`) |
 | `enforce_bottom_threshold` | Reject fits where the bottom plateau exceeds a threshold |
 | `nd_if_activation` | Set IC50 and pIC50 to `"N/D"` for activation curves (default `FALSE`) — see below |
@@ -474,7 +473,7 @@ If a compound is not found in a named vector, or the unnamed vector is shorter t
 
 ## Workflow 2 — Cell Viability Assay
 
-The viability workflow mirrors the NanoBRET pipeline exactly. Replace `batch_ratio_analysis()` with `batch_viability_analysis()` in Step 1, and pass `assay_type = "viability"` to `batch_drc_analysis()` in Step 3. All downstream functions (plotting, table export) work identically.
+The viability workflow mirrors the NanoBRET pipeline exactly. Replace `batch_ratio_analysis()` with `batch_viability_analysis()` in Step 1. `batch_drc_analysis()` automatically detects the assay type from its input — no extra parameter needed. All downstream functions (plotting, table export) work identically.
 
 ### Step 1 — Process raw plates
 
@@ -650,7 +649,6 @@ Use `keep_cytotoxic = TRUE` to retain points that look like outliers but are par
 drc_results <- batch_drc_analysis(
   batch_results = results_clean,   # ← cleaned data, outliers removed
   normalize     = TRUE,
-  assay_type    = "viability",
   output_dir    = "./drc_results",
   verbose       = TRUE
 )
@@ -659,13 +657,12 @@ drc_results <- batch_drc_analysis(
 drc_results <- batch_drc_analysis(
   batch_results = via_results,     # ← original data, no outlier removal
   normalize     = TRUE,
-  assay_type    = "viability",
   output_dir    = "./drc_results",
   verbose       = TRUE
 )
 ```
 
-Pass `assay_type = "viability"` to apply biologically appropriate parameter limits for viability curves. See Workflow 1 Step 3 for full `batch_drc_analysis()` parameter details.
+`batch_drc_analysis()` automatically applies the appropriate parameter limits based on the input source. See Workflow 1 Step 3 for full `batch_drc_analysis()` parameter details.
 
 ---
 
@@ -794,7 +791,7 @@ merged <- merge_plate_replicates(results, generate_reports = FALSE)
 batch_save_all_drc_plots(
   batch_drc_results = drc_results,
   verbose           = TRUE,
-  y_axis_title      = "Cell Viability (%)",  # optional custom y-axis label
+  y_axis_title      = "% Cell Survival",      # optional override; auto-detects "Cell Viability (%)" by default
   y_limits          = NULL                   # NULL auto-scales each plot; use c(0, 100) for a fixed scale
 )
 ```
@@ -1096,7 +1093,6 @@ plot_outliers_batch_curves(results_clean)
 drc_results <- batch_drc_analysis(
   batch_results = via_results,
   normalize     = TRUE,
-  assay_type    = "viability",
   output_dir    = "./drc_results",
   verbose       = TRUE
 )
@@ -1104,7 +1100,7 @@ drc_results <- batch_drc_analysis(
 # 4. Save all individual plots
 batch_save_all_drc_plots(drc_results,
   verbose      = TRUE,
-  y_axis_title = "Cell Viability (%)"
+  y_axis_title = "% Cell Survival"  # optional override; auto-detects "Cell Viability (%)" by default
 )
 
 # 5. Overlay selected compounds
@@ -1113,7 +1109,7 @@ plot_multiple_compounds(drc_results,
   compound_indices = 9:11,
   color_palette    = "colorblind",
   y_limits         = c(0, 100),
-  y_axis_title     = "% Normalized Luminescence",
+  y_axis_title     = "% Cell Survival",  # optional override; auto-detects "Cell Viability (%)" by default
   plot_title       = "",
   axis_text_size   = 18,
   axis_title_size  = 20,

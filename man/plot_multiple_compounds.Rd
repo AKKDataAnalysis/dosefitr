@@ -137,8 +137,11 @@ automatically based on the compound names.}
 \item{x_axis_title}{Character string for a custom x-axis label.  If \code{NULL}
 (default), the label is \code{Log10 Concentration [M]}.}
 
-\item{y_axis_title}{Character string for custom y-axis title. If NULL, automatically
-determined based on whether normalized data is detected.}
+\item{y_axis_title}{Character string for the y-axis label.  If \code{NULL}
+(default), auto-detected from the batch result: \code{"Cell Viability (\%)"}
+or \code{"Luminescence"} for viability assays, \code{"Normalized BRET ratio [\%]"}
+or \code{"BRET ratio"} for NanoBRET assays (depending on whether
+\code{normalize} was \code{TRUE} or \code{FALSE}).}
 
 \item{verbose}{Logical; if TRUE (default), prints informative messages about processing
 steps, compound matches, and color assignments.}

@@ -13,7 +13,6 @@ batch_drc_analysis(
   output_dir = NULL,
   generate_reports = TRUE,
   model = "3pl",
-  assay_type = "nanobret",
   nd_if_activation = FALSE,
   verbose = TRUE
 )
@@ -42,13 +41,6 @@ Excel report summarizing all DRC fits.}
 \code{"3pl"} (default) calls \code{\link[=fit_drc_3pl]{fit_drc_3pl()}} (3-parameter logistic, Hill
 slope fixed at \eqn{\pm 1}).  \code{"4pl"} calls \code{\link[=fit_drc_4pl]{fit_drc_4pl()}}
 (4-parameter logistic, Hill slope freely estimated).}
-
-\item{assay_type}{Character string passed directly to \code{\link[=fit_drc_3pl]{fit_drc_3pl()}} to
-set biologically plausible parameter limits.  \code{"nanobret"} (default)
-uses NanoBRET BRET-ratio limits.  \code{"viability"} uses 0-100\\% limits
-when \code{normalize = TRUE}, or disables the check when
-\code{normalize = FALSE} (raw counts have no meaningful absolute limits).
-Any other value disables the check entirely.}
 
 \item{nd_if_activation}{Logical. If \code{FALSE} (default), only flat curves have
 their IC50 and pIC50 replaced with \code{"N/D"} (not determined) in the

@@ -43,7 +43,6 @@ knitr::opts_chunk$set(
 # drc_results <- batch_drc_analysis(
 #   batch_results = results_clean,  # use results if you skipped Step 2
 #   normalize     = TRUE,
-#   assay_type    = "nanobret",
 #   output_dir    = "./drc_results",
 #   verbose       = TRUE
 # )
@@ -187,7 +186,6 @@ knitr::opts_chunk$set(
 # drc_results <- batch_drc_analysis(
 #   batch_results = results_clean,  # use via_results if you skipped Step 2
 #   normalize     = TRUE,
-#   assay_type    = "viability",    # applies viability-appropriate parameter limits
 #   output_dir    = "./drc_results",
 #   verbose       = TRUE
 # )
@@ -195,7 +193,7 @@ knitr::opts_chunk$set(
 ## ----viability-step4----------------------------------------------------------
 # batch_save_all_drc_plots(drc_results,
 #   verbose      = TRUE,
-#   y_axis_title = "Cell Viability (%)",
+#   y_axis_title = "% Cell Survival",  # optional override; auto-detects "Cell Viability (%)" by default
 #   y_limits     = NULL   # NULL auto-scales each plot; use c(0, 100) for a fixed scale
 # )
 # 
@@ -203,7 +201,7 @@ knitr::opts_chunk$set(
 #   compound_indices = 1:6,
 #   color_palette    = "colorblind",
 #   y_limits         = c(0, 100),   # or NULL to auto-scale to the data
-#   y_axis_title     = "Cell Viability (%)",
+#   y_axis_title     = "% Cell Survival",  # optional override; auto-detects "Cell Viability (%)" by default
 #   save_plot        = TRUE
 # )
 # 
@@ -323,7 +321,6 @@ knitr::opts_chunk$set(
 # drc_results <- batch_drc_analysis(
 #   batch_results = results_clean,
 #   normalize     = TRUE,
-#   assay_type    = "viability",
 #   output_dir    = "./drc_results",
 #   verbose       = TRUE
 # )
@@ -331,7 +328,7 @@ knitr::opts_chunk$set(
 # # 4. Save all individual plots
 # batch_save_all_drc_plots(drc_results,
 #   verbose      = TRUE,
-#   y_axis_title = "Cell Viability (%)"
+#   y_axis_title = "% Cell Survival"  # optional override; auto-detects "Cell Viability (%)" by default
 # )
 # 
 # # 5. Overlay selected compounds
@@ -339,7 +336,7 @@ knitr::opts_chunk$set(
 #   compound_indices = 1:6,
 #   color_palette    = "colorblind",
 #   y_limits         = c(0, 100),   # or NULL to auto-scale
-#   y_axis_title     = "Cell Viability (%)",
+#   y_axis_title     = "% Cell Survival",  # optional override; auto-detects "Cell Viability (%)" by default
 #   save_plot        = TRUE
 # )
 # 
