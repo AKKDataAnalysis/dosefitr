@@ -343,6 +343,9 @@ plot_multiple_compounds <- function(results,
   # the $drc_results slot. If so, extract the requested plate's drc_result.
   # When `plate` is NULL, the first plate is used automatically.
   if (!is.null(results$drc_results)) {
+    # Capture batch-level metadata before overwriting results with the
+    # single-plate drc_result (which has no $metadata slot).
+    batch_metadata <- results$metadata
     batch_obj <- results$drc_results
     available_plates <- names(batch_obj)
     if (is.null(plate)) {
@@ -362,6 +365,8 @@ plot_multiple_compounds <- function(results,
     if (is.null(results)) {
       stop("No drc_result found for plate '", plate, "'.")
     }
+    # Re-attach metadata so downstream code can read assay_type and normalize.
+    results$metadata <- batch_metadata
   } else if (!is.null(plate)) {
     # results is already a $drc_results sub-list (user passed that level directly)
     if (!plate %in% names(results)) {
