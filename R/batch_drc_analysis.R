@@ -647,7 +647,7 @@ batch_drc_analysis <- function(batch_results,
         if (model == "3pl") {
           fit_drc_3pl(
             data                     = data_table,
-            output_file              = output_file,
+            output_file              = NULL,   # Excel written below after N/D post-processing
             normalize                = normalize,
             verbose                  = FALSE,
             enforce_bottom_threshold = enforce_bottom_threshold,
@@ -657,7 +657,7 @@ batch_drc_analysis <- function(batch_results,
         } else {
           fit_drc_4pl(
             data                     = data_table,
-            output_file              = output_file,
+            output_file              = NULL,   # Excel written below after N/D post-processing
             normalize                = normalize,
             verbose                  = FALSE,
             enforce_bottom_threshold = enforce_bottom_threshold,
@@ -676,7 +676,7 @@ batch_drc_analysis <- function(batch_results,
         ))
       })
       
-      # -- Normalise summary_table columns for downstream compatibility --------
+      # -- Normalise summary_table columns for downstream compatibility ------
       # 3PL produces `Ideal_Hill_Slope`; 4PL produces `HillSlope`.
       # Add an `Ideal_Hill_Slope` alias in the 4PL case so that the report
       # generator (which references that column by name) works for both models.
@@ -687,6 +687,88 @@ batch_drc_analysis <- function(batch_results,
           !"Ideal_Hill_Slope" %in% names(plate_drc_result$summary_table)) {
         plate_drc_result$summary_table$Ideal_Hill_Slope <-
           plate_drc_result$summary_table$HillSlope
+      }
+      
+      # -- Apply N/D to Summary and Final_Summary for flat (always) and
+      # activation (when nd_if_activation = TRUE) curves --------------------
+      if (!is.null(plate_drc_result$detailed_results) &&
+          length(plate_drc_result$detailed_results) > 0 &&
+          !is.null(plate_drc_result$summary_table) &&
+          nrow(plate_drc_result$summary_table) > 0) {
+        
+        # Build named logical vector: is_nd per compound
+        is_nd_vec <- vapply(plate_drc_result$detailed_results, function(res) {
+          ct <- res$curve_type %||% "unknown"
+          (ct == "flat") || (nd_if_activation && ct == "activation")
+        }, logical(1L))
+        names(is_nd_vec) <- vapply(plate_drc_result$detailed_results, function(res) {
+          strsplit(res$compound %||% "", " \\| ")[[1]][1]
+        }, character(1L))
+        
+        # Columns to set to "N/D" in summary_table
+        nd_cols <- c("LogIC50", "IC50",
+                     "LogIC50_Lower_95CI", "LogIC50_Upper_95CI",
+                     "IC50_Lower_95CI",    "IC50_Upper_95CI")
+        nd_cols_present <- intersect(nd_cols, names(plate_drc_result$summary_table))
+        
+        if (length(nd_cols_present) > 0 && any(is_nd_vec)) {
+          for (col in nd_cols_present) {
+            plate_drc_result$summary_table[[col]] <-
+              as.character(plate_drc_result$summary_table[[col]])
+          }
+          for (cpd in names(is_nd_vec)[is_nd_vec]) {
+            row_idx <- which(plate_drc_result$summary_table$Compound == cpd)
+            if (length(row_idx) > 0) {
+              plate_drc_result$summary_table[row_idx, nd_cols_present] <- "N/D"
+            }
+          }
+        }
+        
+        # Rebuild final_summary_table from updated summary_table
+        st <- plate_drc_result$summary_table
+        if (nrow(st) > 0) {
+          t_data <- as.data.frame(t(st[, -1, drop = FALSE]))
+          colnames(t_data) <- st$Compound
+          plate_drc_result$final_summary_table <- t_data
+        }
+      }
+      
+      # -- Write per-plate Excel file with N/D-corrected tables -------------
+      if (!is.null(output_file) && requireNamespace("openxlsx", quietly = TRUE)) {
+        tryCatch({
+          wb_plate <- openxlsx::createWorkbook()
+          
+          # Sheet 1: Final_Summary (transposed)
+          openxlsx::addWorksheet(wb_plate, "Final_Summary")
+          fst <- plate_drc_result$final_summary_table
+          if (!is.null(fst) && nrow(fst) > 0) {
+            out_final <- cbind(
+              data.frame(Parameter = rownames(fst), stringsAsFactors = FALSE),
+              fst
+            )
+            openxlsx::writeData(wb_plate, "Final_Summary", out_final)
+          } else {
+            openxlsx::writeData(wb_plate, "Final_Summary", "No data")
+          }
+          
+          # Sheet 2: Summary (one row per compound)
+          openxlsx::addWorksheet(wb_plate, "Summary")
+          openxlsx::writeData(wb_plate, "Summary", plate_drc_result$summary_table)
+          
+          # Sheet 3: Normalized_Data
+          openxlsx::addWorksheet(wb_plate, "Normalized_Data")
+          norm_d <- plate_drc_result$normalized_data
+          if (!is.null(norm_d)) openxlsx::writeData(wb_plate, "Normalized_Data", norm_d)
+          
+          # Sheet 4: Original_Data
+          openxlsx::addWorksheet(wb_plate, "Original_Data")
+          orig_d <- plate_drc_result$original_data
+          if (!is.null(orig_d)) openxlsx::writeData(wb_plate, "Original_Data", orig_d)
+          
+          openxlsx::saveWorkbook(wb_plate, output_file, overwrite = TRUE)
+        }, error = function(e) {
+          warning("Could not write per-plate Excel for '", plate_name, "': ", e$message)
+        })
       }
       
       d_file <- batch_results[[plate_name]]$data_file %||% "unknown"
