@@ -53,7 +53,6 @@ batch_drc_analysis()          <- fits 3PL or 4PL dose-response curves
       |---> batch_save_all_drc_plots()   <- one plot per compound
       |---> plot_multiple_compounds()    <- overlay selected compounds
       |---> compare_plates_drc()         <- compare compound across plates
-      |---> reshape_dr_table()           <- reshape summary for Excel
       `---> scarab_table()              <- Scarab-format export (NanoBRET)
 ```
 
@@ -102,10 +101,10 @@ with **one sheet per plate**. Each sheet must contain at least four columns
 | 3 | Construct / kinase name | `KinaseA`, `KinaseB` |
 | 4 | Compound / inhibitor name | `CpdA`, `CpdB` |
 
-A full 384-well plate (rows A-P) with one compound per row and one construct
-(KinaseA). Rows A and M-P have no concentration entry -- these are typically
-reserved for controls or left empty. The function uses only rows that have a
-concentration value.
+A full 384-well plate (rows A-P) with one compound per row and three constructs.
+The log(inhibitor) column lists the concentrations used in the experiment -- one
+per row, in any order. These values are not tied to a specific plate row; the
+function reads them as a sequence and assigns them to the data columns in order.
 
 | log(inhibitor) | Plate_Row | Construct | Compound |
 |---|---|---|---|
@@ -125,6 +124,9 @@ concentration value.
 |  | N | KinaseC | CpdN |
 |  | O | KinaseC | CpdO |
 |  | P | KinaseC | CpdP |
+
+> The log(inhibitor) column is a list of concentrations used in the experiment
+> and is not tied to a specific plate row -- it is read as a sequence.
 
 Columns 3 and 4 are combined as `Construct:Compound` (e.g. `KinaseA:CpdA`)
 to label all output columns, plots, and export tables throughout the pipeline.
@@ -310,18 +312,6 @@ compare_plates_drc(
 ```
 
 ### Step 5: Export results
-
-**Reshape the summary table and save to Excel:**
-
-```{r nanobret-step5-reshape}
-final_table <- drc_results$drc_results$plate_01$drc_result$final_summary_table
-
-excel_table <- reshape_dr_table(
-  final_table,
-  decimal_comma = FALSE,
-  output_file   = "results_plate01.xlsx"
-)
-```
 
 **Generate a Scarab-format export table (NanoBRET):**
 
@@ -623,5 +613,4 @@ plot_multiple_compounds(drc_results,
 | `batch_save_all_drc_plots()` | Save one plot per compound across all plates |
 | `plot_multiple_compounds()` | Overlay selected compounds on one plot |
 | `compare_plates_drc()` | Compare the same compound across plates |
-| `reshape_dr_table()` | Reshape summary table for Excel export |
 | `scarab_table()` | Generate Scarab-format export table (NanoBRET) |

@@ -117,15 +117,6 @@ knitr::opts_chunk$set(
 #   transparent_background = FALSE
 # )
 
-## ----nanobret-step5-reshape---------------------------------------------------
-# final_table <- drc_results$drc_results$plate_01$drc_result$final_summary_table
-# 
-# excel_table <- reshape_dr_table(
-#   final_table,
-#   decimal_comma = FALSE,
-#   output_file   = "results_plate01.xlsx"
-# )
-
 ## ----nanobret-step5-scarab----------------------------------------------------
 # scarab_table(
 #   results_list              = results,

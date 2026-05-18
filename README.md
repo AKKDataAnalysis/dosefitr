@@ -34,7 +34,6 @@ batch_drc_analysis()          <- fits dose-response curves (3PL or 4PL)
       |---> batch_save_all_drc_plots()    <- saves one plot per compound
       |---> plot_multiple_compounds()     <- overlays selected compounds
       |---> compare_plates_drc()          <- compares same compound across plates
-      |---> reshape_dr_table()            <- reshapes summary table for Excel
       `---> scarab_table()               <- generates Scarab-format export (NanoBRET)
 ```
 
@@ -81,10 +80,10 @@ Each sheet must have **at least 4 columns** in this exact order (column names ca
 
 #### Example sheet layout
 
-A full 384-well plate (rows A-P) with one compound per row and one construct
-(KinaseA). Rows A and M-P have no concentration entry -- these are typically
-reserved for controls or left empty. The function uses only rows that have a
-concentration value.
+A full 384-well plate (rows A-P) with one compound per row and three constructs.
+The log(inhibitor) column lists the concentrations used in the experiment -- one
+per row, in any order. These values are not tied to a specific plate row; the
+function reads them as a sequence and assigns them to the data columns in order.
 
 | log(inhibitor) | Plate_Row | Construct | Compound |
 |---|---|---|---|
@@ -105,8 +104,9 @@ concentration value.
 |  | O | KinaseC | CpdO |
 |  | P | KinaseC | CpdP |
 
-> Each plate row letter corresponds to a physical row on the 384-well plate.
-> The function uses this mapping to extract the correct wells for each compound.
+> Each plate row letter (Plate_Row column) maps to a physical row on the plate.
+> The log(inhibitor) column is a list of concentrations used in the experiment
+> and is not tied to a specific plate row -- it is read as a sequence.
 
 #### Duplicate constructs (biological replicates)
 
@@ -969,35 +969,6 @@ compare_plates_drc(
 
 ---
 
-## Exporting Results
-
-### Reshape the summary table for Excel
-
-```r
-final_results <- drc_results$drc_results$plate_01$drc_result$final_summary_table
-
-excel_table <- reshape_dr_table(
-  final_results,
-  decimal_comma = FALSE,    # TRUE for European comma format
-  output_file   = "results.xlsx"
-)
-```
-
-### Save multiple data frames to one Excel workbook
-
-```r
-save_multiple_sheets(
-  "final_data.xlsx",
-  original_ratio_table,
-  excel_table,
-  decimal_comma  = TRUE,
-  decimal_places = 3,
-  round_sheets   = 1:2      # which sheets to round numeric values
-)
-```
-
----
-
 ## Accessing Results Directly
 
 The output of `batch_drc_analysis()` is a nested list. Common access patterns:
@@ -1147,5 +1118,4 @@ plot_multiple_compounds(drc_results,
 | `batch_save_all_drc_plots()` | Save one plot per compound across all plates |
 | `plot_multiple_compounds()` | Overlay selected compounds on one plot |
 | `compare_plates_drc()` | Compare the same compound across plates |
-| `reshape_dr_table()` | Reshape summary table for Excel export |
 | `scarab_table()` | Generate Scarab-format export table (NanoBRET) |
