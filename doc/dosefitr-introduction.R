@@ -17,8 +17,15 @@ knitr::opts_chunk$set(
 #   control_0perc       = 24,    # plate column for 0% control (e.g. DMSO)
 #   control_100perc     = 12,    # plate column for 100% control (e.g. staurosporine)
 #   output_dir          = "./qc_output",
-#   low_value_threshold = 1000,  # donor-channel values below this → NA
+#   low_value_threshold = 1000,  # donor-channel values below this -> NA
 #   verbose             = TRUE
+# )
+
+## ----nanobret-step1-colname---------------------------------------------------
+# results <- batch_ratio_analysis(
+#   control_0perc   = "DMSO",
+#   control_100perc = "Staurosporine",
+#   verbose         = TRUE
 # )
 
 ## ----nanobret-step1-v2--------------------------------------------------------
@@ -51,11 +58,11 @@ knitr::opts_chunk$set(
 # drc_results <- batch_drc_analysis(
 #   batch_results    = results_clean,
 #   normalize        = TRUE,
-#   nd_if_activation = TRUE   # activation curves → N/D
+#   nd_if_activation = TRUE   # activation curves -> N/D
 # )
 
 ## ----nanobret-step3-access----------------------------------------------------
-# # Final summary table for plate 1 (IC50, pIC50, R², Hill slope, ...)
+# # Final summary table for plate 1 (IC50, pIC50, R2, Hill slope, ...)
 # summary_table <- drc_results$drc_results$plate_01$drc_result$final_summary_table
 # 
 # # Quality metrics table
@@ -77,7 +84,7 @@ knitr::opts_chunk$set(
 # )
 # 
 # # By name or partial match
-# plot_multiple_compounds(drc_results, target_compound = "LRRK2")
+# plot_multiple_compounds(drc_results, target_compound = "KinaseA")
 # 
 # # Additional appearance controls
 # plot_multiple_compounds(drc_results,
@@ -119,18 +126,6 @@ knitr::opts_chunk$set(
 #   output_file   = "results_plate01.xlsx"
 # )
 
-## ----nanobret-step5-multi-----------------------------------------------------
-# original_table <- results_clean$plate_01$result$modified_ratio_table_original
-# 
-# save_multiple_sheets(
-#   "final_data.xlsx",
-#   original_table,
-#   excel_table,
-#   decimal_comma  = TRUE,
-#   decimal_places = 3,
-#   round_sheets   = 1:2
-# )
-
 ## ----nanobret-step5-scarab----------------------------------------------------
 # scarab_table(
 #   results_list              = results,
@@ -153,10 +148,10 @@ knitr::opts_chunk$set(
 #   plate_name       = "plate_01",
 #   date             = "260323",
 #   experimenter_abbrev = "TL",
-#   nLuc_orientation = c(LRRK2 = "C", AAK1 = "N"),
-#   tracer           = c(LRRK2 = "Tracer K10", AAK1 = "Tracer 236"),
-#   tracer_kd_app    = c(LRRK2 = -7.5, AAK1 = -8.0),
-#   tracer_concentration_used = c(LRRK2 = -7.5, AAK1 = -8.0),
+#   nLuc_orientation = c(KinaseA = "C", KinaseB = "N"),
+#   tracer           = c(KinaseA = "Tracer K10", KinaseB = "Tracer 236"),
+#   tracer_kd_app    = c(KinaseA = -7.5, KinaseB = -8.0),
+#   tracer_concentration_used = c(KinaseA = -7.5, KinaseB = -8.0),
 #   decimal_separator = ","
 # )
 
@@ -338,21 +333,5 @@ knitr::opts_chunk$set(
 #   y_limits         = c(0, 100),   # or NULL to auto-scale
 #   y_axis_title     = "% Cell Survival",  # optional override; auto-detects "Cell Viability (%)" by default
 #   save_plot        = TRUE
-# )
-# 
-# # 6. Export summary table
-# final_table <- drc_results$drc_results$plate_01$drc_result$final_summary_table
-# excel_table <- reshape_dr_table(final_table,
-#   decimal_comma = FALSE,
-#   output_file   = "results.xlsx"
-# )
-# 
-# # 7. Save combined workbook
-# original_table <- results_clean$plate_01$result$modified_ratio_table_original
-# save_multiple_sheets("final_data.xlsx",
-#   original_table, excel_table,
-#   decimal_comma  = TRUE,
-#   decimal_places = 3,
-#   round_sheets   = 1:2
 # )
 

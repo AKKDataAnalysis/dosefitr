@@ -25,10 +25,10 @@ knitr::opts_chunk$set(
 `dosefitr` provides an end-to-end dose-response analysis pipeline for two
 assay types commonly used in drug discovery:
 
-- **NanoBRET kinase binding assays** — reads raw BMG PHERAstar plate-reader
+- **NanoBRET kinase binding assays** -- reads raw BMG PHERAstar plate-reader
   exports, computes BRET ratios, and derives IC50 / pIC50 values for kinase
   inhibitors.
-- **Cell viability assays** — reads luminescence or fluorescence plate-reader
+- **Cell viability assays** -- reads luminescence or fluorescence plate-reader
   exports and fits dose-response curves to quantify compound cytotoxicity.
 
 Both workflows share the same pipeline structure and downstream functions
@@ -39,23 +39,22 @@ between assay types requires changing only one or two arguments.
 
 ```
 Raw Excel files
-      │
-      ▼
-batch_ratio_analysis()        ← NanoBRET: reads plates, computes BRET ratios
-batch_viability_analysis()    ← Viability: reads plates, normalises signal
-      │
-      ▼
-rout_outliers_batch()         ← detects and removes outliers  [optional]
-      │
-      ▼
-batch_drc_analysis()          ← fits 3PL or 4PL dose-response curves
-      │
-      ├──▶ batch_save_all_drc_plots()   ← one plot per compound
-      ├──▶ plot_multiple_compounds()    ← overlay selected compounds
-      ├──▶ compare_plates_drc()         ← compare compound across plates
-      ├──▶ reshape_dr_table()           ← reshape summary for Excel
-      ├──▶ save_multiple_sheets()       ← write multiple sheets to Excel
-      └──▶ scarab_table()              ← Scarab-format export (NanoBRET)
+      |
+      v
+batch_ratio_analysis()        <- BRET: reads plates, computes BRET ratios
+batch_viability_analysis()    <- Viability: reads plates, normalises signal
+      |
+      v
+rout_outliers_batch()         <- detects and removes outliers  [optional]
+      |
+      v
+batch_drc_analysis()          <- fits 3PL or 4PL dose-response curves
+      |
+      |---> batch_save_all_drc_plots()   <- one plot per compound
+      |---> plot_multiple_compounds()    <- overlay selected compounds
+      |---> compare_plates_drc()         <- compare compound across plates
+      |---> reshape_dr_table()           <- reshape summary for Excel
+      `---> scarab_table()              <- Scarab-format export (NanoBRET)
 ```
 
 ---
@@ -81,14 +80,14 @@ All files for a single experiment should live in the same folder:
 
 ```
 experiment_folder/
-├── info_tables.xlsx      ← metadata file (one sheet per plate)
-├── raw_data_1.xlsx       ← plate-reader export for plate 1
-├── raw_data_2.xlsx       ← plate-reader export for plate 2
-└── raw_data_3.xlsx       ← plate-reader export for plate 3
+|-- info_tables.xlsx      <- metadata file (one sheet per plate)
+|-- raw_data_1.xlsx       <- plate-reader export for plate 1
+|-- raw_data_2.xlsx       <- plate-reader export for plate 2
+`-- raw_data_3.xlsx       <- plate-reader export for plate 3
 ```
 
 Each sheet in `info_tables.xlsx` is matched to a raw data file by the
-trailing number in the filename (e.g. sheet `Plate_1` → `raw_data_1.xlsx`).
+trailing number in the filename (e.g. sheet `Plate_1` -> `raw_data_1.xlsx`).
 
 ### The metadata file (`info_tables.xlsx`)
 
@@ -98,53 +97,71 @@ with **one sheet per plate**. Each sheet must contain at least four columns
 
 | Position | Content | Example |
 |---|---|---|
-| 1 | Log~10~ inhibitor concentrations | `-9`, `-8.5`, `-8`, ... |
+| 1 | Log10 inhibitor concentrations | `-9`, `-8.5`, `-8`, ... |
 | 2 | Plate row letter(s) for this compound | `A`, `B`, `C`, ... |
-| 3 | Construct / kinase name | `LRRK2`, `AAK1` |
-| 4 | Compound / inhibitor name | `Compound_A`, `GSK123` |
+| 3 | Construct / kinase name | `KinaseA`, `KinaseB` |
+| 4 | Compound / inhibitor name | `CpdA`, `CpdB` |
 
-A minimal example for two compounds tested at eight concentrations in
-duplicate plate rows:
+A full 384-well plate (rows A-P) with one compound per row and one construct
+(KinaseA). Rows A and M-P have no concentration entry -- these are typically
+reserved for controls or left empty. The function uses only rows that have a
+concentration value.
 
-| log(inhibitor) | Plate_Row | Construct | Compound   |
+| log(inhibitor) | Plate_Row | Construct | Compound |
 |---|---|---|---|
-| -9.0 | A | LRRK2 | Compound_A |
-| -8.5 | B | LRRK2 | Compound_A |
-| -8.0 | C | LRRK2 | Compound_A |
-| -7.5 | D | LRRK2 | Compound_A |
-| -7.0 | E | LRRK2 | Compound_A |
-| -6.5 | F | LRRK2 | Compound_A |
-| -6.0 | G | LRRK2 | Compound_A |
-| -5.5 | H | LRRK2 | Compound_A |
-| -9.0 | I | LRRK2 | Compound_B |
-| -8.5 | J | LRRK2 | Compound_B |
-| ...  | ... | ... | ... |
+|  | A | KinaseA | CpdA |
+| -4.61 | B | KinaseA | CpdB |
+| -5.13 | C | KinaseA | CpdC |
+| -5.61 | D | KinaseA | CpdD |
+| -6.13 | E | KinaseA | CpdE |
+| -6.61 | F | KinaseA | CpdF |
+| -7.13 | G | KinaseA | CpdG |
+| -7.61 | H | KinaseB | CpdH |
+| -8.00 | I | KinaseB | CpdI |
+| -8.43 | J | KinaseB | CpdJ |
+| -8.91 | K | KinaseB | CpdK |
+| -9.38 | L | KinaseC | CpdL |
+|  | M | KinaseC | CpdM |
+|  | N | KinaseC | CpdN |
+|  | O | KinaseC | CpdO |
+|  | P | KinaseC | CpdP |
 
-Columns 3 and 4 are combined as `Construct:Compound` (e.g. `LRRK2:Compound_A`)
+Columns 3 and 4 are combined as `Construct:Compound` (e.g. `KinaseA:CpdA`)
 to label all output columns, plots, and export tables throughout the pipeline.
 
 ---
 
-## Workflow 1 — NanoBRET kinase binding assay
+## Workflow 1 -- NanoBRET kinase binding assay
 
 ### Step 1: Process raw plates
 
 `batch_ratio_analysis()` reads all PHERAstar Excel files in the working
 directory, pairs them with the metadata file, computes BRET ratios
-(acceptor / donor × 1000), and returns a named list with one entry per plate.
+(acceptor / donor x 1000), and returns a named list with one entry per plate.
 
 ```{r nanobret-step1}
 results <- batch_ratio_analysis(
   control_0perc       = 24,    # plate column for 0% control (e.g. DMSO)
   control_100perc     = 12,    # plate column for 100% control (e.g. staurosporine)
   output_dir          = "./qc_output",
-  low_value_threshold = 1000,  # donor-channel values below this → NA
+  low_value_threshold = 1000,  # donor-channel values below this -> NA
   verbose             = TRUE
 )
 ```
 
 Wells where the donor-channel signal falls below `low_value_threshold` are
 set to `NA` before the ratio is calculated, excluding failed or empty wells.
+
+Column indices are the most common way to specify controls. Column names are
+also accepted and must match the header row exactly as it appears in the file:
+
+```{r nanobret-step1-colname}
+results <- batch_ratio_analysis(
+  control_0perc   = "DMSO",
+  control_100perc = "Staurosporine",
+  verbose         = TRUE
+)
+```
 
 **Using duplicate 100% control columns (v2 mode):**
 
@@ -168,6 +185,9 @@ results <- batch_ratio_analysis(
 independently. The `Q` parameter is the maximum acceptable false discovery
 rate for outlier labelling (lower = more conservative).
 
+The ROUT method is described in: Motulsky HJ & Brown RE, BMC Bioinformatics
+2006, 7:123 (doi:10.1186/1471-2105-7-123).
+
 ```{r nanobret-step2}
 results_clean <- rout_outliers_batch(results, Q = 0.01)
 
@@ -186,7 +206,7 @@ cleaned data.
 ### Step 3: Fit dose-response curves
 
 `batch_drc_analysis()` fits a three-parameter logistic (3PL) model to each
-compound curve and returns IC50, pIC50, R², Hill slope, and confidence
+compound curve and returns IC50, pIC50, R2, Hill slope, and confidence
 intervals.
 
 ```{r nanobret-step3}
@@ -200,7 +220,7 @@ drc_results <- batch_drc_analysis(
 
 **3PL vs 4PL:**
 
-- `model = "3pl"` (default): Hill slope fixed at −1. Recommended for standard
+- `model = "3pl"` (default): Hill slope fixed at -1. Recommended for standard
   sigmoidal inhibition curves with fewer free parameters.
 - `model = "4pl"`: Hill slope freely estimated. Use when cooperative binding
   or mixed mechanisms are expected.
@@ -215,14 +235,14 @@ suppress IC50 for activation curves (response increases with concentration):
 drc_results <- batch_drc_analysis(
   batch_results    = results_clean,
   normalize        = TRUE,
-  nd_if_activation = TRUE   # activation curves → N/D
+  nd_if_activation = TRUE   # activation curves -> N/D
 )
 ```
 
 **Accessing results:**
 
 ```{r nanobret-step3-access}
-# Final summary table for plate 1 (IC50, pIC50, R², Hill slope, ...)
+# Final summary table for plate 1 (IC50, pIC50, R2, Hill slope, ...)
 summary_table <- drc_results$drc_results$plate_01$drc_result$final_summary_table
 
 # Quality metrics table
@@ -252,7 +272,7 @@ plot_multiple_compounds(drc_results,
 )
 
 # By name or partial match
-plot_multiple_compounds(drc_results, target_compound = "LRRK2")
+plot_multiple_compounds(drc_results, target_compound = "KinaseA")
 
 # Additional appearance controls
 plot_multiple_compounds(drc_results,
@@ -303,28 +323,13 @@ excel_table <- reshape_dr_table(
 )
 ```
 
-**Save multiple data frames to one workbook:**
-
-```{r nanobret-step5-multi}
-original_table <- results_clean$plate_01$result$modified_ratio_table_original
-
-save_multiple_sheets(
-  "final_data.xlsx",
-  original_table,
-  excel_table,
-  decimal_comma  = TRUE,
-  decimal_places = 3,
-  round_sheets   = 1:2
-)
-```
-
 **Generate a Scarab-format export table (NanoBRET):**
 
 `scarab_table()` produces a 76-row Scarab-format data frame combining
 experimental metadata, curve parameters, QC metrics, and raw BRET values.
 The output is saved as an `.xlsx` file with two sheets: `Scarab_Table`
 (fields as rows, compounds as columns) and `Scarab_Table_Transposed`
-(compounds as rows — easier for filtering in Excel).
+(compounds as rows -- easier for filtering in Excel).
 
 ```{r nanobret-step5-scarab}
 scarab_table(
@@ -354,21 +359,21 @@ scarab_table(
   plate_name       = "plate_01",
   date             = "260323",
   experimenter_abbrev = "TL",
-  nLuc_orientation = c(LRRK2 = "C", AAK1 = "N"),
-  tracer           = c(LRRK2 = "Tracer K10", AAK1 = "Tracer 236"),
-  tracer_kd_app    = c(LRRK2 = -7.5, AAK1 = -8.0),
-  tracer_concentration_used = c(LRRK2 = -7.5, AAK1 = -8.0),
+  nLuc_orientation = c(KinaseA = "C", KinaseB = "N"),
+  tracer           = c(KinaseA = "Tracer K10", KinaseB = "Tracer 236"),
+  tracer_kd_app    = c(KinaseA = -7.5, KinaseB = -8.0),
+  tracer_concentration_used = c(KinaseA = -7.5, KinaseB = -8.0),
   decimal_separator = ","
 )
 ```
 
 ---
 
-## Workflow 2 — Cell viability assay
+## Workflow 2 -- Cell viability assay
 
 The viability workflow is structurally identical to the NanoBRET workflow.
-Replace `batch_ratio_analysis()` with `batch_viability_analysis()` in Step 1
-`batch_drc_analysis()` automatically detects the assay type from its input — no extra parameter needed.
+Replace `batch_ratio_analysis()` with `batch_viability_analysis()` in Step 1.
+`batch_drc_analysis()` automatically detects the assay type from its input -- no extra parameter needed.
 All other functions work without modification.
 
 ### Step 1: Process raw plates
@@ -458,7 +463,7 @@ plot_multiple_compounds(drc_results,
 
 ---
 
-## Merging replicate plates
+## Merging replicate plates (optional)
 
 When the same experiment is run across multiple plates (biological
 replicates), `merge_plate_replicates()` combines their data tables into a
@@ -486,14 +491,14 @@ drc_results <- batch_drc_analysis(
 ```
 
 Replicate columns are renumbered sequentially across plates
-(`LRRK2:Compound_A`, `LRRK2:Compound_A.2` from plate 1 become
-`LRRK2:Compound_A.3`, `LRRK2:Compound_A.4` from plate 2, and so on).
+(`KinaseA:CpdA`, `KinaseA:CpdA.2` from plate 1 become
+`KinaseA:CpdA.3`, `KinaseA:CpdA.4` from plate 2, and so on).
 Compounds that appear in only some plates are included with however many
-replicates they have — no NA-padding is added.
+replicates they have -- no NA-padding is added.
 
 ---
 
-## Complete example — NanoBRET
+## Complete example -- NanoBRET
 
 ```{r full-nanobret}
 library(dosefitr)
@@ -555,7 +560,7 @@ scarab_table(
 
 ---
 
-## Complete example — Cell viability
+## Complete example -- Cell viability
 
 ```{r full-viability}
 library(dosefitr)
@@ -599,22 +604,6 @@ plot_multiple_compounds(drc_results,
   y_axis_title     = "% Cell Survival",  # optional override; auto-detects "Cell Viability (%)" by default
   save_plot        = TRUE
 )
-
-# 6. Export summary table
-final_table <- drc_results$drc_results$plate_01$drc_result$final_summary_table
-excel_table <- reshape_dr_table(final_table,
-  decimal_comma = FALSE,
-  output_file   = "results.xlsx"
-)
-
-# 7. Save combined workbook
-original_table <- results_clean$plate_01$result$modified_ratio_table_original
-save_multiple_sheets("final_data.xlsx",
-  original_table, excel_table,
-  decimal_comma  = TRUE,
-  decimal_places = 3,
-  round_sheets   = 1:2
-)
 ```
 
 ---
@@ -635,5 +624,4 @@ save_multiple_sheets("final_data.xlsx",
 | `plot_multiple_compounds()` | Overlay selected compounds on one plot |
 | `compare_plates_drc()` | Compare the same compound across plates |
 | `reshape_dr_table()` | Reshape summary table for Excel export |
-| `save_multiple_sheets()` | Save multiple data frames to one Excel workbook |
 | `scarab_table()` | Generate Scarab-format export table (NanoBRET) |

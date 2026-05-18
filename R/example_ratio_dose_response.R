@@ -139,3 +139,4 @@
 #'   \item \strong{Control validity}: Verifies control columns exist and contain data
 #'   \item \strong{Structure integrity}: Confirms required row ranges contain data
 #' }
+#' 

@@ -21,3 +21,4 @@
 #' \dontrun{
 #' fit_dose_response(example_data, output_file = "dose_response_results.xlsx")
 #' }
+#' 

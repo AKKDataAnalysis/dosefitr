@@ -97,7 +97,6 @@
 #'
 #' @seealso
 #' \code{\link{fit_drc_3pl}} for generating analysis results
-#' \code{\link{save_multiple_sheets}} for advanced Excel export options
 #' \code{\link{plot_multiple_compounds}} for visual comparison of results
 #'
 #' @export
