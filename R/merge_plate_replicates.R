@@ -126,7 +126,7 @@ merge_plate_replicates <- function(results,
                                    generate_reports      = TRUE,
                                    verbose               = TRUE) {
   
-  # ── Input validation ────────────────────────────────────────────────────────
+  # -- Input validation -------------------------------------------------------
   if (!is.list(results) || length(results) == 0L)
     stop("'results' must be a non-empty named list from batch_ratio_analysis().")
   
@@ -147,7 +147,7 @@ merge_plate_replicates <- function(results,
   if (!is.character(merged_name) || length(merged_name) != 1L || nchar(merged_name) == 0L)
     stop("'merged_name' must be a single non-empty character string.")
   
-  # ── Extract modified_ratio_tables ───────────────────────────────────────────
+  # -- Extract modified_ratio_tables ------------------------------------------
   tables <- lapply(plates, function(p) {
     tbl <- results[[p]]$result$modified_ratio_table
     if (is.null(tbl))
@@ -155,12 +155,20 @@ merge_plate_replicates <- function(results,
            "Has batch_ratio_analysis() been run successfully for this plate?")
     if (!is.data.frame(tbl))
       stop("$result$modified_ratio_table for plate '", p,
-           "' is not a data.frame.")
+           "' is not a data.frame (class: ", paste(class(tbl), collapse = "/"), ").")
+    if (nrow(tbl) == 0L)
+      stop("$result$modified_ratio_table for plate '", p,
+           "' has 0 rows. The plate may have failed to process correctly. ",
+           "Check the batch_ratio_analysis() output for warnings on this plate.")
+    if (ncol(tbl) < 2L)
+      stop("$result$modified_ratio_table for plate '", p,
+           "' has fewer than 2 columns (", ncol(tbl), " column(s) found). ",
+           "Expected at least a concentration column and one compound column.")
     tbl
   })
   names(tables) <- plates
   
-  # ── Identify the log(inhibitor) column ──────────────────────────────────────
+  # -- Identify the log(inhibitor) column -------------------------------------
   # Convention: first column of modified_ratio_table is the concentration column.
   conc_col <- colnames(tables[[1L]])[1L]
   
@@ -174,11 +182,23 @@ merge_plate_replicates <- function(results,
     cat(strrep("-", 60), "\n")
   }
   
-  # ── Check concentration columns are identical ────────────────────────────────
+  # -- Warn if concentration column names differ across plates ----------------
+  # Column 1 is always the concentration column regardless of its name.
+  conc_col_names <- vapply(tables, function(tbl) colnames(tbl)[1L], character(1L))
+  if (length(unique(conc_col_names)) > 1L) {
+    warning(
+      "Concentration column names differ across plates: ",
+      paste(unique(conc_col_names), collapse = ", "), ". ",
+      "All plates are still processed correctly using column position (column 1). ",
+      "The merged table will use the name from the first plate: '", conc_col, "'."
+    )
+  }
+  
+  # -- Check concentration columns are identical ------------------------------
   if (check_concentrations) {
-    ref_conc <- tables[[1L]][[conc_col]]
+    ref_conc <- tables[[1L]][[1L]]          # always positional
     for (p in plates[-1L]) {
-      other_conc <- tables[[p]][[conc_col]]
+      other_conc <- tables[[p]][[1L]]       # always positional
       if (length(other_conc) != length(ref_conc) ||
           !isTRUE(all.equal(ref_conc, other_conc, tolerance = 1e-9))) {
         stop(
@@ -200,7 +220,7 @@ merge_plate_replicates <- function(results,
     if (verbose) message("Concentration columns match across all plates.")
   }
   
-  # ── Helper: strip trailing numeric suffix from a column name ─────────────────
+  # -- Helper: strip trailing numeric suffix from a column name ---------------
   # "LRRK2:MDKM34"    -> "LRRK2:MDKM34"
   # "LRRK2:MDKM34.2"  -> "LRRK2:MDKM34"
   # "LRRK2:MDKM34.10" -> "LRRK2:MDKM34"
@@ -208,11 +228,12 @@ merge_plate_replicates <- function(results,
     sub("\\.\\d+$", "", nm)
   }
   
-  # ── Collect data columns (everything except the concentration column) ─────────
-  # For each plate, extract the data columns and record their base names.
+  # -- Collect data columns (everything except column 1 = concentration)-------
+  # Use positional exclusion so plates with different concentration column names
+  # are handled correctly.
   plate_data <- lapply(plates, function(p) {
-    tbl      <- tables[[p]]
-    data_cols <- setdiff(colnames(tbl), conc_col)
+    tbl       <- tables[[p]]
+    data_cols <- colnames(tbl)[-1L]        # drop column 1 (concentration) by position
     bases     <- strip_suffix(data_cols)
     list(
       plate     = p,
@@ -223,7 +244,7 @@ merge_plate_replicates <- function(results,
   })
   names(plate_data) <- plates
   
-  # ── Determine the global order of base compound names ────────────────────────
+  # -- Determine the global order of base compound names ----------------------
   # Preserve the order in which compounds first appear (plate 1 first, then
   # any new compounds from plate 2, etc.).
   all_bases_ordered <- unique(unlist(lapply(plate_data, `[[`, "bases")))
@@ -239,7 +260,7 @@ merge_plate_replicates <- function(results,
     cat(strrep("-", 60), "\n")
   }
   
-  # ── Build the merged data columns ────────────────────────────────────────────
+  # -- Build the merged data columns ------------------------------------------
   # For each base compound name, collect all replicate columns across plates
   # in plate order, then renumber them 1, 2, 3, 4, ...
   merged_cols <- list()  # will hold named numeric vectors (one per output column)
@@ -269,8 +290,8 @@ merge_plate_replicates <- function(results,
     }
   }
   
-  # ── Assemble the merged data.frame ───────────────────────────────────────────
-  conc_values <- tables[[1L]][[conc_col]]
+  # -- Assemble the merged data.frame -----------------------------------------
+  conc_values <- tables[[1L]][[1L]]          # positional: always column 1
   merged_df   <- as.data.frame(
     c(list(conc_values), merged_cols),
     check.names = FALSE
@@ -291,7 +312,7 @@ merge_plate_replicates <- function(results,
     cat(strrep("=", 60), "\n")
   }
   
-  # ── Build the merged result entry ────────────────────────────────────────────
+  # -- Build the merged result entry -----------------------------------------
   # Mirror the structure of a single batch_ratio_analysis() plate entry.
   # Fields that are plate-specific or cannot be meaningfully merged are set
   # to NULL or to a descriptive character string.
@@ -305,7 +326,7 @@ merge_plate_replicates <- function(results,
     control_0perc    = results[[plates[1L]]]$control_0perc,
     control_100perc  = results[[plates[1L]]]$control_100perc,
     selected_columns = results[[plates[1L]]]$selected_columns,
-    merged_from      = plates,   # extra field — records provenance
+    merged_from      = plates,   # extra field - records provenance
     result           = list(
       modified_ratio_table  = merged_df,
       original_ratio_table  = NULL,   # no single "original" for a merge
@@ -316,7 +337,7 @@ merge_plate_replicates <- function(results,
     )
   )
   
-  # ── Assemble the output list ──────────────────────────────────────────────────
+  # -- Assemble the output list -----------------------------------------------
   # Remove the individual merged plates and insert the merged entry.
   output <- results[setdiff(names(results), plates)]
   output[[merged_name]] <- merged_entry
@@ -326,7 +347,7 @@ merge_plate_replicates <- function(results,
   src <- attr(results, "assay_source")
   if (!is.null(src)) attr(output, "assay_source") <- src
   
-  # ── Excel report ─────────────────────────────────────────────────────────────
+  # -- Excel report -----------------------------------------------------------
   if (generate_reports) {
     
     if (!requireNamespace("openxlsx", quietly = TRUE))
@@ -355,7 +376,7 @@ merge_plate_replicates <- function(results,
         borderColour   = "#4F81BD"
       )
       
-      # ── Sheet 1: Merged_Table ───────────────────────────────────────────────
+      # -- Sheet 1: Merged_Table ---------------------------------------------
       openxlsx::addWorksheet(wb, "Merged_Table")
       openxlsx::writeData(
         wb, "Merged_Table",
@@ -365,7 +386,7 @@ merge_plate_replicates <- function(results,
       openxlsx::addStyle(wb, "Merged_Table", header_style,
                          rows = 1L, cols = seq_len(ncol(merged_df) + 1L))
       
-      # ── Sheets 2..N: one per source plate (original modified_ratio_table) ──
+      # -- Sheets 2..N: one per source plate (original modified_ratio_table) --
       for (p in plates) {
         orig_tbl <- tables[[p]]
         
@@ -384,7 +405,7 @@ merge_plate_replicates <- function(results,
                            rows = 1L, cols = seq_len(ncol(orig_tbl) + 1L))
       }
       
-      # ── Last sheet: Provenance ──────────────────────────────────────────────
+      # -- Last sheet: Provenance --------------------------------------------
       openxlsx::addWorksheet(wb, "Provenance")
       
       # Per-plate rows
@@ -434,5 +455,5 @@ merge_plate_replicates <- function(results,
   return(invisible(output))
 }
 
-# ── Null-coalescing operator (internal use) ──────────────────────────────────
+# -- Null-coalescing operator (internal use) ----------------------------------
 `%||%` <- function(a, b) if (!is.null(a)) a else b
