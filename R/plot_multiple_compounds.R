@@ -1285,7 +1285,7 @@ plot_multiple_compounds <- function(results,
     if (!is.null(assay_src) && assay_src == "viability") {
       if (normalized) "Cell Viability (%)" else "Luminescence"
     } else {
-      # nanobret or unknown — legacy behaviour
+      # nanobret or unknown - legacy behaviour
       if (normalized) "Normalized BRET ratio [%]" else "BRET ratio"
     }
   }
@@ -1416,9 +1416,9 @@ plot_multiple_compounds <- function(results,
   # ============================================================================
   
   # Point shape selection
-  # point_shapes = TRUE  → default optimal shapes, one per compound
-  # point_shapes = NULL  → all points use shape 16 (filled circle), no per-compound mapping
-  # point_shapes = <vec> → custom shapes, recycled to cover all compounds
+  # point_shapes = TRUE  -> default optimal shapes, one per compound
+  # point_shapes = NULL  -> all points use shape 16 (filled circle), no per-compound mapping
+  # point_shapes = <vec> -> custom shapes, recycled to cover all compounds
   optimal_shapes <- c(16, 17, 15, 18, 8, 1, 2, 0, 5, 6, 7, 10, 11, 12, 13, 14)
   
   if (isTRUE(point_shapes)) {
@@ -1524,10 +1524,10 @@ plot_multiple_compounds <- function(results,
   
   # Resolve x_limits to log10 molar scale.
   # x_limits_scale controls the unit of the user-supplied values:
-  #   "log10"  — already log10 molar (default, no conversion)
-  #   "molar"  — raw molar (e.g. 1e-9); converted via log10()
-  #   "uM"     — micromolar (e.g. 0.001 to 25); converted via log10(x * 1e-6)
-  #   "nM"     — nanomolar; converted via log10(x * 1e-9)
+  #   "log10"  - already log10 molar (default, no conversion)
+  #   "molar"  - raw molar (e.g. 1e-9); converted via log10()
+  #   "uM"     - micromolar (e.g. 0.001 to 25); converted via log10(x * 1e-6)
+  #   "nM"     - nanomolar; converted via log10(x * 1e-9)
   resolve_x_limits <- function(xl) {
     if (is.null(xl)) return(calculate_x_limits(plot_data$curves, plot_data$points))
     if (length(xl) != 2 || !all(is.finite(xl)))

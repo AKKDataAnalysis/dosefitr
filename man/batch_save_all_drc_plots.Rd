@@ -23,8 +23,8 @@ batch_save_all_drc_plots(
   y_axis_title = NULL,
   save_panel = TRUE,
   panel_ncol = 4L,
-  panel_width_per_col = 3.5,
-  panel_height_per_row = 3.2,
+  panel_width_per_col = 4,
+  panel_height_per_row = 4,
   ...
 )
 }
@@ -85,9 +85,9 @@ image per plate containing all individual compound plots assembled with
 
 \item{panel_ncol}{Integer. Number of columns in the panel grid (default \code{4}).}
 
-\item{panel_width_per_col}{Numeric. Width in inches per panel column (default \code{3.5}).}
+\item{panel_width_per_col}{Numeric. Width in inches per panel column (default \code{4}).}
 
-\item{panel_height_per_row}{Numeric. Height in inches per panel row (default \code{3.2}).}
+\item{panel_height_per_row}{Numeric. Height in inches per panel row (default \code{4}).}
 
 \item{...}{Additional arguments passed to \code{plot_dose_response()}.}
 }

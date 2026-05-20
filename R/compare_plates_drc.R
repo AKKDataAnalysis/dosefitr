@@ -10,9 +10,9 @@
 #' construct-compound pair, with each plate rendered in a distinct colour.
 #' Plots are always separated by the full `Construct:Compound` combination, so
 #' the same compound tested on different constructs always produces separate
-#' images.  `compare_by` controls only the **plot title** and **legend label**
-#' shown inside each image.  Mean +- SD data points and error bars are included
-#' by default.
+#' images.  The plot title is always `"Construct - Compound"` and the filename
+#' is `Construct__Compound.png`.  Mean +- SD data points and error bars are
+#' included by default.
 #'
 #' @param batch_drc_result The list returned by [`batch_drc_analysis()`].
 #'   Must contain a `drc_results` element (one entry per plate), each with
@@ -33,9 +33,9 @@
 #' @param plot_dpi Numeric.  Resolution for saved PNGs.  Default: `600`.
 #' @param y_limits Numeric vector of length 2 for fixed y-axis limits, or
 #'   `NULL` (default) to let each plot auto-scale.
-#' @param y_axis_title Character string for the y-axis label.  If \code{NULL}
-#'   (default), auto-detected from the batch result: \code{"Cell Viability (\%)"}
-#'   or \code{"Luminescence"} for viability assays, \code{"Normalized BRET ratio [\%]"}
+#' @param y_axis_title Character.  Y-axis label.  If \code{NULL} (default),
+#'   auto-detected from the batch result: \code{"Cell Viability (\%)"} or
+#'   \code{"Luminescence"} for viability assays, \code{"Normalised BRET ratio [\%]"}
 #'   or \code{"BRET ratio"} for NanoBRET assays (depending on whether
 #'   \code{normalize} was \code{TRUE} or \code{FALSE}).
 #' @param color_palette Character.  Any palette name accepted by
@@ -66,9 +66,6 @@
 #'   hex/colour names (one per plate), or `TRUE` for automatic ggplot2 hues.
 #' @param point_shapes Numeric vector of point shape codes, one per plate.
 #'   `NULL` uses automatic shapes.
-#' @param shape_by_compound Logical.  Use different point shapes per plate in
-#'   addition to colours.  Useful for greyscale or colourblind contexts.
-#'   Default: `FALSE`.
 #' @param error_bar_width Numeric.  Width of the error bar caps.  Default:
 #'   `0.05`.
 #' @param axis_text_size Numeric.  Font size for axis tick labels.
@@ -121,15 +118,15 @@
 #' ratio_res <- batch_ratio_analysis("data/")
 #' drc_res   <- batch_drc_analysis(ratio_res)
 #'
-#' # Compare plates grouped by compound (default)
+#' # Title shows compound name (default)
 #' compare_plates_drc(drc_res, compare_by = "compound",
-#'                    output_dir = "comparison_by_compound")
+#'                    output_dir = "comparison_plots")
 #'
-#' # Compare plates grouped by construct
+#' # Title shows construct name instead
 #' compare_plates_drc(drc_res, compare_by = "construct",
-#'                    output_dir = "comparison_by_construct")
+#'                    output_dir = "comparison_plots")
 #'
-#' # Only compare specific compounds
+#' # Only compare specific entities
 #' compare_plates_drc(drc_res, compare_by = "compound",
 #'                    selected_entities = c("Staurosporine", "Compound_A"))
 #' }
@@ -165,7 +162,6 @@ compare_plates_drc <- function(batch_drc_result,
                                colors            = NULL,
                                point_size        = NULL,
                                point_shapes      = NULL,
-                               shape_by_compound = FALSE,
                                error_bar_width   = 0.05,
                                selected_entities      = NULL,
                                min_plates             = 2,
@@ -455,7 +451,6 @@ compare_plates_drc <- function(batch_drc_result,
           colors            = colors,
           point_size        = point_size,
           point_shapes      = point_shapes,
-          shape_by_compound = shape_by_compound,
           error_bar_width   = error_bar_width,
           x_limits               = x_limits,
           x_limits_scale         = x_limits_scale,

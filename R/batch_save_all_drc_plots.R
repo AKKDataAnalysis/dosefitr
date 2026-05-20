@@ -45,8 +45,8 @@
 #'   image per plate containing all individual compound plots assembled with
 #'   \pkg{patchwork}.  Set to \code{FALSE} to skip panel generation.
 #' @param panel_ncol Integer. Number of columns in the panel grid (default \code{4}).
-#' @param panel_width_per_col Numeric. Width in inches per panel column (default \code{3.5}).
-#' @param panel_height_per_row Numeric. Height in inches per panel row (default \code{3.2}).
+#' @param panel_width_per_col Numeric. Width in inches per panel column (default \code{4}).
+#' @param panel_height_per_row Numeric. Height in inches per panel row (default \code{4}).
 #' @param ... Additional arguments passed to \code{plot_dose_response()}.
 #'
 #' @details
@@ -125,8 +125,8 @@ batch_save_all_drc_plots <- function(batch_drc_results,
                                      y_axis_title    = NULL,
                                      save_panel      = TRUE,
                                      panel_ncol      = 4L,
-                                     panel_width_per_col  = 3.5,
-                                     panel_height_per_row = 3.2,
+                                     panel_width_per_col  = 4,
+                                     panel_height_per_row = 4,
                                      ...) {
   
   # ============================================================================
@@ -367,10 +367,9 @@ batch_save_all_drc_plots <- function(batch_drc_results,
     # Create directory if it doesn't exist
     dir.create(dirname(output_path), showWarnings = FALSE, recursive = TRUE)
     
-    # Generate plot
-    tryCatch({
-      # Call plot_dose_response — capture the returned ggplot for panel assembly
-      p_single <- plot_dose_response(
+    # -- Step 1: save the individual plot (original behaviour) ---------------
+    individual_ok <- tryCatch({
+      plot_dose_response(
         results = info$results_obj,
         compound_index = info$index,
         save_plot = output_path,
@@ -384,18 +383,42 @@ batch_save_all_drc_plots <- function(batch_drc_results,
         point_size = point_size,
         y_limits     = y_limits,
         y_axis_title = y_axis_title,
-        ...  # Pass any additional arguments to plot_dose_response
+        ...
       )
-      successes <- successes + 1
-      # Collect for panel assembly (only when save_panel is TRUE and we got a ggplot)
-      if (save_panel && inherits(p_single, "gg")) {
-        plate_plots[[info$plate]] <<- c(plate_plots[[info$plate]], list(p_single))
-      }
+      successes <<- successes + 1
+      TRUE
     }, error = function(e) {
-      failures <- failures + 1
+      failures <<- failures + 1
       failed_list <<- c(failed_list, paste(info$plate, info$compound, sep = "/"))
       error_messages[[length(error_messages) + 1]] <<- paste(info$plate, info$compound, ":", e$message)
+      FALSE
     })
+    
+    # -- Step 2: collect ggplot for panel (only when individual plot succeeded) 
+    if (save_panel && individual_ok) {
+      p_panel <- tryCatch(
+        plot_dose_response(
+          results = info$results_obj,
+          compound_index = info$index,
+          save_plot = NULL,
+          plot_width = width,
+          plot_height = height,
+          plot_dpi = dpi,
+          point_color = point_color,
+          show_ic50_line = show_ic50_line,
+          verbose = FALSE,
+          plot_title = TRUE,   # always show title in panel so each sub-plot is labelled
+          point_size = point_size,
+          y_limits     = y_limits,
+          y_axis_title = y_axis_title,
+          ...
+        ),
+        error = function(e) NULL
+      )
+      if (inherits(p_panel, "gg")) {
+        plate_plots[[info$plate]] <- c(plate_plots[[info$plate]], list(p_panel))
+      }
+    }
     
     if (verbose) setTxtProgressBar(pb, i)
   }
@@ -517,4 +540,5 @@ batch_save_all_drc_plots <- function(batch_drc_results,
     timestamp = Sys.time()
   ))
 }
+
 
