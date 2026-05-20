@@ -41,6 +41,12 @@
 #'   or \code{"Luminescence"} for viability assays, \code{"Normalized BRET ratio [\%]"}
 #'   or \code{"BRET ratio"} for NanoBRET assays (depending on whether
 #'   \code{normalize} was \code{TRUE} or \code{FALSE}).
+#' @param save_panel Logical. If \code{TRUE} (default), saves one combined panel
+#'   image per plate containing all individual compound plots assembled with
+#'   \pkg{patchwork}.  Set to \code{FALSE} to skip panel generation.
+#' @param panel_ncol Integer. Number of columns in the panel grid (default \code{4}).
+#' @param panel_width_per_col Numeric. Width in inches per panel column (default \code{3.5}).
+#' @param panel_height_per_row Numeric. Height in inches per panel row (default \code{3.2}).
 #' @param ... Additional arguments passed to \code{plot_dose_response()}.
 #'
 #' @details
@@ -115,8 +121,12 @@ batch_save_all_drc_plots <- function(batch_drc_results,
                                      show_ic50_line = FALSE,
                                      plot_title = FALSE,
                                      point_size = 2,
-                                     y_limits     = NULL,
-                                     y_axis_title = NULL,
+                                     y_limits        = NULL,
+                                     y_axis_title    = NULL,
+                                     save_panel      = TRUE,
+                                     panel_ncol      = 4L,
+                                     panel_width_per_col  = 3.5,
+                                     panel_height_per_row = 3.2,
                                      ...) {
   
   # ============================================================================
@@ -126,6 +136,12 @@ batch_save_all_drc_plots <- function(batch_drc_results,
   # Check if required packages are installed
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
     stop("Package 'ggplot2' is required. Please install it.")
+  }
+  if (save_panel && !requireNamespace("patchwork", quietly = TRUE)) {
+    warning("Package 'patchwork' is required for panel assembly. ",
+            "Install it with install.packages('patchwork'). ",
+            "Individual plots will still be saved; panels will be skipped.")
+    save_panel <- FALSE
   }
   
   # Helper function for safe filename generation
@@ -323,6 +339,7 @@ batch_save_all_drc_plots <- function(batch_drc_results,
   failures <- 0
   failed_list <- character()
   error_messages <- list()
+  plate_plots   <- list()   # plate_name -> list of ggplot objects for panel
   
   # Progress bar
   if (verbose) {
@@ -352,9 +369,8 @@ batch_save_all_drc_plots <- function(batch_drc_results,
     
     # Generate plot
     tryCatch({
-      # Call plot_dose_response with the correct parameters
-      # Set point_color to black (default) and let other parameters pass through
-      plot_dose_response(
+      # Call plot_dose_response — capture the returned ggplot for panel assembly
+      p_single <- plot_dose_response(
         results = info$results_obj,
         compound_index = info$index,
         save_plot = output_path,
@@ -371,6 +387,10 @@ batch_save_all_drc_plots <- function(batch_drc_results,
         ...  # Pass any additional arguments to plot_dose_response
       )
       successes <- successes + 1
+      # Collect for panel assembly (only when save_panel is TRUE and we got a ggplot)
+      if (save_panel && inherits(p_single, "gg")) {
+        plate_plots[[info$plate]] <<- c(plate_plots[[info$plate]], list(p_single))
+      }
     }, error = function(e) {
       failures <- failures + 1
       failed_list <<- c(failed_list, paste(info$plate, info$compound, sep = "/"))
@@ -383,7 +403,58 @@ batch_save_all_drc_plots <- function(batch_drc_results,
   if (verbose) close(pb)
   
   # ============================================================================
-  # 5. SUMMARY AND RETURN
+  # 5. PANEL ASSEMBLY (one combined image per plate)
+  # ============================================================================
+  
+  panel_files <- character()
+  
+  if (save_panel && length(plate_plots) > 0L) {
+    if (verbose) message("\nAssembling panels...")
+    
+    for (plate_name in names(plate_plots)) {
+      plot_list <- plate_plots[[plate_name]]
+      n_plots   <- length(plot_list)
+      if (n_plots == 0L) next
+      
+      n_cols_panel <- min(panel_ncol, n_plots)
+      n_rows_panel <- ceiling(n_plots / n_cols_panel)
+      panel_w      <- n_cols_panel * panel_width_per_col
+      panel_h      <- n_rows_panel * panel_height_per_row + 0.6  # +0.6 for title
+      
+      combined <- patchwork::wrap_plots(plot_list, ncol = n_cols_panel) +
+        patchwork::plot_annotation(
+          title = plate_name,
+          theme = ggplot2::theme(
+            plot.title = ggplot2::element_text(
+              size = 13, face = "bold", hjust = 0.5)
+          )
+        )
+      
+      # Save panel next to the individual plots
+      panel_filename <- paste0(safe_filename(plate_name), "_panel.", format)
+      panel_path <- switch(organize_by,
+                           plate   = file.path(output_dir, safe_filename(plate_name), panel_filename),
+                           compound = file.path(output_dir, panel_filename),
+                           flat     = file.path(output_dir, panel_filename)
+      )
+      
+      tryCatch({
+        ggplot2::ggsave(panel_path, combined,
+                        width = panel_w, height = panel_h,
+                        dpi = dpi, bg = "white")
+        panel_files <- c(panel_files, panel_path)
+        if (verbose) message(sprintf("  Panel saved: %s  (%d plots, %.0fx%.0f in)",
+                                     basename(panel_path), n_plots,
+                                     panel_w, panel_h))
+      }, error = function(e) {
+        warning(sprintf("Failed to save panel for plate '%s': %s",
+                        plate_name, e$message))
+      })
+    }
+  }
+  
+  # ============================================================================
+  # 6. SUMMARY AND RETURN
   # ============================================================================
   
   if (verbose) {
@@ -430,7 +501,7 @@ batch_save_all_drc_plots <- function(batch_drc_results,
   }
   
   # ============================================================================
-  # 6. RETURN INVISIBLE SUMMARY
+  # 7. RETURN INVISIBLE SUMMARY
   # ============================================================================
   
   invisible(list(
@@ -442,6 +513,8 @@ batch_save_all_drc_plots <- function(batch_drc_results,
     output_dir = output_dir,
     organization = organize_by,
     point_color = point_color,
+    panel_files = panel_files,
     timestamp = Sys.time()
   ))
 }
+

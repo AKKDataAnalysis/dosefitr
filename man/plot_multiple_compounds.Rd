@@ -19,7 +19,6 @@ plot_multiple_compounds(
   show_ic50_lines = FALSE,
   legend_position = "right",
   show_legend = TRUE,
-  shape_by_compound = FALSE,
   show_grid = FALSE,
   show_border = FALSE,
   transparent_background = FALSE,
@@ -100,10 +99,6 @@ corresponding curve.  Lines are only drawn for compounds with a valid
 \code{"top"}, \code{"bottom"}, or \code{"none"}. Default: \code{"right"}.}
 
 \item{show_legend}{Logical indicating whether to display the legend}
-
-\item{shape_by_compound}{Logical; if TRUE, uses different point shapes to distinguish
-compounds in addition to colors. Useful for colorblind accessibility or grayscale
-printing.}
 
 \item{show_grid}{Logical indicating whether to show background grid lines}
 

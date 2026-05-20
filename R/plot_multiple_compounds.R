@@ -34,9 +34,6 @@
 #' @param color_palette A character string specifying a named palette to use when `colors`
 #'   is `TRUE` or NULL. See Details for comprehensive list of available palettes including
 #'   scientific journals, colorblind-friendly options, and gradient schemes.
-#' @param shape_by_compound Logical; if TRUE, uses different point shapes to distinguish
-#'   compounds in addition to colors. Useful for colorblind accessibility or grayscale
-#'   printing.
 #' @param legend_position Position of the legend: one of `"right"`, `"left"`,
 #'   `"top"`, `"bottom"`, or `"none"`. Default: `"right"`.
 #' @param show_grid Logical indicating whether to show background grid lines
@@ -307,7 +304,6 @@ plot_multiple_compounds <- function(results,
                                     show_ic50_lines = FALSE,
                                     legend_position = "right",
                                     show_legend = TRUE,
-                                    shape_by_compound = FALSE,
                                     show_grid = FALSE,
                                     show_border = FALSE,
                                     transparent_background = FALSE,
@@ -1420,15 +1416,23 @@ plot_multiple_compounds <- function(results,
   # ============================================================================
   
   # Point shape selection
-  if (is.null(point_shapes)) {
-    optimal_shapes <- c(16, 17, 15, 18, 8, 1, 2, 0, 5, 6, 7, 10, 11, 12, 13, 14)
-    
-    if (n_valid_compounds <= 6) {
-      point_shapes <- optimal_shapes[1:n_valid_compounds]
+  # point_shapes = TRUE  → default optimal shapes, one per compound
+  # point_shapes = NULL  → all points use shape 16 (filled circle), no per-compound mapping
+  # point_shapes = <vec> → custom shapes, recycled to cover all compounds
+  optimal_shapes <- c(16, 17, 15, 18, 8, 1, 2, 0, 5, 6, 7, 10, 11, 12, 13, 14)
+  
+  if (isTRUE(point_shapes)) {
+    use_shape_mapping <- TRUE
+    point_shapes <- if (n_valid_compounds <= length(optimal_shapes)) {
+      optimal_shapes[1:n_valid_compounds]
     } else {
-      point_shapes <- rep(optimal_shapes, length.out = n_valid_compounds)
+      rep(optimal_shapes, length.out = n_valid_compounds)
     }
+  } else if (is.null(point_shapes)) {
+    use_shape_mapping <- FALSE
+    point_shapes <- rep(16L, n_valid_compounds)
   } else {
+    use_shape_mapping <- TRUE
     point_shapes <- rep(point_shapes, length.out = n_valid_compounds)
   }
   
@@ -1594,7 +1598,7 @@ plot_multiple_compounds <- function(results,
                        linewidth = curve_linewidth, alpha = curve_alpha)
   
   if (nrow(plot_data$points) > 0) {
-    if (shape_by_compound) {
+    if (use_shape_mapping) {
       p <- p +
         ggplot2::geom_point(data = plot_data$points,
                             ggplot2::aes(x = log_inhibitor, y = mean_response,
@@ -1665,8 +1669,8 @@ plot_multiple_compounds <- function(results,
     title = legend_title_final
   )
   
-  # Add shapes to override when shape_by_compound is active
-  if (nrow(plot_data$points) > 0 && shape_by_compound) {
+  # Add shapes to legend override when shape mapping is active
+  if (nrow(plot_data$points) > 0 && use_shape_mapping) {
     guide_args$override.aes$shape <- point_shapes[1:n_valid_compounds]
   }
   
@@ -1788,7 +1792,6 @@ plot_multiple_compounds <- function(results,
     x_limits = x_limits,
     plot_dimensions = c(width = plot_width, height = plot_height, dpi = plot_dpi),
     file_saved = if (!is.null(save_plot)) filename else NULL,
-    shape_by_compound = shape_by_compound,
     show_grid = show_grid,
     available_palettes = list_available_palettes()
   )

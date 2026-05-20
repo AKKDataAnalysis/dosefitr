@@ -21,6 +21,10 @@ batch_save_all_drc_plots(
   point_size = 2,
   y_limits = NULL,
   y_axis_title = NULL,
+  save_panel = TRUE,
+  panel_ncol = 4L,
+  panel_width_per_col = 3.5,
+  panel_height_per_row = 3.2,
   ...
 )
 }
@@ -74,6 +78,16 @@ to its own data range.  Passed directly to \code{plot_dose_response()}.}
 or \code{"Luminescence"} for viability assays, \code{"Normalized BRET ratio [\%]"}
 or \code{"BRET ratio"} for NanoBRET assays (depending on whether
 \code{normalize} was \code{TRUE} or \code{FALSE}).}
+
+\item{save_panel}{Logical. If \code{TRUE} (default), saves one combined panel
+image per plate containing all individual compound plots assembled with
+\pkg{patchwork}.  Set to \code{FALSE} to skip panel generation.}
+
+\item{panel_ncol}{Integer. Number of columns in the panel grid (default \code{4}).}
+
+\item{panel_width_per_col}{Numeric. Width in inches per panel column (default \code{3.5}).}
+
+\item{panel_height_per_row}{Numeric. Height in inches per panel row (default \code{3.2}).}
 
 \item{...}{Additional arguments passed to \code{plot_dose_response()}.}
 }
