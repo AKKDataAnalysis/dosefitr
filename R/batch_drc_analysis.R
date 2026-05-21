@@ -187,7 +187,7 @@ batch_drc_analysis <- function(batch_results,
   # 2. INTERNAL FUNCTIONS
   # ============================================================================
   
-  generate_drc_batch_report <- function(drc_results, main_dir, sub_dir, verbose = TRUE) {
+  generate_drc_batch_report <- function(drc_results, batch_results, main_dir, sub_dir, verbose = TRUE) {
     
     # Helper for safe Excel sheet names
     get_safe_sheet_name <- function(base_name, suffix = "", existing_names = c()) {
@@ -270,6 +270,22 @@ batch_drc_analysis <- function(batch_results,
       res_root <- plate_res_obj$drc_result
       detailed_res <- res_root$detailed_results %||% res_root$curve_results %||% res_root$fits
       if (!is.list(detailed_res)) detailed_res <- list()
+      
+      # Build a per-compound outlier count lookup for this plate.
+      # outliers_replaced is an attribute on modified_ratio_table set by
+      # rout_outliers_batch(). It lives on batch_results (the input to
+      # batch_drc_analysis), not on drc_results (the DRC fit output).
+      # Its $column field holds the full column name (e.g. "KinaseA:Cpd1.2");
+      # we strip the replicate suffix to get the base compound name and count
+      # rows per base name. When outlier detection was not run -> all 0.
+      mrt_for_outliers <- batch_results[[plate_name]]$result$modified_ratio_table
+      or_attr <- attr(mrt_for_outliers, "outliers_replaced")
+      outlier_counts <- if (!is.null(or_attr) && nrow(or_attr) > 0L) {
+        base_names <- sub("\\.\\d+$", "", or_attr$column)
+        tapply(seq_len(nrow(or_attr)), base_names, length)
+      } else {
+        integer(0)
+      }
       
       if (length(detailed_res) > 0) {
         
@@ -488,6 +504,15 @@ batch_drc_analysis <- function(batch_results,
           ic50_nM_final <- if (is_nd) "N/D" else ic50_nM_display
           pic50_final   <- if (is_nd) "N/D" else as.character(round(pic50, 3))
           
+          # Count outliers removed for this compound (base name match)
+          compound_base_name <- res$compound %||% ""
+          n_outliers_removed <- if (length(outlier_counts) > 0L &&
+                                    compound_base_name %in% names(outlier_counts)) {
+            as.integer(outlier_counts[[compound_base_name]])
+          } else {
+            0L
+          }
+          
           pharm_list[[length(pharm_list) + 1]] <- data.frame(
             Plate = plate_name,
             Construct = construct_name,
@@ -500,6 +525,7 @@ batch_drc_analysis <- function(batch_results,
             CI_95_Lower = round(pic50_diff_lower, 3),
             Ideal_Hill_Slope = round(ideal_hill, 3),
             Normalized_Span = round(span_ratio, 3),
+            Outliers_Removed = n_outliers_removed,
             Warning = final_warnings,
             Exclusion = final_exclusions,
             stringsAsFactors = FALSE
@@ -809,7 +835,7 @@ batch_drc_analysis <- function(batch_results,
       message("Generating consolidated reports...")
     }
     tryCatch({
-      report_info <- generate_drc_batch_report(drc_results, output_dir, detailed_dir, verbose)
+      report_info <- generate_drc_batch_report(drc_results, batch_results, output_dir, detailed_dir, verbose)
     }, error = function(e) {
       warning("Failed to generate master reports: ", e$message)
     })

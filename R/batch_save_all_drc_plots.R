@@ -335,11 +335,15 @@ batch_save_all_drc_plots <- function(batch_drc_results,
   if (verbose) message("\nGenerating plots...")
   
   total <- length(compounds_list)
-  successes <- 0
-  failures <- 0
-  failed_list <- character()
-  error_messages <- list()
-  plate_plots   <- list()   # plate_name -> list of ggplot objects for panel
+  
+  # Use a local environment for mutable state inside tryCatch handlers.
+  # This avoids <<- leaking variables into the caller's global environment.
+  state <- new.env(parent = emptyenv())
+  state$successes     <- 0L
+  state$failures      <- 0L
+  state$failed_list   <- character()
+  state$error_messages <- list()
+  state$plate_plots   <- list()   # plate_name -> list of ggplot objects for panel
   
   # Progress bar
   if (verbose) {
@@ -367,12 +371,12 @@ batch_save_all_drc_plots <- function(batch_drc_results,
     # Create directory if it doesn't exist
     dir.create(dirname(output_path), showWarnings = FALSE, recursive = TRUE)
     
-    # -- Step 1: save the individual plot (original behaviour) ---------------
-    individual_ok <- tryCatch({
-      plot_dose_response(
+    tryCatch({
+      # Individual plot - respects the user's plot_title setting
+      p_single <- plot_dose_response(
         results = info$results_obj,
         compound_index = info$index,
-        save_plot = output_path,
+        save_plot = NULL,
         plot_width = width,
         plot_height = height,
         plot_dpi = dpi,
@@ -385,43 +389,55 @@ batch_save_all_drc_plots <- function(batch_drc_results,
         y_axis_title = y_axis_title,
         ...
       )
-      successes <<- successes + 1
-      TRUE
-    }, error = function(e) {
-      failures <<- failures + 1
-      failed_list <<- c(failed_list, paste(info$plate, info$compound, sep = "/"))
-      error_messages[[length(error_messages) + 1]] <<- paste(info$plate, info$compound, ":", e$message)
-      FALSE
-    })
-    
-    # -- Step 2: collect ggplot for panel (only when individual plot succeeded) 
-    if (save_panel && individual_ok) {
-      p_panel <- tryCatch(
-        plot_dose_response(
-          results = info$results_obj,
-          compound_index = info$index,
-          save_plot = NULL,
-          plot_width = width,
-          plot_height = height,
-          plot_dpi = dpi,
-          point_color = point_color,
-          show_ic50_line = show_ic50_line,
-          verbose = FALSE,
-          plot_title = TRUE,   # always show title in panel so each sub-plot is labelled
-          point_size = point_size,
-          y_limits     = y_limits,
-          y_axis_title = y_axis_title,
-          ...
-        ),
-        error = function(e) NULL
-      )
-      if (inherits(p_panel, "gg")) {
-        plate_plots[[info$plate]] <- c(plate_plots[[info$plate]], list(p_panel))
+      
+      # Save individual file
+      ggplot2::ggsave(output_path, plot = p_single,
+                      width = width, height = height,
+                      dpi = dpi, bg = "white")
+      
+      state$successes <- state$successes + 1L
+      
+      # Panel version always has plot_title = TRUE so sub-plots are labelled,
+      # regardless of what the user chose for the individual files.
+      if (save_panel) {
+        p_panel <- if (isTRUE(plot_title)) {
+          p_single   # already has a title - reuse without a second call
+        } else {
+          plot_dose_response(
+            results = info$results_obj,
+            compound_index = info$index,
+            save_plot = NULL,
+            plot_width = width,
+            plot_height = height,
+            plot_dpi = dpi,
+            point_color = point_color,
+            show_ic50_line = show_ic50_line,
+            verbose = FALSE,
+            plot_title = TRUE,
+            point_size = point_size,
+            y_limits     = y_limits,
+            y_axis_title = y_axis_title,
+            ...
+          )
+        }
+        state$plate_plots[[info$plate]] <- c(state$plate_plots[[info$plate]], list(p_panel))
       }
-    }
+    }, error = function(e) {
+      state$failures      <- state$failures + 1L
+      state$failed_list   <- c(state$failed_list, paste(info$plate, info$compound, sep = "/"))
+      state$error_messages <- c(state$error_messages,
+                                list(paste(info$plate, info$compound, ":", e$message)))
+    })
     
     if (verbose) setTxtProgressBar(pb, i)
   }
+  
+  # Extract state back to plain variables for the rest of the function
+  successes     <- state$successes
+  failures      <- state$failures
+  failed_list   <- state$failed_list
+  error_messages <- state$error_messages
+  plate_plots   <- state$plate_plots
   
   if (verbose) close(pb)
   
@@ -444,14 +460,7 @@ batch_save_all_drc_plots <- function(batch_drc_results,
       panel_w      <- n_cols_panel * panel_width_per_col
       panel_h      <- n_rows_panel * panel_height_per_row + 0.6  # +0.6 for title
       
-      combined <- patchwork::wrap_plots(plot_list, ncol = n_cols_panel) +
-        patchwork::plot_annotation(
-          title = plate_name,
-          theme = ggplot2::theme(
-            plot.title = ggplot2::element_text(
-              size = 13, face = "bold", hjust = 0.5)
-          )
-        )
+      combined <- patchwork::wrap_plots(plot_list, ncol = n_cols_panel)
       
       # Save panel next to the individual plots
       panel_filename <- paste0(safe_filename(plate_name), "_panel.", format)
