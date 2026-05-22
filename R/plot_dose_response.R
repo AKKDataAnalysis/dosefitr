@@ -430,11 +430,11 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
     ggplot2::annotate("segment",
                       x = x_lo, xend = x_hi,
                       y = y_limits[1], yend = y_limits[1],
-                      colour = "black", linewidth = 0.5) +
+                      colour = "black", linewidth = 1) +
     ggplot2::annotate("segment",
                       x = x_lo, xend = x_lo,
                       y = y_limits[1], yend = y_limits[2],
-                      colour = "black", linewidth = 0.5)
+                      colour = "black", linewidth = 1)
   
   # Add experimental data points
   p <- p +
