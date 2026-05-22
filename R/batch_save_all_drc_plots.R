@@ -353,19 +353,19 @@ batch_save_all_drc_plots <- function(batch_drc_results,
   for (i in seq_along(compounds_list)) {
     info <- compounds_list[[i]]
     
-    # Determine output path based on organization
+    # Filenames always use the full Construct_Compound name to guarantee
+    # uniqueness when the same compound is tested against multiple constructs.
+    base_name <- safe_filename(info$compound_full)
+    
     if (organize_by == "plate") {
-      # plate/compound.format
-      filename <- paste0(safe_filename(info$compound), ".", format)
-      output_path <- file.path(output_dir, safe_filename(info$plate), filename)
+      output_path <- file.path(output_dir, safe_filename(info$plate),
+                               paste0(base_name, ".", format))
     } else if (organize_by == "compound") {
-      # compound/plate.format
-      filename <- paste0(safe_filename(info$plate), "_", safe_filename(info$compound), ".", format)
-      output_path <- file.path(output_dir, safe_filename(info$compound), filename)
+      output_path <- file.path(output_dir, safe_filename(info$compound),
+                               paste0(safe_filename(info$plate), "_", base_name, ".", format))
     } else {
-      # flat: plate_compound.format
-      filename <- paste0(safe_filename(info$plate), "_", safe_filename(info$compound), ".", format)
-      output_path <- file.path(output_dir, filename)
+      output_path <- file.path(output_dir,
+                               paste0(safe_filename(info$plate), "_", base_name, ".", format))
     }
     
     # Create directory if it doesn't exist
