@@ -401,22 +401,40 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
       y = plot_config$y_lab,
       title = final_title
     ) +
-    ggplot2::scale_y_continuous(limits = y_limits,
-                                expand = ggplot2::expansion(mult = c(0, 0.04))) +
+    ggplot2::scale_y_continuous(expand = c(0, 0)) +
     ggplot2::scale_x_continuous(expand = c(0, 0)) +
+    ggplot2::coord_cartesian(ylim = y_limits, clip = "on") +
     ggplot2::theme_minimal() +
     ggplot2::theme(
       axis.title = ggplot2::element_text(size = axis_label_size, face = "bold", color = "black"),
       axis.text = ggplot2::element_text(size = axis_text_size, color = "black"),
-      axis.line = ggplot2::element_line(color = "black"),
+      axis.line = ggplot2::element_blank(),
       axis.ticks = ggplot2::element_line(color = "black"),
       plot.title = ggplot2::element_text(size = axis_label_size + 2, face = "bold", hjust = 0.5, color = "black"),
       legend.position = "none",
       panel.grid.major = ggplot2::element_line(color = ifelse(show_grid, "grey90", "white")),
       panel.grid.minor = ggplot2::element_line(color = ifelse(show_grid, "grey95", "white")),
       panel.background = ggplot2::element_rect(fill = "white", color = NA),
-      plot.background = ggplot2::element_rect(fill = "white", color = NA)
+      plot.background = ggplot2::element_rect(fill = "white", color = NA),
+      panel.border = ggplot2::element_blank(),
+      plot.margin = ggplot2::margin(t = 12, r = 8, b = 8, l = 8, unit = "pt")
     )
+  
+  # Draw axis lines manually so they stop exactly at the data limits.
+  # ggplot2's axis.line element always spans the full panel edge regardless of
+  # coord_cartesian / expand, so we blank it above and draw our own here.
+  x_range_data <- range(summary_data$log_inhibitor, na.rm = TRUE)
+  x_lo <- x_range_data[1] - diff(x_range_data) * 0.02   # mirrors expand mult
+  x_hi <- x_range_data[2] + diff(x_range_data) * 0.02
+  p <- p +
+    ggplot2::annotate("segment",
+                      x = x_lo, xend = x_hi,
+                      y = y_limits[1], yend = y_limits[1],
+                      colour = "black", linewidth = 0.5) +
+    ggplot2::annotate("segment",
+                      x = x_lo, xend = x_lo,
+                      y = y_limits[1], yend = y_limits[2],
+                      colour = "black", linewidth = 0.5)
   
   # Add experimental data points
   p <- p +
