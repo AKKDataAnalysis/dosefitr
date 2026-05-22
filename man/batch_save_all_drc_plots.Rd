@@ -23,8 +23,9 @@ batch_save_all_drc_plots(
   y_axis_title = NULL,
   save_panel = TRUE,
   panel_ncol = 4L,
-  panel_width_per_col = 4,
-  panel_height_per_row = 4,
+  panel_width_per_col = 6,
+  panel_height_per_row = 6,
+  subplot_title = "auto",
   ...
 )
 }
@@ -88,6 +89,14 @@ image per plate containing all individual compound plots assembled with
 \item{panel_width_per_col}{Numeric. Width in inches per panel column (default \code{4}).}
 
 \item{panel_height_per_row}{Numeric. Height in inches per panel row (default \code{4}).}
+
+\item{subplot_title}{Character. Controls what text is used as the title of
+each compound sub-plot inside the panel. One of \code{"auto"} (default),
+\code{"full"} (e.g. \code{"KinaseA:Cpd1"}), \code{"compound"} (e.g.
+\code{"Cpd1"}), or \code{"construct"} (e.g. \code{"KinaseA"}).
+\code{"auto"} mirrors the same logic used for individual plots: shows only
+the compound name when all compounds in the batch share a single construct,
+and the full \code{Construct:Compound} string otherwise.}
 
 \item{...}{Additional arguments passed to \code{plot_dose_response()}.}
 }

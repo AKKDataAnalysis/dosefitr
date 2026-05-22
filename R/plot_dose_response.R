@@ -182,41 +182,41 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
                                plot_title = TRUE,
                                enforce_bottom_threshold = NULL, bottom_threshold = 60,
                                verbose = FALSE) {
-
+  
   # Check if required packages are installed
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
     stop("ggplot2 package is required. Please install it with: install.packages('ggplot2')")
   }
-
+  
   # Input validation
   validate_inputs <- function(results, compound_index) {
     if (missing(results)) {
       stop("Argument 'results' is required")
     }
-
+    
     if (!is.list(results) || !"detailed_results" %in% names(results)) {
       stop("Invalid 'results' object. Must be output from fit function")
     }
-
+    
     if (length(results$detailed_results) == 0) {
       stop("No compounds found in results object")
     }
-
+    
     if (compound_index < 1 || compound_index > length(results$detailed_results)) {
       stop("Compound index ", compound_index, " out of range. Must be between 1 and ",
            length(results$detailed_results))
     }
   }
-
+  
   validate_inputs(results, compound_index)
-
+  
   # Extract compound data
   result <- results$detailed_results[[compound_index]]
-
+  
   if (!is.list(result) || !"data" %in% names(result)) {
     stop("Invalid result structure for compound ", compound_index)
   }
-
+  
   # Use threshold settings from results if not explicitly provided
   if (is.null(enforce_bottom_threshold)) {
     enforce_bottom_threshold <- if (!is.null(results$threshold_settings) &&
@@ -226,7 +226,7 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
       FALSE
     }
   }
-
+  
   if (is.null(bottom_threshold)) {
     bottom_threshold <- if (!is.null(results$threshold_settings) &&
                             !is.null(results$threshold_settings$bottom_threshold)) {
@@ -235,14 +235,14 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
       60
     }
   }
-
+  
   # Clean and validate data
   clean_data <- stats::na.omit(result$data)
   required_cols <- c("log_inhibitor", "response")
   if (nrow(clean_data) == 0 || !all(required_cols %in% names(clean_data))) {
     stop("No valid data points available or missing required columns")
   }
-
+  
   # Calculate summary statistics (mean +- SD per concentration)
   calculate_summary_stats <- function(data) {
     summary_data <- do.call(rbind, lapply(split(data, data$log_inhibitor), function(sub_df) {
@@ -256,24 +256,24 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
     }))
     stats::na.omit(summary_data)
   }
-
+  
   summary_data <- calculate_summary_stats(clean_data)
-
+  
   if (nrow(summary_data) == 0) {
     stop("No valid summary data available for plotting")
   }
-
+  
   # Extract compound name (remove plate info if present)
   compound_name_display <- strsplit(result$compound, " \\| ")[[1]][1]
-
+  
   # Check if IC50 was excluded due to threshold
   ic50_excluded <- FALSE
   if (!is.null(enforce_bottom_threshold) && isTRUE(enforce_bottom_threshold)) {
     comp_name <- strsplit(result$compound, " \\| ")[[1]][1]
-
+    
     if (!is.null(results$summary_table) && "Compound" %in% names(results$summary_table)) {
       summary_row <- results$summary_table[results$summary_table$Compound == comp_name, ]
-
+      
       if (nrow(summary_row) > 0 && !is.null(summary_row$IC50)) {
         ic50_value <- summary_row$IC50
         ic50_excluded <- is.na(ic50_value) ||
@@ -283,7 +283,7 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
       }
     }
   }
-
+  
   # Setup plot configuration
   setup_plot_config <- function() {
     x_lab <- if (!is.null(x_axis_title)) {
@@ -291,13 +291,13 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
     } else {
       expression(paste("Log"[10], " Concentration [M]"))
     }
-
+    
     y_lab <- if (!is.null(y_axis_title)) {
       y_axis_title
     } else {
       ifelse(results$normalized, "Normalized BRET ratio [%]", "BRET ratio")
     }
-
+    
     list(
       x_lab = x_lab,
       y_lab = y_lab,
@@ -310,48 +310,48 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
       axis_text_size = axis_text_size
     )
   }
-
+  
   plot_config <- setup_plot_config()
-
+  
   # Generate fitted curve data
   generate_fitted_curve <- function(model) {
     if (is.null(model)) return(NULL)
-
+    
     x_range <- range(summary_data$log_inhibitor, na.rm = TRUE)
     if (!all(is.finite(x_range))) return(NULL)
-
+    
     x_seq <- seq(x_range[1], x_range[2], length.out = 300)
-
+    
     predictions <- tryCatch({
       predict(model, newdata = data.frame(log_inhibitor = x_seq))
     }, error = function(e) NULL)
-
+    
     if (!is.null(predictions)) {
       data.frame(log_inhibitor = x_seq, response = predictions)
     }
   }
-
+  
   # Get IC50 value for vertical line
   get_ic50_value <- function(model) {
     if (is.null(model)) return(NA)
-
+    
     tryCatch({
       coefs <- stats::coef(model)
       if ("LogIC50" %in% names(coefs)) coefs["LogIC50"] else NA
     }, error = function(e) NA)
   }
-
+  
   # Create legend text
   create_legend_content <- function(model = NULL) {
     if (!show_legend) return(NULL)
-
+    
     if (!is.null(model) && isTRUE(result$success)) {
       log_ic50 <- get_ic50_value(model)
       ic50_value <- if (is.finite(log_ic50)) 10^log_ic50 else NA
       r_squared <- round(result$goodness_of_fit$R_squared, 3)
-
+      
       legend_text <- c()
-
+      
       if (!is.null(ic50_excluded) && ic50_excluded) {
         legend_text <- c(legend_text, "LogIC50 = NA (threshold)")
         legend_text <- c(legend_text, "IC50 = NA (threshold)")
@@ -362,28 +362,28 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
         legend_text <- c(legend_text, "LogIC50 = NA")
         legend_text <- c(legend_text, "IC50 = NA")
       }
-
+      
       legend_text <- c(legend_text, paste("R2 =", r_squared))
-
+      
       return(legend_text)
-
+      
     } else {
       return("Model did not converge")
     }
   }
-
+  
   # Model status and data preparation
   model_success <- !is.null(result$model) && isTRUE(result$success)
   curve_data <- if (model_success) generate_fitted_curve(result$model) else NULL
   log_ic50 <- if (model_success) get_ic50_value(result$model) else NA
   legend_content <- create_legend_content(if (model_success) result$model else NULL)
-
+  
   # ============================================================================
   # Determine the title based on argument plot_title
   # ============================================================================
-
+  
   final_title <- NULL
-
+  
   if (is.character(plot_title)) {
     final_title <- plot_title
   } else if (isTRUE(plot_title)) {
@@ -393,7 +393,7 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
       final_title <- paste(compound_name_display, "(Model failed)")
     }
   }
-
+  
   # Create base plot with professional styling
   p <- ggplot2::ggplot() +
     ggplot2::labs(
@@ -401,7 +401,9 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
       y = plot_config$y_lab,
       title = final_title
     ) +
-    ggplot2::coord_cartesian(ylim = y_limits) +
+    ggplot2::scale_y_continuous(limits = y_limits,
+                                expand = ggplot2::expansion(mult = c(0, 0.04))) +
+    ggplot2::scale_x_continuous(expand = c(0, 0)) +
     ggplot2::theme_minimal() +
     ggplot2::theme(
       axis.title = ggplot2::element_text(size = axis_label_size, face = "bold", color = "black"),
@@ -415,7 +417,7 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
       panel.background = ggplot2::element_rect(fill = "white", color = NA),
       plot.background = ggplot2::element_rect(fill = "white", color = NA)
     )
-
+  
   # Add experimental data points
   p <- p +
     ggplot2::geom_point(
@@ -424,13 +426,13 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
       color = point_color,
       size = point_size * 2
     )
-
+  
   # Add error bars for replicates
   valid_mask <- !is.na(summary_data$sd_response) &
     is.finite(summary_data$sd_response) &
     summary_data$n_replicates > 1 &
     summary_data$sd_response > 1e-10
-
+  
   if (any(valid_mask)) {
     valid_data <- summary_data[valid_mask, ]
     p <- p +
@@ -446,7 +448,7 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
         linewidth = 0.8
       )
   }
-
+  
   # Add fitted curve if model was successful
   if (!is.null(curve_data)) {
     p <- p +
@@ -457,7 +459,7 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
         linewidth = line_width / 2
       )
   }
-
+  
   # Add IC50 line only if valid IC50 exists
   if (show_ic50_line && is.finite(log_ic50) &&
       !(!is.null(ic50_excluded) && ic50_excluded)) {
@@ -469,15 +471,15 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
         linewidth = 0.8
       )
   }
-
+  
   # Add legend as text annotation (left-aligned)
   if (show_legend && !is.null(legend_content)) {
     x_range <- range(summary_data$log_inhibitor, na.rm = TRUE)
     y_range <- y_limits
-
+    
     x_pos <- x_range[1] + diff(x_range) * 0.02
     y_pos <- y_range[1] + diff(y_range) * 0.1
-
+    
     for (i in seq_along(legend_content)) {
       p <- p +
         ggplot2::annotate(
@@ -492,7 +494,7 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
         )
     }
   }
-
+  
   # Save plot if requested
   if (!is.null(save_plot)) {
     if (is.character(save_plot)) {
@@ -503,12 +505,12 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
     } else {
       stop("save_plot must be either a file path or TRUE for auto-naming")
     }
-
+    
     plot_dir <- dirname(filename)
     if (plot_dir != "." && !dir.exists(plot_dir)) {
       dir.create(plot_dir, recursive = TRUE, showWarnings = FALSE)
     }
-
+    
     ggplot2::ggsave(
       filename = filename,
       plot = p,
@@ -517,12 +519,12 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
       dpi = plot_dpi,
       bg = "white"
     )
-
+    
     if (verbose) {
       message("Plot saved as: ", normalizePath(filename))
     }
   }
-
+  
   # Return plot with comprehensive metadata
   metadata <- list(
     compound_name = compound_name_display,
@@ -540,7 +542,7 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
     log_ic50 = if (model_success) log_ic50 else NA,
     title_mode = if (is.character(plot_title)) "custom" else if (isTRUE(plot_title)) "auto" else "none"
   )
-
+  
   attr(p, "metadata") <- metadata
   return(p)
 }

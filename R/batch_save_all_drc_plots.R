@@ -44,6 +44,13 @@
 #' @param save_panel Logical. If \code{TRUE} (default), saves one combined panel
 #'   image per plate containing all individual compound plots assembled with
 #'   \pkg{patchwork}.  Set to \code{FALSE} to skip panel generation.
+#' @param subplot_title Character. Controls what text is used as the title of
+#'   each compound sub-plot inside the panel. One of \code{"auto"} (default),
+#'   \code{"full"} (e.g. \code{"KinaseA:Cpd1"}), \code{"compound"} (e.g.
+#'   \code{"Cpd1"}), or \code{"construct"} (e.g. \code{"KinaseA"}).
+#'   \code{"auto"} mirrors the same logic used for individual plots: shows only
+#'   the compound name when all compounds in the batch share a single construct,
+#'   and the full \code{Construct:Compound} string otherwise.
 #' @param panel_ncol Integer. Number of columns in the panel grid (default \code{4}).
 #' @param panel_width_per_col Numeric. Width in inches per panel column (default \code{4}).
 #' @param panel_height_per_row Numeric. Height in inches per panel row (default \code{4}).
@@ -125,8 +132,9 @@ batch_save_all_drc_plots <- function(batch_drc_results,
                                      y_axis_title    = NULL,
                                      save_panel      = TRUE,
                                      panel_ncol      = 4L,
-                                     panel_width_per_col  = 4,
-                                     panel_height_per_row = 4,
+                                     panel_width_per_col  = 6,
+                                     panel_height_per_row = 6,
+                                     subplot_title = "auto",
                                      ...) {
   
   # ============================================================================
@@ -235,6 +243,22 @@ batch_save_all_drc_plots <- function(batch_drc_results,
     dir.create(output_dir, recursive = TRUE)
   }
   
+  subplot_title <- match.arg(subplot_title, c("auto", "full", "compound", "construct"))
+  
+  # Helper: derive a display label from a raw "Construct:Compound" string
+  # given an explicit mode (never "auto" — resolve that before calling).
+  .label_for_mode <- function(compound_string, mode) {
+    parts <- strsplit(compound_string, ":", fixed = TRUE)[[1L]]
+    switch(mode,
+           full      = compound_string,
+           compound  = if (length(parts) >= 2L) parts[[2L]] else compound_string,
+           construct = if (length(parts) >= 2L) parts[[1L]] else compound_string
+    )
+  }
+  
+  # Resolved at scan-time (after compounds_list is built):
+  # single_construct_batch and effective_subplot_mode are set below.
+  
   # ============================================================================
   # 2. SCAN FOR VALID COMPOUNDS ACROSS ALL PLATES
   # ============================================================================
@@ -306,6 +330,28 @@ batch_save_all_drc_plots <- function(batch_drc_results,
     message("  - Compounds: ", length(unique(sapply(compounds_list, function(x) x$compound))))
   }
   
+  # ── Auto-detect: resolve the best title mode from batch composition ─────────
+  # Used by plot_title = TRUE (individual plots) and subplot_title = "auto" (panel).
+  #   1 construct, N compounds  -> "compound"   (construct is constant, redundant)
+  #   N constructs, 1 compound  -> "construct"  (compound is constant, redundant)
+  #   N constructs, N compounds -> "full"        (need both to distinguish)
+  #   1 construct,  1 compound  -> "compound"   (degenerate; either works)
+  all_constructs      <- unique(sapply(compounds_list, function(x) x$construct))
+  all_compounds       <- unique(sapply(compounds_list, function(x) x$compound))
+  single_construct_batch <- length(all_constructs) == 1L
+  single_compound_batch  <- length(all_compounds)  == 1L
+  
+  auto_mode <- if (single_construct_batch) {
+    "compound"    # one construct — compound name is the distinguishing label
+  } else if (single_compound_batch) {
+    "construct"   # one compound  — construct name is the distinguishing label
+  } else {
+    "full"        # many of both  — need Construct:Compound
+  }
+  
+  # Resolve effective panel mode now that we know the batch composition.
+  effective_subplot_mode <- if (subplot_title == "auto") auto_mode else subplot_title
+  
   # ============================================================================
   # 3. CREATE DIRECTORY STRUCTURE
   # ============================================================================
@@ -372,7 +418,14 @@ batch_save_all_drc_plots <- function(batch_drc_results,
     dir.create(dirname(output_path), showWarnings = FALSE, recursive = TRUE)
     
     tryCatch({
-      # Individual plot - respects the user's plot_title setting
+      # Individual plot — respects the user's plot_title setting.
+      # When plot_title = TRUE, auto-detect: use compound-only if the whole
+      # batch has a single construct, otherwise use the full Construct:Compound.
+      indiv_title <- if (isTRUE(plot_title)) {
+        .label_for_mode(info$compound_full, auto_mode)
+      } else {
+        plot_title   # FALSE or a custom character string — pass through as-is
+      }
       p_single <- plot_dose_response(
         results = info$results_obj,
         compound_index = info$index,
@@ -383,7 +436,7 @@ batch_save_all_drc_plots <- function(batch_drc_results,
         point_color = point_color,
         show_ic50_line = show_ic50_line,
         verbose = FALSE,
-        plot_title = plot_title,
+        plot_title = indiv_title,
         point_size = point_size,
         y_limits     = y_limits,
         y_axis_title = y_axis_title,
@@ -397,11 +450,12 @@ batch_save_all_drc_plots <- function(batch_drc_results,
       
       state$successes <- state$successes + 1L
       
-      # Panel version always has plot_title = TRUE so sub-plots are labelled,
+      # Panel version always shows a title using effective_subplot_mode,
       # regardless of what the user chose for the individual files.
       if (save_panel) {
-        p_panel <- if (isTRUE(plot_title)) {
-          p_single   # already has a title - reuse without a second call
+        panel_label <- .label_for_mode(info$compound_full, effective_subplot_mode)
+        p_panel <- if (isTRUE(plot_title) && identical(indiv_title, panel_label)) {
+          p_single   # already has the right title — reuse without a second call
         } else {
           plot_dose_response(
             results = info$results_obj,
@@ -413,7 +467,7 @@ batch_save_all_drc_plots <- function(batch_drc_results,
             point_color = point_color,
             show_ic50_line = show_ic50_line,
             verbose = FALSE,
-            plot_title = TRUE,
+            plot_title = panel_label,
             point_size = point_size,
             y_limits     = y_limits,
             y_axis_title = y_axis_title,
@@ -549,5 +603,7 @@ batch_save_all_drc_plots <- function(batch_drc_results,
     timestamp = Sys.time()
   ))
 }
+
+
 
 

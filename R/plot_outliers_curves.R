@@ -8,6 +8,11 @@
 #'
 #' @param title Optional character string for the overall plot title.
 #'   \code{NULL} (default) omits the title.
+#'   
+#' @param subplot_title Character. Controls what text is used as the title of
+#'   each compound sub-plot. One of \code{"full"} (default, e.g.
+#'   \code{"KinaseA:Cpd1"}), \code{"compound"} (e.g. \code{"Cpd1"}), or
+#'   \code{"construct"} (e.g. \code{"KinaseA"}).
 #'
 #' @param ncol Integer.  Number of columns in the compound panel grid
 #'   (default \code{4}).
@@ -58,12 +63,25 @@
 #' @export
 
 plot_outliers_curves <- function(rout_output,
-                                 title  = NULL,
-                                 ncol   = 4L,
+                                 title         = NULL,
+                                 subplot_title = "full",
+                                 ncol          = 4L,
                                  file   = NULL,
                                  width  = NULL,
                                  height = NULL) {
-
+  
+  subplot_title <- match.arg(subplot_title, c("full", "compound", "construct"))
+  
+  # Derive the sub-plot title from a raw compound string ("Construct:Compound").
+  .make_subplot_label <- function(compound_string) {
+    parts <- strsplit(compound_string, ":", fixed = TRUE)[[1L]]
+    switch(subplot_title,
+           full      = compound_string,
+           compound  = if (length(parts) >= 2L) parts[[2L]] else compound_string,
+           construct = if (length(parts) >= 2L) parts[[1L]] else compound_string
+    )
+  }
+  
   .check_plot_packages <- function() {
     missing_pkgs <- character(0)
     for (pkg in c("ggplot2", "ggrepel", "patchwork", "ggprism")) {
@@ -78,31 +96,31 @@ plot_outliers_curves <- function(rout_output,
            call. = FALSE)
     invisible(TRUE)
   }
-
+  
   # Returns a 3PL model function with hill slope fixed to hill_fixed.
   # Signature matches OptimModel::hill_model but with only 3 free parameters.
   .make_hill_3p <- function(hill_fixed) {
     function(theta, x)
       OptimModel::hill_model(c(theta[1L], theta[2L], theta[3L], hill_fixed), x)
   }
-
+  
   .check_plot_packages()
-
+  
   res   <- rout_output$results
   Q_val <- rout_output$params$Q
   caption_txt <- sprintf("Red \u2717 = ROUT outlier%s. Label = standardised residual.",
                          if (!is.null(Q_val)) sprintf(" (Q=%.3f)", Q_val) else "")
-
+  
   # Colour-blind friendly: rep1 = blue, rep2 = orange
   rep_colours <- c("1" = "#0279EE", "2" = "#FF9400")
-
+  
   compounds  <- unique(res$compound)
   nrow_grid  <- ceiling(length(compounds) / ncol)
-
+  
   plot_list <- lapply(compounds, function(cmpd) {
-
+    
     df <- res[res$compound == cmpd, ]
-
+    
     # Smooth fitted curve (200 points).
     # Use the correct model function per compound:
     #   - 4PL: hill_model(c(bottom, top, log10_EC50, hill), x)
@@ -127,19 +145,19 @@ plot_outliers_curves <- function(rout_output,
       y_smooth <- f3(c(df$bottom[1L], df$top[1L], ln_ec50), x_linear)
     }
     curve_df <- data.frame(x_smooth = x_smooth, y = y_smooth)
-
+    
     conv_label  <- if (!all(df$converged)) " \u26a0 no conv." else ""
     subtitle    <- sprintf("%s | DR: %.0f%%%s",
                            df$model_used[1L], df$dynamic_range_pct[1L], conv_label)
-
+    
     y_all  <- c(df$bret_ratio, y_smooth)
     y_pad  <- diff(range(y_all, na.rm = TRUE)) * 0.12
     y_lims <- c(min(y_all, na.rm = TRUE) - y_pad, max(y_all, na.rm = TRUE) + y_pad)
-
+    
     # Rename curve_df x column to match the concentration column name in df
     # so aes() references are consistent regardless of log_base setting.
     names(curve_df)[1L] <- conc_col_name
-
+    
     p <- ggplot2::ggplot() +
       ggplot2::geom_line(
         data = curve_df,
@@ -175,7 +193,7 @@ plot_outliers_curves <- function(rout_output,
         labels = function(x) parse(text = paste0("10^{", x, "}"))) +
       ggplot2::coord_cartesian(ylim = y_lims) +
       ggplot2::labs(
-        title    = cmpd,
+        title    = .make_subplot_label(cmpd),
         subtitle = subtitle,
         x        = "Concentration (M)",
         y        = "BRET ratio") +
@@ -191,7 +209,7 @@ plot_outliers_curves <- function(rout_output,
         plot.margin     = ggplot2::margin(6, 8, 4, 6))
     p
   })
-
+  
   combined <- patchwork::wrap_plots(plot_list, ncol = ncol) +
     patchwork::plot_annotation(
       title   = title,
@@ -199,15 +217,15 @@ plot_outliers_curves <- function(rout_output,
       theme   = ggplot2::theme(
         plot.title   = ggplot2::element_text(size = 13, face = "bold", hjust = 0.5),
         plot.caption = ggplot2::element_text(size = 8,  colour = "grey50", hjust = 0)))
-
+  
   if (is.null(width))  width  <- ncol * 3.2
   if (is.null(height)) height <- nrow_grid * 3.0 + 0.6
-
+  
   if (!is.null(file)) {
     ggplot2::ggsave(file, combined, width = width, height = height,
                     dpi = 150, bg = "white")
     message(sprintf("Saved: %s", file))
   }
-
+  
   invisible(combined)
 }

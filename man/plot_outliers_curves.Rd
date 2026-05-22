@@ -7,6 +7,7 @@
 plot_outliers_curves(
   rout_output,
   title = NULL,
+  subplot_title = "full",
   ncol = 4L,
   file = NULL,
   width = NULL,
@@ -18,6 +19,11 @@ plot_outliers_curves(
 
 \item{title}{Optional character string for the overall plot title.
 \code{NULL} (default) omits the title.}
+
+\item{subplot_title}{Character. Controls what text is used as the title of
+each compound sub-plot. One of \code{"full"} (default, e.g.
+\code{"KinaseA:Cpd1"}), \code{"compound"} (e.g. \code{"Cpd1"}), or
+\code{"construct"} (e.g. \code{"KinaseA"}).}
 
 \item{ncol}{Integer.  Number of columns in the compound panel grid
 (default \code{4}).}

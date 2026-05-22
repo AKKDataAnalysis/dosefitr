@@ -12,7 +12,8 @@ plot_outliers_batch_curves(
   width_per_col = 3.2,
   height_per_row = 3,
   dpi = 150,
-  verbose = TRUE
+  verbose = TRUE,
+  subplot_title = "full"
 )
 }
 \arguments{
@@ -46,6 +47,11 @@ row of panels (default \code{3.0}).  Total figure height is
 
 \item{verbose}{Logical.  Print per-plate progress messages (default
 \code{TRUE}).}
+
+\item{subplot_title}{Character. Controls what text is used as the title of
+each compound sub-plot. One of \code{"full"} (default, e.g.
+\code{"KinaseA:Cpd1"}), \code{"compound"} (e.g. \code{"Cpd1"}), or
+\code{"construct"} (e.g. \code{"KinaseA"}).}
 }
 \value{
 Invisibly returns a character vector of the PNG file paths
