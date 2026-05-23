@@ -423,18 +423,23 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
   # Draw axis lines manually so they stop exactly at the data limits.
   # ggplot2's axis.line element always spans the full panel edge regardless of
   # coord_cartesian / expand, so we blank it above and draw our own here.
+  # geom_segment with explicit data is more robust than annotate() under
+  # coord_cartesian.
   x_range_data <- range(summary_data$log_inhibitor, na.rm = TRUE)
   x_lo <- x_range_data[1] - diff(x_range_data) * 0.02   # mirrors expand mult
   x_hi <- x_range_data[2] + diff(x_range_data) * 0.02
+  axis_segs <- data.frame(
+    x    = c(x_lo,          x_lo),
+    xend = c(x_hi,          x_lo),
+    y    = c(y_limits[1],   y_limits[1]),
+    yend = c(y_limits[1],   y_limits[2])
+  )
   p <- p +
-    ggplot2::annotate("segment",
-                      x = x_lo, xend = x_hi,
-                      y = y_limits[1], yend = y_limits[1],
-                      colour = "black", linewidth = 1) +
-    ggplot2::annotate("segment",
-                      x = x_lo, xend = x_lo,
-                      y = y_limits[1], yend = y_limits[2],
-                      colour = "black", linewidth = 1)
+    ggplot2::geom_segment(
+      data = axis_segs,
+      ggplot2::aes(x = x, xend = xend, y = y, yend = yend),
+      colour = "black", linewidth = 0.8,
+      inherit.aes = FALSE)
   
   # Add experimental data points
   p <- p +

@@ -588,11 +588,9 @@ batch_save_all_drc_plots <- function(batch_drc_results,
         message("  - ", f)
       }
       
-      if (verbose > 1) {
-        message("\nError details:")
-        for (err in error_messages) {
-          message("  - ", err)
-        }
+      message("\nError details:")
+      for (err in error_messages) {
+        message("  - ", err)
       }
     }
     

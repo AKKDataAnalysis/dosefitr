@@ -236,18 +236,21 @@ plot_outliers_curves <- function(rout_output,
         plot.margin     = ggplot2::margin(t = 10, r = 8, b = 4, l = 6, unit = "pt"))
     
     # Draw axis lines manually so they stop exactly at the data limits.
+    # geom_segment with explicit data is more robust than annotate() under
+    # coord_cartesian.
     x_range_oc <- range(df[[conc_col_name]], na.rm = TRUE)
-    x_lo_oc <- x_range_oc[1]
-    x_hi_oc <- x_range_oc[2]
+    axis_segs_oc <- data.frame(
+      x    = c(x_range_oc[1],  x_range_oc[1]),
+      xend = c(x_range_oc[2],  x_range_oc[1]),
+      y    = c(y_lims[1],      y_lims[1]),
+      yend = c(y_lims[1],      y_lims[2])
+    )
     p <- p +
-      ggplot2::annotate("segment",
-                        x = x_lo_oc, xend = x_hi_oc,
-                        y = y_lims[1], yend = y_lims[1],
-                        colour = "black", linewidth = 0.8) +
-      ggplot2::annotate("segment",
-                        x = x_lo_oc, xend = x_lo_oc,
-                        y = y_lims[1], yend = y_lims[2],
-                        colour = "black", linewidth = 0.8)
+      ggplot2::geom_segment(
+        data = axis_segs_oc,
+        ggplot2::aes(x = x, xend = xend, y = y, yend = yend),
+        colour = "black", linewidth = 0.8,
+        inherit.aes = FALSE)
     p
   })
   

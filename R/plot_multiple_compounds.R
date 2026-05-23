@@ -1737,15 +1737,20 @@ plot_multiple_compounds <- function(results,
   # Draw axis lines manually so they stop exactly at the data limits.
   # ggplot2's axis.line elements always span the full panel edge regardless of
   # coord_cartesian / expand, so we blank them above and draw our own here.
+  # geom_segment with explicit data is more robust than annotate() under
+  # coord_cartesian.
+  axis_segs_mc <- data.frame(
+    x    = c(x_limits_final[1],   x_limits_final[1]),
+    xend = c(x_limits_final[2],   x_limits_final[1]),
+    y    = c(y_limits_final[1],   y_limits_final[1]),
+    yend = c(y_limits_final[1],   y_limits_final[2])
+  )
   p <- p +
-    ggplot2::annotate("segment",
-                      x = x_limits_final[1], xend = x_limits_final[2],
-                      y = y_limits_final[1], yend = y_limits_final[1],
-                      colour = axis_line_color, linewidth = 0.8) +
-    ggplot2::annotate("segment",
-                      x = x_limits_final[1], xend = x_limits_final[1],
-                      y = y_limits_final[1], yend = y_limits_final[2],
-                      colour = axis_line_color, linewidth = 0.8)
+    ggplot2::geom_segment(
+      data = axis_segs_mc,
+      ggplot2::aes(x = x, xend = xend, y = y, yend = yend),
+      colour = axis_line_color, linewidth = 0.8,
+      inherit.aes = FALSE)
   
   # ============================================================================
   # 13. DISPLAY AND SAVE
@@ -1820,4 +1825,5 @@ plot_multiple_compounds <- function(results,
   
   return(p)
 }
+
 
