@@ -403,7 +403,9 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
     ) +
     ggplot2::scale_y_continuous(expand = c(0, 0)) +
     ggplot2::scale_x_continuous(expand = c(0, 0)) +
-    ggplot2::coord_cartesian(ylim = y_limits, clip = "on") +
+    ggplot2::coord_cartesian(
+      ylim = if (!is.null(y_limits) && length(y_limits) == 2L) y_limits else NULL,
+      clip = "on") +
     ggplot2::theme_minimal() +
     ggplot2::theme(
       axis.title = ggplot2::element_text(size = axis_label_size, face = "bold", color = "black"),
@@ -428,11 +430,20 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
   x_range_data <- range(summary_data$log_inhibitor, na.rm = TRUE)
   x_lo <- x_range_data[1] - diff(x_range_data) * 0.02   # mirrors expand mult
   x_hi <- x_range_data[2] + diff(x_range_data) * 0.02
+  # Resolve y_limits: if NULL (auto), derive from the data so segment endpoints
+  # are always finite scalars.
+  y_seg_limits <- if (!is.null(y_limits) && length(y_limits) == 2L) {
+    y_limits
+  } else {
+    y_range_data <- range(summary_data$response, na.rm = TRUE)
+    y_pad <- diff(y_range_data) * 0.05
+    c(y_range_data[1] - y_pad, y_range_data[2] + y_pad)
+  }
   axis_segs <- data.frame(
-    x    = c(x_lo,          x_lo),
-    xend = c(x_hi,          x_lo),
-    y    = c(y_limits[1],   y_limits[1]),
-    yend = c(y_limits[1],   y_limits[2])
+    x    = c(x_lo,              x_lo),
+    xend = c(x_hi,              x_lo),
+    y    = c(y_seg_limits[1],   y_seg_limits[1]),
+    yend = c(y_seg_limits[1],   y_seg_limits[2])
   )
   p <- p +
     ggplot2::geom_segment(
