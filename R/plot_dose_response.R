@@ -448,7 +448,7 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
   p <- p +
     ggplot2::geom_segment(
       data = axis_segs,
-      ggplot2::aes(x = x, xend = xend, y = y, yend = yend),
+      ggplot2::aes(x = .data$x, xend = .data$xend, y = .data$y, yend = .data$yend),
       colour = "black", linewidth = 0.8,
       inherit.aes = FALSE)
   
@@ -580,3 +580,4 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
   attr(p, "metadata") <- metadata
   return(p)
 }
+

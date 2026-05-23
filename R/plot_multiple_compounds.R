@@ -1748,7 +1748,7 @@ plot_multiple_compounds <- function(results,
   p <- p +
     ggplot2::geom_segment(
       data = axis_segs_mc,
-      ggplot2::aes(x = x, xend = xend, y = y, yend = yend),
+      ggplot2::aes(x = .data$x, xend = .data$xend, y = .data$y, yend = .data$yend),
       colour = axis_line_color, linewidth = 0.8,
       inherit.aes = FALSE)
   
@@ -1825,5 +1825,6 @@ plot_multiple_compounds <- function(results,
   
   return(p)
 }
+
 
 

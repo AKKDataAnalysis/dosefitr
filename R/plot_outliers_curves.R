@@ -248,7 +248,7 @@ plot_outliers_curves <- function(rout_output,
     p <- p +
       ggplot2::geom_segment(
         data = axis_segs_oc,
-        ggplot2::aes(x = x, xend = xend, y = y, yend = yend),
+        ggplot2::aes(x = .data$x, xend = .data$xend, y = .data$y, yend = .data$yend),
         colour = "black", linewidth = 0.8,
         inherit.aes = FALSE)
     p
