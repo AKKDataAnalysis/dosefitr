@@ -435,7 +435,7 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
   y_seg_limits <- if (!is.null(y_limits) && length(y_limits) == 2L) {
     y_limits
   } else {
-    y_range_data <- range(summary_data$response, na.rm = TRUE)
+    y_range_data <- range(summary_data$mean_response, na.rm = TRUE)
     y_pad <- diff(y_range_data) * 0.05
     c(y_range_data[1] - y_pad, y_range_data[2] + y_pad)
   }
