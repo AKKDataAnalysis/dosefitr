@@ -8,6 +8,7 @@ plot_outliers_curves(
   rout_output,
   title = NULL,
   subplot_title = "full",
+  panel_spacing = 0.5,
   ncol = 4L,
   file = NULL,
   width = NULL,
@@ -24,6 +25,10 @@ plot_outliers_curves(
 each compound sub-plot. One of \code{"full"} (default, e.g.
 \code{"KinaseA:Cpd1"}), \code{"compound"} (e.g. \code{"Cpd1"}), or
 \code{"construct"} (e.g. \code{"KinaseA"}).}
+
+\item{panel_spacing}{Numeric. Spacing between sub-plots in the panel, in
+centimetres (default \code{0.5}). Increase for more breathing room between
+plots.}
 
 \item{ncol}{Integer.  Number of columns in the compound panel grid
 (default \code{4}).}

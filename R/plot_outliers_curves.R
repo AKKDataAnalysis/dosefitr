@@ -13,6 +13,9 @@
 #'   each compound sub-plot. One of \code{"full"} (default, e.g.
 #'   \code{"KinaseA:Cpd1"}), \code{"compound"} (e.g. \code{"Cpd1"}), or
 #'   \code{"construct"} (e.g. \code{"KinaseA"}).
+#' @param panel_spacing Numeric. Spacing between sub-plots in the panel, in
+#'   centimetres (default \code{0.5}). Increase for more breathing room between
+#'   plots.
 #'
 #' @param ncol Integer.  Number of columns in the compound panel grid
 #'   (default \code{4}).
@@ -65,6 +68,7 @@
 plot_outliers_curves <- function(rout_output,
                                  title         = NULL,
                                  subplot_title = "full",
+                                 panel_spacing = 0.5,
                                  ncol          = 4L,
                                  file   = NULL,
                                  width  = NULL,
@@ -114,7 +118,26 @@ plot_outliers_curves <- function(rout_output,
   # Colour-blind friendly: rep1 = blue, rep2 = orange
   rep_colours <- c("1" = "#0279EE", "2" = "#FF9400")
   
-  compounds  <- unique(res$compound)
+  # Filter out compounds whose name is NA / "NA" / "NA_N" (exact match only;
+  # names that merely contain "NA" as a substring are kept).
+  .is_na_name_oc <- function(x) {
+    if (is.null(x) || length(x) == 0L || is.na(x)) return(TRUE)
+    toupper(sub("_\\d+$", "", trimws(x))) == "NA"
+  }
+  .cmpd_part <- function(s) {
+    p <- strsplit(s, ":", fixed = TRUE)[[1L]]
+    if (length(p) >= 2L) trimws(p[[2L]]) else trimws(s)
+  }
+  .cons_part <- function(s) {
+    p <- strsplit(s, ":", fixed = TRUE)[[1L]]
+    if (length(p) >= 2L) trimws(p[[1L]]) else NA_character_
+  }
+  
+  all_compounds <- unique(res$compound)
+  compounds <- all_compounds[!vapply(all_compounds, function(cmpd) {
+    .is_na_name_oc(.cmpd_part(cmpd)) || .is_na_name_oc(.cons_part(cmpd))
+  }, logical(1L))]
+  
   nrow_grid  <- ceiling(length(compounds) / ncol)
   
   plot_list <- lapply(compounds, function(cmpd) {
@@ -190,8 +213,10 @@ plot_outliers_curves <- function(rout_output,
         labels = c("1" = "Rep 1", "2" = "Rep 2"), name = NULL) +
       ggplot2::scale_x_continuous(
         breaks = pretty(range(df[[conc_col_name]]), n = 5),
-        labels = function(x) parse(text = paste0("10^{", x, "}"))) +
-      ggplot2::coord_cartesian(ylim = y_lims) +
+        labels = function(x) parse(text = paste0("10^{", x, "}")),
+        expand = c(0, 0)) +
+      ggplot2::scale_y_continuous(expand = c(0, 0)) +
+      ggplot2::coord_cartesian(ylim = y_lims, clip = "on") +
       ggplot2::labs(
         title    = .make_subplot_label(cmpd),
         subtitle = subtitle,
@@ -206,11 +231,31 @@ plot_outliers_curves <- function(rout_output,
         legend.text     = ggplot2::element_text(size = 7),
         axis.title      = ggplot2::element_text(size = 8),
         axis.text       = ggplot2::element_text(size = 7),
-        plot.margin     = ggplot2::margin(6, 8, 4, 6))
+        axis.line       = ggplot2::element_blank(),
+        panel.border    = ggplot2::element_blank(),
+        plot.margin     = ggplot2::margin(t = 10, r = 8, b = 4, l = 6, unit = "pt"))
+    
+    # Draw axis lines manually so they stop exactly at the data limits.
+    x_range_oc <- range(df[[conc_col_name]], na.rm = TRUE)
+    x_lo_oc <- x_range_oc[1]
+    x_hi_oc <- x_range_oc[2]
+    p <- p +
+      ggplot2::annotate("segment",
+                        x = x_lo_oc, xend = x_hi_oc,
+                        y = y_lims[1], yend = y_lims[1],
+                        colour = "black", linewidth = 0.8) +
+      ggplot2::annotate("segment",
+                        x = x_lo_oc, xend = x_lo_oc,
+                        y = y_lims[1], yend = y_lims[2],
+                        colour = "black", linewidth = 0.8)
     p
   })
   
-  combined <- patchwork::wrap_plots(plot_list, ncol = ncol) +
+  combined <- (patchwork::wrap_plots(plot_list, ncol = ncol) &
+                 ggplot2::theme(plot.margin = ggplot2::margin(
+                   t = panel_spacing * 0.5, r = panel_spacing * 0.5,
+                   b = panel_spacing * 0.5, l = panel_spacing * 0.5,
+                   unit = "cm"))) +
     patchwork::plot_annotation(
       title   = title,
       caption = caption_txt,

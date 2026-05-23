@@ -41,9 +41,6 @@
 #'   or \code{"Luminescence"} for viability assays, \code{"Normalized BRET ratio [\%]"}
 #'   or \code{"BRET ratio"} for NanoBRET assays (depending on whether
 #'   \code{normalize} was \code{TRUE} or \code{FALSE}).
-#' @param save_panel Logical. If \code{TRUE} (default), saves one combined panel
-#'   image per plate containing all individual compound plots assembled with
-#'   \pkg{patchwork}.  Set to \code{FALSE} to skip panel generation.
 #' @param subplot_title Character. Controls what text is used as the title of
 #'   each compound sub-plot inside the panel. One of \code{"auto"} (default),
 #'   \code{"full"} (e.g. \code{"KinaseA:Cpd1"}), \code{"compound"} (e.g.
@@ -51,9 +48,15 @@
 #'   \code{"auto"} mirrors the same logic used for individual plots: shows only
 #'   the compound name when all compounds in the batch share a single construct,
 #'   and the full \code{Construct:Compound} string otherwise.
+#' @param save_panel Logical. If \code{TRUE} (default), saves one combined panel
+#'   image per plate containing all individual compound plots assembled with
+#'   \pkg{patchwork}.  Set to \code{FALSE} to skip panel generation.
 #' @param panel_ncol Integer. Number of columns in the panel grid (default \code{4}).
-#' @param panel_width_per_col Numeric. Width in inches per panel column (default \code{4}).
-#' @param panel_height_per_row Numeric. Height in inches per panel row (default \code{4}).
+#' @param panel_width_per_col Numeric. Width in inches per panel column (default \code{6}).
+#' @param panel_height_per_row Numeric. Height in inches per panel row (default \code{6}).
+#' @param panel_spacing Numeric. Spacing between sub-plots in the panel, in
+#'   centimetres (default \code{1}). Increase for more breathing room between
+#'   plots.
 #' @param ... Additional arguments passed to \code{plot_dose_response()}.
 #'
 #' @details
@@ -134,6 +137,7 @@ batch_save_all_drc_plots <- function(batch_drc_results,
                                      panel_ncol      = 4L,
                                      panel_width_per_col  = 6,
                                      panel_height_per_row = 6,
+                                     panel_spacing        = 1,
                                      subplot_title = "auto",
                                      ...) {
   
@@ -161,6 +165,18 @@ batch_save_all_drc_plots <- function(batch_drc_results,
     s <- gsub("^_|_$", "", s)
     if (nchar(s) == 0) return("unknown")
     return(s)
+  }
+  
+  # Helper: TRUE when a name is NA (R missing), the bare string "NA", or
+  # "NA" with a trailing underscore+digits suffix (e.g. "NA_2", "NA_10").
+  # Deliberately does NOT match names that merely contain "NA" as a substring
+  # (e.g. "DMNA", "NAK1", "Compound_NA_rescue").
+  is_na_name <- function(x) {
+    if (is.null(x) || length(x) == 0L) return(TRUE)
+    if (is.na(x))                       return(TRUE)
+    # Strip trailing _<digits> suffix then check for exact "NA" (any case)
+    core <- sub("_\\d+$", "", trimws(x))
+    toupper(core) == "NA"
   }
   
   # Helper function to extract compound name properly
@@ -246,7 +262,7 @@ batch_save_all_drc_plots <- function(batch_drc_results,
   subplot_title <- match.arg(subplot_title, c("auto", "full", "compound", "construct"))
   
   # Helper: derive a display label from a raw "Construct:Compound" string
-  # given an explicit mode (never "auto" — resolve that before calling).
+  # given an explicit mode (never "auto" - resolve that before calling).
   .label_for_mode <- function(compound_string, mode) {
     parts <- strsplit(compound_string, ":", fixed = TRUE)[[1L]]
     switch(mode,
@@ -305,6 +321,14 @@ batch_save_all_drc_plots <- function(batch_drc_results,
       compound_name <- extract_compound_name(result$compound)
       construct_name <- extract_construct_name(result$compound)
       
+      # Skip entries whose compound or construct name is NA / "NA" / "NA_N"
+      if (is_na_name(compound_name) || is_na_name(construct_name)) {
+        if (verbose) message(sprintf(
+          "  Skipping '%s' in plate '%s': compound or construct name is NA.",
+          result$compound, plate_name))
+        next
+      }
+      
       # Filter by compound if specified
       if (!is.null(compounds_to_plot) && !compound_name %in% compounds_to_plot) next
       
@@ -330,7 +354,7 @@ batch_save_all_drc_plots <- function(batch_drc_results,
     message("  - Compounds: ", length(unique(sapply(compounds_list, function(x) x$compound))))
   }
   
-  # ── Auto-detect: resolve the best title mode from batch composition ─────────
+  # -- Auto-detect: resolve the best title mode from batch composition -------------
   # Used by plot_title = TRUE (individual plots) and subplot_title = "auto" (panel).
   #   1 construct, N compounds  -> "compound"   (construct is constant, redundant)
   #   N constructs, 1 compound  -> "construct"  (compound is constant, redundant)
@@ -342,11 +366,11 @@ batch_save_all_drc_plots <- function(batch_drc_results,
   single_compound_batch  <- length(all_compounds)  == 1L
   
   auto_mode <- if (single_construct_batch) {
-    "compound"    # one construct — compound name is the distinguishing label
+    "compound"    # one construct - compound name is the distinguishing label
   } else if (single_compound_batch) {
-    "construct"   # one compound  — construct name is the distinguishing label
+    "construct"   # one compound  - construct name is the distinguishing label
   } else {
-    "full"        # many of both  — need Construct:Compound
+    "full"        # many of both  - need Construct:Compound
   }
   
   # Resolve effective panel mode now that we know the batch composition.
@@ -418,13 +442,13 @@ batch_save_all_drc_plots <- function(batch_drc_results,
     dir.create(dirname(output_path), showWarnings = FALSE, recursive = TRUE)
     
     tryCatch({
-      # Individual plot — respects the user's plot_title setting.
+      # Individual plot - respects the user's plot_title setting.
       # When plot_title = TRUE, auto-detect: use compound-only if the whole
       # batch has a single construct, otherwise use the full Construct:Compound.
       indiv_title <- if (isTRUE(plot_title)) {
         .label_for_mode(info$compound_full, auto_mode)
       } else {
-        plot_title   # FALSE or a custom character string — pass through as-is
+        plot_title   # FALSE or a custom character string - pass through as-is
       }
       p_single <- plot_dose_response(
         results = info$results_obj,
@@ -455,7 +479,7 @@ batch_save_all_drc_plots <- function(batch_drc_results,
       if (save_panel) {
         panel_label <- .label_for_mode(info$compound_full, effective_subplot_mode)
         p_panel <- if (isTRUE(plot_title) && identical(indiv_title, panel_label)) {
-          p_single   # already has the right title — reuse without a second call
+          p_single   # already has the right title - reuse without a second call
         } else {
           plot_dose_response(
             results = info$results_obj,
@@ -514,7 +538,11 @@ batch_save_all_drc_plots <- function(batch_drc_results,
       panel_w      <- n_cols_panel * panel_width_per_col
       panel_h      <- n_rows_panel * panel_height_per_row + 0.6  # +0.6 for title
       
-      combined <- patchwork::wrap_plots(plot_list, ncol = n_cols_panel)
+      combined <- patchwork::wrap_plots(plot_list, ncol = n_cols_panel) &
+        ggplot2::theme(plot.margin = ggplot2::margin(
+          t = panel_spacing * 0.5, r = panel_spacing * 0.5,
+          b = panel_spacing * 0.5, l = panel_spacing * 0.5,
+          unit = "cm"))
       
       # Save panel next to the individual plots
       panel_filename <- paste0(safe_filename(plate_name), "_panel.", format)
@@ -603,7 +631,3 @@ batch_save_all_drc_plots <- function(batch_drc_results,
     timestamp = Sys.time()
   ))
 }
-
-
-
-

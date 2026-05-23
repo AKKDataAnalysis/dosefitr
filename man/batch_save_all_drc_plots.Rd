@@ -25,6 +25,7 @@ batch_save_all_drc_plots(
   panel_ncol = 4L,
   panel_width_per_col = 6,
   panel_height_per_row = 6,
+  panel_spacing = 1,
   subplot_title = "auto",
   ...
 )
@@ -86,9 +87,13 @@ image per plate containing all individual compound plots assembled with
 
 \item{panel_ncol}{Integer. Number of columns in the panel grid (default \code{4}).}
 
-\item{panel_width_per_col}{Numeric. Width in inches per panel column (default \code{4}).}
+\item{panel_width_per_col}{Numeric. Width in inches per panel column (default \code{6}).}
 
-\item{panel_height_per_row}{Numeric. Height in inches per panel row (default \code{4}).}
+\item{panel_height_per_row}{Numeric. Height in inches per panel row (default \code{6}).}
+
+\item{panel_spacing}{Numeric. Spacing between sub-plots in the panel, in
+centimetres (default \code{1}). Increase for more breathing room between
+plots.}
 
 \item{subplot_title}{Character. Controls what text is used as the title of
 each compound sub-plot inside the panel. One of \code{"auto"} (default),

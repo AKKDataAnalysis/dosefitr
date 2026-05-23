@@ -1589,7 +1589,9 @@ plot_multiple_compounds <- function(results,
       title = plot_title_final,
       color = legend_title_final
     ) +
-    ggplot2::coord_cartesian(xlim = x_limits_final, ylim = y_limits_final)
+    ggplot2::scale_y_continuous(expand = c(0, 0)) +
+    ggplot2::scale_x_continuous(expand = c(0, 0)) +
+    ggplot2::coord_cartesian(xlim = x_limits_final, ylim = y_limits_final, clip = "on")
   
   p <- p +
     ggplot2::geom_line(data = plot_data$curves,
@@ -1687,8 +1689,8 @@ plot_multiple_compounds <- function(results,
                                          size = if (!is.null(plot_title_size)) plot_title_size else axis_title_size + 2),
       axis.text = ggplot2::element_text(color = axis_text_color, size = axis_text_size),
       axis.title = ggplot2::element_text(color = axis_title_color, size = axis_title_size, face = "bold"),
-      axis.line.x.bottom = ggplot2::element_line(color = axis_line_color, linewidth = 0.5),
-      axis.line.y.left   = ggplot2::element_line(color = axis_line_color, linewidth = 0.5),
+      axis.line.x.bottom = ggplot2::element_blank(),
+      axis.line.y.left   = ggplot2::element_blank(),
       axis.line.x.top    = ggplot2::element_blank(),
       axis.line.y.right  = ggplot2::element_blank(),
       axis.ticks = ggplot2::element_line(color = axis_line_color),
@@ -1699,7 +1701,8 @@ plot_multiple_compounds <- function(results,
       legend.background = ggplot2::element_rect(fill = "white", color = NA),
       panel.background = ggplot2::element_rect(fill = "white", color = NA),
       plot.background = ggplot2::element_rect(fill = "white", color = NA),
-      panel.border = ggplot2::element_blank()
+      panel.border = ggplot2::element_blank(),
+      plot.margin  = ggplot2::margin(t = 12, r = 8, b = 8, l = 8, unit = "pt")
     )
   
   if (transparent_background) {
@@ -1730,6 +1733,19 @@ plot_multiple_compounds <- function(results,
   }
   
   p <- p + base_theme
+  
+  # Draw axis lines manually so they stop exactly at the data limits.
+  # ggplot2's axis.line elements always span the full panel edge regardless of
+  # coord_cartesian / expand, so we blank them above and draw our own here.
+  p <- p +
+    ggplot2::annotate("segment",
+                      x = x_limits_final[1], xend = x_limits_final[2],
+                      y = y_limits_final[1], yend = y_limits_final[1],
+                      colour = axis_line_color, linewidth = 0.8) +
+    ggplot2::annotate("segment",
+                      x = x_limits_final[1], xend = x_limits_final[1],
+                      y = y_limits_final[1], yend = y_limits_final[2],
+                      colour = axis_line_color, linewidth = 0.8)
   
   # ============================================================================
   # 13. DISPLAY AND SAVE
@@ -1804,3 +1820,4 @@ plot_multiple_compounds <- function(results,
   
   return(p)
 }
+

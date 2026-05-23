@@ -13,7 +13,8 @@ plot_outliers_batch_curves(
   height_per_row = 3,
   dpi = 150,
   verbose = TRUE,
-  subplot_title = "full"
+  panel_spacing = 0.5,
+  subplot_title = "auto"
 )
 }
 \arguments{
@@ -48,10 +49,16 @@ row of panels (default \code{3.0}).  Total figure height is
 \item{verbose}{Logical.  Print per-plate progress messages (default
 \code{TRUE}).}
 
+\item{panel_spacing}{Numeric. Spacing between sub-plots in the panel, in
+centimetres (default \code{0.5}). Increase for more breathing room between
+plots.}
+
 \item{subplot_title}{Character. Controls what text is used as the title of
-each compound sub-plot. One of \code{"full"} (default, e.g.
-\code{"KinaseA:Cpd1"}), \code{"compound"} (e.g. \code{"Cpd1"}), or
-\code{"construct"} (e.g. \code{"KinaseA"}).}
+each compound sub-plot. One of \code{"auto"} (default), \code{"full"}
+(e.g. \code{"KinaseA:Cpd1"}), \code{"compound"} (e.g. \code{"Cpd1"}),
+or \code{"construct"} (e.g. \code{"KinaseA"}). \code{"auto"} shows only
+the compound name when all compounds share one construct, only the construct
+name when all share one compound, and the full string otherwise.}
 }
 \value{
 Invisibly returns a character vector of the PNG file paths

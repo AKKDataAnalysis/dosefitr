@@ -37,10 +37,15 @@
 #' @param verbose Logical.  Print per-plate progress messages (default
 #'   \code{TRUE}).
 #'   
+#' @param panel_spacing Numeric. Spacing between sub-plots in the panel, in
+#'   centimetres (default \code{0.5}). Increase for more breathing room between
+#'   plots.
 #' @param subplot_title Character. Controls what text is used as the title of
-#'   each compound sub-plot. One of \code{"full"} (default, e.g.
-#'   \code{"KinaseA:Cpd1"}), \code{"compound"} (e.g. \code{"Cpd1"}), or
-#'   \code{"construct"} (e.g. \code{"KinaseA"}).
+#'   each compound sub-plot. One of \code{"auto"} (default), \code{"full"}
+#'   (e.g. \code{"KinaseA:Cpd1"}), \code{"compound"} (e.g. \code{"Cpd1"}),
+#'   or \code{"construct"} (e.g. \code{"KinaseA"}). \code{"auto"} shows only
+#'   the compound name when all compounds share one construct, only the construct
+#'   name when all share one compound, and the full string otherwise.
 #'
 #' @return Invisibly returns a character vector of the PNG file paths
 #'   written to \code{output_dir} (one path per successfully processed
@@ -120,7 +125,8 @@ plot_outliers_batch_curves <- function(batch_rout_output,
                                        height_per_row  = 3.0,
                                        dpi             = 150,
                                        verbose         = TRUE,
-                                       subplot_title   = "full") {
+                                       panel_spacing   = 0.5,
+                                       subplot_title   = "auto") {
   
   # --------------------------------------------------------------------------
   # 1. Dependency checks
@@ -142,7 +148,7 @@ plot_outliers_batch_curves <- function(batch_rout_output,
     stop(paste0("plot_outliers_curves() not found. ",
                 "Please source('rout_outliers.R') before calling this function."))
   
-  subplot_title <- match.arg(subplot_title, c("full", "compound", "construct"))
+  subplot_title <- match.arg(subplot_title, c("auto", "full", "compound", "construct"))
   
   # --------------------------------------------------------------------------
   # 2. Input validation
@@ -222,6 +228,47 @@ plot_outliers_batch_curves <- function(batch_rout_output,
   }
   
   # --------------------------------------------------------------------------
+  # 4b. Auto-detect subplot_title mode from batch composition
+  # --------------------------------------------------------------------------
+  # Collect all unique compound/construct names across all plates to be plotted.
+  .extract_construct <- function(s) {
+    if (is.null(s) || is.na(s)) return(NA_character_)
+    p <- strsplit(s, ":", fixed = TRUE)[[1L]]
+    if (length(p) >= 2L) trimws(p[[1L]]) else NA_character_
+  }
+  .extract_compound <- function(s) {
+    if (is.null(s) || is.na(s)) return(NA_character_)
+    p <- strsplit(s, ":", fixed = TRUE)[[1L]]
+    if (length(p) >= 2L) trimws(p[[2L]]) else trimws(s)
+  }
+  .is_na_name <- function(x) {
+    if (is.null(x) || length(x) == 0L || is.na(x)) return(TRUE)
+    toupper(sub("_\\d+$", "", trimws(x))) == "NA"
+  }
+  
+  all_cmpd_names <- character(0)
+  all_cons_names <- character(0)
+  for (.pn in plate_names) {
+    .res <- tryCatch(batch_rout_output[[.pn]]$result$rout_results$results,
+                     error = function(e) NULL)
+    if (is.null(.res)) next
+    for (.cmpd in unique(.res$compound)) {
+      if (.is_na_name(.extract_compound(.cmpd)) ||
+          .is_na_name(.extract_construct(.cmpd))) next
+      all_cmpd_names <- c(all_cmpd_names, .extract_compound(.cmpd))
+      all_cons_names <- c(all_cons_names, .extract_construct(.cmpd))
+    }
+  }
+  auto_mode <- if (length(unique(all_cons_names[!is.na(all_cons_names)])) <= 1L) {
+    "compound"
+  } else if (length(unique(all_cmpd_names[!is.na(all_cmpd_names)])) <= 1L) {
+    "construct"
+  } else {
+    "full"
+  }
+  effective_subplot_mode <- if (subplot_title == "auto") auto_mode else subplot_title
+  
+  # --------------------------------------------------------------------------
   # 5. Per-plate plotting loop
   # --------------------------------------------------------------------------
   saved_files <- list()
@@ -236,7 +283,7 @@ plot_outliers_batch_curves <- function(batch_rout_output,
     # rout_outliers_batch() stores the original (uncleaned)
     # modified_ratio_table at $result$modified_ratio_table_original so that
     # the plot function can re-fit on the original data and show outlier points
-    # as red X markers. The cleaned version (outliers → NA) is at
+    # as red X markers. The cleaned version (outliers -> NA) is at
     # $result$modified_ratio_table and is used by batch_drc_analysis().
     mrt_original <- tryCatch(plate$result$modified_ratio_table_original,
                              error = function(e) NULL)
@@ -359,7 +406,8 @@ plot_outliers_batch_curves <- function(batch_rout_output,
         file           = out_file,
         width          = plot_width,
         height         = plot_height,
-        subplot_title  = subplot_title
+        subplot_title  = effective_subplot_mode,
+        panel_spacing  = panel_spacing
       )
       saved_files[[plate_name]] <- out_file
       if (verbose) cat(sprintf("saved (%d compounds, %dx%d in)\n",
