@@ -97,30 +97,28 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
                         enforce_bottom_threshold = FALSE, bottom_threshold = 60,
                         r_sqr_threshold = 0.8,
                         assay_type = "nanobret") {
-
+  
   # Check and load required packages
-  required_packages <- c("dplyr", "stats", "graphics", "grDevices")
+  required_packages <- c("dplyr", "stats", "grDevices")
   missing_packages <- required_packages[!sapply(required_packages, requireNamespace, quietly = TRUE)]
-
+  
   if (length(missing_packages) > 0) {
     stop("Required packages are not installed: ", paste(missing_packages, collapse = ", "),
-         "\nPlease install using: install.packages(c(",
+         "\nPlease install using: install.packages(c(", 
          paste0("\"", missing_packages, "\"", collapse = ", "), "))")
   }
-
-  library(dplyr, warn.conflicts = FALSE)
-
+  
   # Constants for 4-parameter model
   PARAM_NAMES <- c("Bottom", "Top", "LogIC50", "HillSlope", "IC50", "Span")
-
+  
   # NULL coalescing operator
   `%||%` <- function(a, b) if (!is.null(a) && !is.na(a)) a else b
-
+  
   # 4-parameter logistic model
   four_param_model <- function(log_inhibitor, Bottom, Top, LogIC50, HillSlope) {
     Bottom + (Top - Bottom) / (1 + 10^((log_inhibitor - LogIC50) * HillSlope))
   }
-
+  
   # Detect curve type based on data pattern.
   # Uses a relative threshold (max(15, range * 0.15)) on the head/tail
   # mean difference -- identical to fit_drc_3pl. This scales correctly
@@ -131,24 +129,24 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
     sorted_df <- data[order(data$log_inhibitor), ]
     resps <- sorted_df$response[!is.na(sorted_df$response)]
     if (length(resps) < 4) return("unknown")
-
+    
     initial_avg <- mean(head(resps, 3), na.rm = TRUE)
     final_avg   <- mean(tail(resps, 3), na.rm = TRUE)
-
+    
     range_val <- diff(range(resps, na.rm = TRUE))
     threshold <- max(15, range_val * 0.15)
-
+    
     if (initial_avg > final_avg + threshold) return("inhibition")
     if (final_avg > initial_avg + threshold) return("activation")
     return("flat")
   }
-
+  
   # Create empty result structure for failed fits
   create_empty_result <- function(comp_name, reason = "Model failed") {
     list(
       parameters = data.frame(Parameter = PARAM_NAMES, Value = rep(NA, 6), stringsAsFactors = FALSE),
       confidence_intervals = list(
-        Bottom = c(NA, NA), Top = c(NA, NA), LogIC50 = c(NA, NA),
+        Bottom = c(NA, NA), Top = c(NA, NA), LogIC50 = c(NA, NA), 
         HillSlope = c(NA, NA), IC50 = c(NA, NA),
         Bottom_Lower = NA, Bottom_Upper = NA, Top_Lower = NA, Top_Upper = NA
       ),
@@ -163,23 +161,23 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       compound = comp_name
     )
   }
-
+  
   # Recalculate dependent parameters after corrections
   recalculate_dependent_params <- function(params, corrections) {
     corrected_params <- params
-
+    
     if ("Bottom" %in% names(corrections)) corrected_params[1] <- corrections$Bottom
-    if ("Top" %in% names(corrections)) corrected_params[2] <- corrections$Top
+    if ("Top" %in% names(corrections)) corrected_params[2] <- corrections$Top  
     if ("LogIC50" %in% names(corrections)) corrected_params[3] <- corrections$LogIC50
     if ("HillSlope" %in% names(corrections)) corrected_params[4] <- corrections$HillSlope
-
+    
     c(corrected_params[1:4], 10^corrected_params[3], corrected_params[2] - corrected_params[1])
   }
-
+  
   # Recalculate confidence intervals after parameter corrections
   recalculate_ci <- function(original_ci, corrections) {
     ci <- original_ci
-
+    
     if ("Bottom" %in% names(corrections)) {
       ci$Bottom <- ci$Bottom_Lower <- ci$Bottom_Upper <- NA
     }
@@ -192,21 +190,21 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
     if ("HillSlope" %in% names(corrections)) {
       ci$HillSlope <- c(NA, NA)
     }
-
+    
     ci
   }
-
+  
   # Correct parameter order based on curve type
   correct_parameter_order <- function(params, data, curve_type) {
     bottom <- params[1]
     top <- params[2]
     log_ic50 <- params[3]
     hill_slope <- params[4]
-
+    
     # Check consistency between curve type and Hill Slope
     if (curve_type == "inhibition" && !is.na(hill_slope) && hill_slope > 0) {
       corrected_hill_slope <- -abs(hill_slope)
-
+      
       if (bottom > top) {
         corrected_params <- c(top, bottom, log_ic50, corrected_hill_slope)
       } else {
@@ -218,10 +216,10 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
         correction_reason = "Hill Slope inconsistent with curve type (inhibition)"
       ))
     }
-
+    
     if (curve_type == "activation" && !is.na(hill_slope) && hill_slope < 0) {
       corrected_hill_slope <- abs(hill_slope)
-
+      
       if (bottom > top) {
         corrected_params <- c(top, bottom, log_ic50, corrected_hill_slope)
       } else {
@@ -233,7 +231,7 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
         correction_reason = "Hill Slope inconsistent with curve type (activation)"
       ))
     }
-
+    
     # Check for Bottom/Top inversion only
     if (!is.na(bottom) && !is.na(top) && bottom > top) {
       corrected_params <- c(top, bottom, log_ic50, hill_slope)
@@ -243,14 +241,14 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
         correction_reason = "Bottom and Top inverted"
       ))
     }
-
+    
     list(
       corrected_params = params,
       was_corrected = FALSE,
       correction_reason = NA
     )
   }
-
+  
   # Check biological plausibility and apply corrections if needed.
   # Limits depend on assay_type and normalize, matching fit_drc_3pl behaviour:
   #   "nanobret"                  : BRET ratio scale; wide limits always applied.
@@ -260,16 +258,16 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
   check_biological_plausibility <- function(params, data) {
     if (assay_type == "viability" && !normalize)
       return(list(needs_correction = FALSE))
-
+    
     if (!assay_type %in% c("nanobret", "viability"))
       return(list(needs_correction = FALSE))
-
+    
     responses <- data$response[!is.na(data$response)]
     exp_min <- min(responses, na.rm = TRUE)
     exp_max <- max(responses, na.rm = TRUE)
-
+    
     curve_type <- detect_curve_type(data)
-
+    
     if (assay_type == "nanobret") {
       bottom_limits <- if (curve_type == "activation") c(-100, Inf) else c(-100, 600)
       top_limits    <- c(0, 700)
@@ -280,24 +278,24 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
     }
     logIC50_limits    <- c(-20, 5)
     hill_slope_limits <- c(-5, 5)
-
+    
     corrections <- list()
     reasons     <- list()
-
+    
     # Check Bottom
     if (params[1] < bottom_limits[1] || params[1] > bottom_limits[2] || !is.finite(params[1])) {
       corrections$Bottom <- max(bottom_limits[1], min(bottom_limits[2], exp_min))
       reasons$Bottom <- sprintf("Biologically implausible (%.2f). Using experimental minimum: %.2f",
                                 params[1], exp_min)
     }
-
+    
     # Check Top
     if (params[2] < top_limits[1] || params[2] > top_limits[2] || !is.finite(params[2])) {
       corrections$Top <- max(top_limits[1], min(top_limits[2], exp_max))
       reasons$Top <- sprintf("Biologically implausible (%.2f). Using experimental maximum: %.2f",
                              params[2], exp_max)
     }
-
+    
     # Check LogIC50
     if (params[3] < logIC50_limits[1] || params[3] > logIC50_limits[2] || !is.finite(params[3])) {
       fallback <- median(data$log_inhibitor, na.rm = TRUE)
@@ -305,7 +303,7 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       reasons$LogIC50 <- sprintf("Biologically implausible (%.2f). Using median concentration: %.2f",
                                  params[3], fallback)
     }
-
+    
     # Check HillSlope
     if (params[4] < hill_slope_limits[1] || params[4] > hill_slope_limits[2] || !is.finite(params[4])) {
       default_hill <- if (curve_type == "activation") 1 else -1
@@ -313,7 +311,7 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       reasons$HillSlope <- sprintf("Biologically implausible (%.2f). Using default: %.2f",
                                    params[4], default_hill)
     }
-
+    
     if (length(corrections) > 0) {
       return(list(
         corrected_params = recalculate_dependent_params(params, corrections),
@@ -322,47 +320,47 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
         needs_correction = TRUE
       ))
     }
-
+    
     list(needs_correction = FALSE)
   }
-
+  
   # Prepare and validate data for analysis
   prepare_and_validate_data <- function(pair_data) {
     log_inhibitor <- pair_data[, 1]
     response <- as.numeric(unlist(pair_data[, -1]))
     n_rep_cols <- ncol(pair_data) - 1L
-
+    
     df <- data.frame(log_inhibitor = rep(log_inhibitor, n_rep_cols), response = response)
     df_clean <- stats::na.omit(df)
-
+    
     if (nrow(df_clean) < 5 || stats::sd(df_clean$response, na.rm = TRUE) < 1e-6) {
       return(list(valid = FALSE, df_clean = df_clean))
     }
-
+    
     min_resp <- min(df_clean$response, na.rm = TRUE)
     max_resp <- max(df_clean$response, na.rm = TRUE)
-
+    
     # Calculate approximate IC50
     approx_ic50 <- tryCatch({
       suppressWarnings(
-        stats::approx(df_clean$response, df_clean$log_inhibitor,
+        stats::approx(df_clean$response, df_clean$log_inhibitor, 
                       xout = (min_resp + max_resp) / 2)$y
       )
     }, error = function(e) stats::median(df_clean$log_inhibitor, na.rm = TRUE))
-
+    
     list(valid = TRUE, df_clean = df_clean,
          min_response = min_resp, max_response = max_resp, approx_ic50 = approx_ic50)
   }
-
+  
   # Robust nonlinear fitting with multiple strategies
   try_robust_fit <- function(df_clean, min_resp, max_resp, approx_ic50, curve_type) {
     if (nrow(df_clean) < 5) return(NULL)
-
+    
     control_configs <- list(
       default = stats::nls.control(maxiter = 500, tol = 1e-04, minFactor = 1/4096, warnOnly = TRUE),
       relaxed = stats::nls.control(maxiter = 1000, tol = 1e-03, minFactor = 1/1024, warnOnly = TRUE)
     )
-
+    
     # Define start strategies based on curve type
     if (curve_type == "inhibition") {
       start_strategies <- list(
@@ -389,7 +387,7 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
         list(Bottom = min_resp * 0.8, Top = max_resp * 1.2, LogIC50 = approx_ic50, HillSlope = 1.5)
       )
     }
-
+    
     # Try all strategies with default control
     for (start_vals in start_strategies) {
       fit <- tryCatch({
@@ -398,10 +396,10 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
           data = df_clean, start = start_vals, control = control_configs$default, algorithm = "port"
         )
       }, error = function(e) NULL)
-
+      
       if (!is.null(fit)) return(fit)
     }
-
+    
     # Final attempt with relaxed parameters
     tryCatch({
       stats::nls(
@@ -410,7 +408,7 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       )
     }, error = function(e) NULL)
   }
-
+  
   # Calculate goodness of fit metrics
   calculate_goodness_of_fit <- function(fit, df_clean) {
     tryCatch({
@@ -421,7 +419,7 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       regression_ss <- total_ss - residual_ss
       n_obs <- nrow(df_clean)
       dof <- max(1, n_obs - length(stats::coef(fit)))
-
+      
       list(
         R_squared = if (total_ss > 0) regression_ss / total_ss else 0,
         Syx = sqrt(residual_ss / dof),
@@ -432,7 +430,7 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       list(R_squared = NA, Syx = NA, Sum_of_Squares = NA, Degrees_of_Freedom = NA)
     })
   }
-
+  
   # Calculate confidence intervals safely
   calculate_ci <- function(fit) {
     safe_ci <- function(param_name) {
@@ -441,23 +439,19 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
         unname(stats::confint(prof, level = 0.95))
       }, error = function(e) {
         tryCatch({
-          if (requireNamespace("lmtest", quietly = TRUE)) {
-            unname(lmtest::confint2(fit, level = 0.95)[param_name, ])
-          } else {
-            se <- summary(fit)$coefficients[param_name, "Std. Error"]
-            est <- stats::coef(fit)[param_name]
-            z <- stats::qnorm(0.975)
-            c(est - z * se, est + z * se)
-          }
+          se  <- summary(fit)$coefficients[param_name, "Std. Error"]
+          est <- stats::coef(fit)[param_name]
+          z   <- stats::qnorm(0.975)
+          c(est - z * se, est + z * se)
         }, error = function(e2) c(NA, NA))
       })
     }
-
+    
     bottom_ci <- safe_ci("Bottom")
     top_ci <- safe_ci("Top")
     logIC50_ci <- safe_ci("LogIC50")
     hill_slope_ci <- safe_ci("HillSlope")
-
+    
     list(
       Bottom = bottom_ci, Top = top_ci, LogIC50 = logIC50_ci, HillSlope = hill_slope_ci,
       IC50 = 10^logIC50_ci,
@@ -465,22 +459,22 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       Top_Lower = top_ci[1], Top_Upper = top_ci[2]
     )
   }
-
+  
   # Calculate curve quality metrics
   calculate_curve_quality <- function(params, gof_results, plausibility_check = NULL, logIC50_ci = NULL) {
     tryCatch({
       span <- params[6]
       hill_slope <- params[4]
       max_slope <- -span * abs(hill_slope) * log(10) / 4
-
+      
       quality_flags <- character()
-
+      
       # Use same criteria as before for consistency
       if (abs(max_slope) < 5) quality_flags <- c(quality_flags, "Very shallow slope")
       else if (abs(max_slope) < 15) quality_flags <- c(quality_flags, "Shallow slope")
       if (abs(span) < 20) quality_flags <- c(quality_flags, "Small span")
       if (gof_results$R_squared < r_sqr_threshold) quality_flags <- c(quality_flags, "Low R2")
-
+      
       # NOVA VERIFICACAO: Intervalo de confianca do LogIC50 muito amplo
       if (!is.null(logIC50_ci) && !any(is.na(logIC50_ci))) {
         ci_range <- abs(logIC50_ci[2] - logIC50_ci[1])
@@ -488,11 +482,11 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
           quality_flags <- c(quality_flags, "Wide logIC50 CI range")
         }
       }
-
+      
       if (!is.null(plausibility_check) && plausibility_check$needs_correction) {
         quality_flags <- c(quality_flags, "Parameters corrected (biologically implausible)")
       }
-
+      
       # Flag extreme Hill slopes, direction-aware:
       #   Inhibition curves: HillSlope is negative (e.g. -1 is standard)
       #     steep = HillSlope < -3  |  shallow = HillSlope > -0.3
@@ -509,7 +503,7 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
           else if (hill_slope < 0.3)  quality_flags <- c(quality_flags, "Shallow Hill slope")
         }
       }
-
+      
       list(
         quality = if (length(quality_flags) == 0) "Good curve" else paste(quality_flags, collapse = "; "),
         max_slope = max_slope
@@ -518,7 +512,7 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       list(quality = "Error in quality assessment", max_slope = NA)
     })
   }
-
+  
   # Main analysis function for each compound pair
   analyze_single_pair <- function(pair_data, comp_name) {
     prepared <- prepare_and_validate_data(pair_data)
@@ -526,17 +520,17 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       if (verbose) warning("Data validation failed for ", comp_name)
       return(create_empty_result(comp_name, "Validation failed"))
     }
-
+    
     # Detect curve type once
     curve_type <- detect_curve_type(prepared$df_clean)
-
-    fit <- try_robust_fit(prepared$df_clean, prepared$min_response,
+    
+    fit <- try_robust_fit(prepared$df_clean, prepared$min_response, 
                           prepared$max_response, prepared$approx_ic50, curve_type)
-
+    
     if (is.null(fit)) {
       if (verbose) warning("Could not fit model for ", comp_name)
       result <- create_empty_result(comp_name, "Approximate (model failed)")
-      result$parameters$Value <- c(prepared$min_response, prepared$max_response,
+      result$parameters$Value <- c(prepared$min_response, prepared$max_response, 
                                    prepared$approx_ic50, -1, 10^prepared$approx_ic50,
                                    prepared$max_response - prepared$min_response)
       result$curve_quality <- "Model failed - approximate parameters"
@@ -544,23 +538,23 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       result$curve_type <- curve_type
       return(result)
     }
-
+    
     params <- tryCatch(unname(stats::coef(fit)), error = function(e) NULL)
     if (is.null(params) || any(is.na(params))) {
       if (verbose) warning("Error extracting coefficients for ", comp_name)
       return(create_empty_result(comp_name, "Coefficient extraction failed"))
     }
-
+    
     # Pass curve_type to avoid redundant detection
     order_correction <- correct_parameter_order(params, prepared$df_clean, curve_type)
     if (order_correction$was_corrected) {
       params <- order_correction$corrected_params
     }
-
+    
     # Process results
     initial_params <- c(params, 10^params[3], params[2] - params[1])
     ci_results <- calculate_ci(fit)
-
+    
     # If correct_parameter_order() flipped the HillSlope sign, the CI bounds
     # were computed on the original (wrong-sign) fit and must be negated.
     # The interval width is still valid; only the sign and order change.
@@ -571,10 +565,10 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
         ci_results$HillSlope <- sort(-hs_ci)  # negate and re-sort [lower, upper]
       }
     }
-
+    
     gof_results <- calculate_goodness_of_fit(fit, prepared$df_clean)
     plausibility_check <- check_biological_plausibility(params, prepared$df_clean)
-
+    
     # Apply corrections if needed
     if (plausibility_check$needs_correction) {
       if (verbose) {
@@ -588,9 +582,9 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
     } else {
       final_params <- initial_params
     }
-
+    
     curve_quality_info <- calculate_curve_quality(final_params, gof_results, plausibility_check, ci_results$LogIC50)
-
+    
     list(
       parameters = data.frame(Parameter = PARAM_NAMES, Value = final_params, stringsAsFactors = FALSE),
       confidence_intervals = ci_results,
@@ -606,7 +600,7 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       curve_type = curve_type
     )
   }
-
+  
   # Normalize a data frame to 0-100% (same logic as fit_drc_3pl)
   normalize_dataframe <- function(df) {
     df %>% dplyr::mutate(dplyr::across(-1, ~ {
@@ -620,44 +614,44 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       (v - first) / (last - first) * 100
     }))
   }
-
+  
   # Data validation and normalization
   if (ncol(data) < 3) stop("Data must have at least 3 columns")
-
+  
   original_data <- data
-
+  
   if (verbose) message("Generating normalized data (0-100%)...")
   normalized_data <- normalize_dataframe(data)
-
+  
   if (normalize) {
     if (verbose) message("Analysis will use: NORMALIZED data.")
     data <- normalized_data
   } else {
     if (verbose) message("Analysis will use: ORIGINAL data.")
   }
-
+  
   # Main analysis loop
   # Group data columns by base compound name (strip trailing .2, .3, ... suffix).
   # This supports any number of replicates: 2 replicates (original behaviour),
   # 4 replicates (two merged plates), 6 replicates (three merged plates), etc.
   if (verbose) cat("Starting 4-parameter dose-response analysis...\n")
-
+  
   c_names_data  <- colnames(data)[-1]               # data column names only
   base_names    <- sub("\\.\\d+$", "", c_names_data) # strip .2 / .3 / .4 ...
   compound_order <- unique(base_names)               # preserve first-appearance order
   n_compounds   <- length(compound_order)
-
+  
   all_results <- lapply(seq_len(n_compounds), function(i) {
     if (verbose) cat(sprintf("\rProcessing compound %d/%d", i, n_compounds))
-
+    
     base      <- compound_order[i]
     data_cols <- which(base_names == base) + 1L      # +1 for the conc column offset
     comp_name <- base
-
+    
     analyze_single_pair(data[, c(1L, data_cols), drop = FALSE], comp_name)
   })
   if (verbose) cat("\n")
-
+  
   # Create summary table
   summary_table <- do.call(rbind, lapply(all_results, function(result) {
     if (isTRUE(result$success)) {
@@ -665,7 +659,7 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       gof <- result$goodness_of_fit
       ci <- result$confidence_intervals
       curve_type <- result$curve_type
-
+      
       # Apply threshold for inhibition AND flat/unknown curves
       apply_threshold <- FALSE
       if (enforce_bottom_threshold && !is.na(params[1]) && params[1] >= bottom_threshold) {
@@ -673,10 +667,10 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
           apply_threshold <- TRUE
         }
       }
-
+      
       data.frame(
         Compound = strsplit(result$compound, " \\| ")[[1]][1],
-        Bottom = round(params[1], 3),
+        Bottom = round(params[1], 3), 
         Top = round(params[2], 3),
         LogIC50 = if (!apply_threshold) round(params[3], 3) else NA,
         HillSlope = if (!apply_threshold) round(params[4], 3) else NA,
@@ -691,9 +685,9 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
         HillSlope_Upper_95CI = if (!apply_threshold && !is.na(ci$HillSlope[2])) round(ci$HillSlope[2], 3) else NA,
         IC50_Lower_95CI = if (!apply_threshold && !is.na(ci$IC50[1])) format(ci$IC50[1], scientific = TRUE) else NA,
         IC50_Upper_95CI = if (!apply_threshold && !is.na(ci$IC50[2])) format(ci$IC50[2], scientific = TRUE) else NA,
-        Span = round(params[6], 3),
+        Span = round(params[6], 3), 
         R_squared = round(gof$R_squared, 3),
-        Syx = round(gof$Syx, 3),
+        Syx = round(gof$Syx, 3), 
         Sum_of_Squares = round(gof$Sum_of_Squares, 3),
         Degrees_of_Freedom = gof$Degrees_of_Freedom,
         Max_Slope = round(result$max_slope %||% NA, 3),
@@ -715,24 +709,24 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       )
     }
   }))
-
+  
   # Create final_summary_table (transposed version)
   if (nrow(summary_table) > 0) {
     compound_names <- summary_table$Compound
     transposed_data <- as.data.frame(t(summary_table[, -1]))
     colnames(transposed_data) <- compound_names
     final_summary_table <- transposed_data
-
+    
   } else {
     final_summary_table <- data.frame()
   }
-
+  
   # Identify compounds affected by threshold
   threshold_affected <- character()
   if (enforce_bottom_threshold) {
     for (result in all_results) {
-      if (isTRUE(result$success) &&
-          !is.na(result$parameters$Value[1]) &&
+      if (isTRUE(result$success) && 
+          !is.na(result$parameters$Value[1]) && 
           result$parameters$Value[1] >= bottom_threshold) {
         curve_type <- result$curve_type
         if (curve_type == "inhibition" || curve_type == "flat" || curve_type == "unknown") {
@@ -742,7 +736,7 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       }
     }
   }
-
+  
   # Count order corrections
   order_corrections <- sum(sapply(all_results, function(x) {
     if (!is.null(x$parameter_order_correction)) {
@@ -751,14 +745,14 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       FALSE
     }
   }))
-
+  
   # Print summary statistics
   if (verbose) {
     successful <- sum(!is.na(summary_table$IC50))
     total <- nrow(summary_table)
     success_rate <- round(successful / total * 100, 1)
     threshold_count <- length(threshold_affected)
-
+    
     cat("\n", strrep("=", 50), "\n", sep = "")
     cat("4-PARAMETER DOSE-RESPONSE ANALYSIS COMPLETED SUCCESSFULLY!\n")
     cat(strrep("=", 50), "\n")
@@ -766,24 +760,24 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
     cat("  . Compounds analyzed: ", total, "\n")
     cat("  . Successful fits: ", successful, " (", success_rate, "%)\n", sep = "")
     cat("  . Failed fits: ", total - successful, "\n")
-
+    
     if (order_corrections > 0) {
       cat("  . Parameter order corrections: ", order_corrections, "\n")
     }
-
+    
     if (enforce_bottom_threshold && threshold_count > 0) {
       cat("  . IC50 values excluded (Bottom <=", bottom_threshold, "): ", threshold_count, "\n", sep = "")
-
+      
       cat("\nCOMPOUNDS WITH EXCLUDED IC50 VALUES:\n")
       for (i in seq_along(threshold_affected)) {
         bottom_val <- summary_table$Bottom[summary_table$Compound == threshold_affected[i]]
-        cat("  . ", threshold_affected[i], " (Bottom = ",
+        cat("  . ", threshold_affected[i], " (Bottom = ", 
             round(bottom_val, 1), ")\n", sep = "")
       }
     }
-
+    
     cat("  . Problematic curves: ", sum(grepl("shallow|Low R2|Small span|Wide CI range", summary_table$Curve_Quality)), "\n")
-
+    
     if ("Curve_Quality" %in% names(summary_table)) {
       cat("\nCURVE QUALITY DISTRIBUTION:\n")
       quality_counts <- table(summary_table$Curve_Quality)
@@ -794,14 +788,14 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
     }
     cat(strrep("=", 50), "\n\n")
   }
-
+  
   # Save results to file
   if (!is.null(output_file)) {
     file_ext <- tolower(tools::file_ext(output_file))
-
+    
     if (file_ext == "xlsx" && requireNamespace("openxlsx", quietly = TRUE)) {
       wb <- openxlsx::createWorkbook()
-
+      
       openxlsx::addWorksheet(wb, "Final_Summary")
       if (nrow(final_summary_table) > 0) {
         out_final <- data.frame(
@@ -813,18 +807,18 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       } else {
         openxlsx::writeData(wb, "Final_Summary", "No data")
       }
-
+      
       openxlsx::addWorksheet(wb, "Summary")
       openxlsx::writeData(wb, "Summary", summary_table)
-
+      
       openxlsx::addWorksheet(wb, "Normalized_Data")
       openxlsx::writeData(wb, "Normalized_Data", normalized_data)
-
+      
       openxlsx::addWorksheet(wb, "Original_Data")
       openxlsx::writeData(wb, "Original_Data", original_data)
-
+      
       openxlsx::saveWorkbook(wb, output_file, overwrite = TRUE)
-
+      
       if (verbose) {
         message("Results saved to Excel: ", output_file)
         message("  1. Final_Summary (Transposed)")
@@ -841,7 +835,7 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       if (verbose) cat("Results saved to:", output_file, "\n")
     }
   }
-
+  
   # Return results object - MODIFICADA
   list(
     summary_table = summary_table,

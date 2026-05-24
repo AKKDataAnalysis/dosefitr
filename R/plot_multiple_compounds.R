@@ -390,10 +390,6 @@ plot_multiple_compounds <- function(results,
          paste(required_packages[missing_packages], collapse = ", "))
   }
   
-  # Load packages
-  library(ggplot2)
-  library(scales)
-  
   # Validate input
   if (is.null(results$detailed_results) || length(results$detailed_results) == 0) {
     stop("Results object is empty or invalid")
@@ -1825,6 +1821,7 @@ plot_multiple_compounds <- function(results,
   
   return(p)
 }
+
 
 
 

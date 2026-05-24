@@ -24,7 +24,6 @@ Imports:
     ggplot2,
     stats,
     grDevices,
-    graphics,
     utils,
     dplyr,
     openxlsx,
@@ -39,10 +38,9 @@ Imports:
     ggrepel,
     patchwork
 Suggests: 
+    stringr,
     knitr,
     rmarkdown,
-    stringr,
-    lmtest,
     testthat (>= 3.0.0)
 VignetteBuilder: knitr
 Encoding: UTF-8
