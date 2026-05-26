@@ -64,8 +64,10 @@
 #'   `"black"`.
 #' @param colors Either `NULL` (use `color_palette`), a character vector of
 #'   hex/colour names (one per plate), or `TRUE` for automatic ggplot2 hues.
-#' @param point_shapes Numeric vector of point shape codes, one per plate.
-#'   `NULL` uses automatic shapes.
+#' @param point_shapes Controls point shapes. `NULL` (default) uses shape 16
+#'   (filled circle) for all plates. `TRUE` activates a set of default
+#'   distinct shapes, one per plate. A numeric vector assigns specific shape
+#'   codes (recycled if needed).
 #' @param error_bar_width Numeric.  Width of the error bar caps.  Default:
 #'   `0.05`.
 #' @param axis_text_size Numeric.  Font size for axis tick labels.

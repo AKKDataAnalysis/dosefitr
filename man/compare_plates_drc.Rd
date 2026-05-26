@@ -124,8 +124,10 @@ hex/colour names (one per plate), or \code{TRUE} for automatic ggplot2 hues.}
 \item{point_size}{Numeric.  Override the automatic point size.  \code{NULL}
 (default) uses the same adaptive logic as \code{\link[=plot_multiple_compounds]{plot_multiple_compounds()}}.}
 
-\item{point_shapes}{Numeric vector of point shape codes, one per plate.
-\code{NULL} uses automatic shapes.}
+\item{point_shapes}{Controls point shapes. \code{NULL} (default) uses shape 16
+(filled circle) for all plates. \code{TRUE} activates a set of default
+distinct shapes, one per plate. A numeric vector assigns specific shape
+codes (recycled if needed).}
 
 \item{error_bar_width}{Numeric.  Width of the error bar caps.  Default:
 \code{0.05}.}
