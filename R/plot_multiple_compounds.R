@@ -1759,7 +1759,7 @@ plot_multiple_compounds <- function(results,
       filename <- save_plot
     } else if (is.logical(save_plot) && save_plot) {
       indices_str <- paste(selected_indices, collapse = "_")
-      filename <- paste0("multiple_compounds_", indices_str, ".png")
+      filename <- paste0("multiple_compounds_", if (!is.null(plate)) paste0(plate, "_") else "", indices_str, ".png")
     } else {
       stop("save_plot must be either a file path or TRUE for auto-naming")
     }
