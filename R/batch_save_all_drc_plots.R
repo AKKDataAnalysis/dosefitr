@@ -354,7 +354,7 @@ batch_save_all_drc_plots <- function(batch_drc_results,
     message("  - Compounds: ", length(unique(sapply(compounds_list, function(x) x$compound))))
   }
   
-  # -- Auto-detect: resolve the best title mode from batch composition -------------
+  # -- Auto-detect: resolve the best title mode from batch composition ------------
   # Used by plot_title = TRUE (individual plots) and subplot_title = "auto" (panel).
   #   1 construct, N compounds  -> "compound"   (construct is constant, redundant)
   #   N constructs, 1 compound  -> "construct"  (compound is constant, redundant)
@@ -468,6 +468,7 @@ batch_save_all_drc_plots <- function(batch_drc_results,
       )
       
       # Save individual file
+      if (file.exists(output_path)) unlink(output_path)
       ggplot2::ggsave(output_path, plot = p_single,
                       width = width, height = height,
                       dpi = dpi, bg = "white")
@@ -553,6 +554,7 @@ batch_save_all_drc_plots <- function(batch_drc_results,
       )
       
       tryCatch({
+        if (file.exists(panel_path)) unlink(panel_path)
         ggplot2::ggsave(panel_path, combined,
                         width = panel_w, height = panel_h,
                         dpi = dpi, bg = "white")
@@ -629,3 +631,4 @@ batch_save_all_drc_plots <- function(batch_drc_results,
     timestamp = Sys.time()
   ))
 }
+
