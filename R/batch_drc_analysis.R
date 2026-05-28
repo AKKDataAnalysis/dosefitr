@@ -256,6 +256,14 @@ batch_drc_analysis <- function(batch_results,
       drc_summary_copy$Plate <- plate_name
       cols_order <- c("Plate", setdiff(names(drc_summary_copy), "Plate"))
       drc_summary_copy <- drc_summary_copy[, cols_order, drop = FALSE]
+      # Coerce mixed-type columns to character so bind_rows works across plates
+      # (plates with N/D compounds have character; plates without have numeric)
+      mixed_cols <- c("LogIC50", "IC50",
+                      "LogIC50_Lower_95CI", "LogIC50_Upper_95CI",
+                      "IC50_Lower_95CI", "IC50_Upper_95CI")
+      for (.col in intersect(mixed_cols, names(drc_summary_copy))) {
+        drc_summary_copy[[.col]] <- as.character(drc_summary_copy[[.col]])
+      }
       all_results_list[[length(all_results_list) + 1]] <- drc_summary_copy
       
       # 3. Quality List
@@ -820,7 +828,7 @@ batch_drc_analysis <- function(batch_results,
       
     }, error = function(e) {
       warning(sprintf("Failed to process plate '%s': %s", plate_name, e$message))
-      failed_plates <- c(failed_plates, plate_name)
+      failed_plates <<- c(failed_plates, plate_name)
     })
   }
   

@@ -30,13 +30,6 @@ results <- batch_ratio_analysis(
 # )
 
 
-## If you want to use for Cell Viability
-# via_results <- batch_viability_analysis(
-#   control_0perc    = 13,
-#   control_100perc  = 12,
-#   selected_columns = c(2:23)   # passed straight through to process_viability_data
-# )
-
 ## Detect and remove outliers
 ## (if you want to use the outliers table, put results_clean in the
 ## batch_results argument of batch_drc_analysis)
@@ -96,18 +89,6 @@ table <- scarab_table(
   tracer = "Tracer K10",
   decimal_separator = ","        # "," or "." for decimals
 )
-
-# Viability Scarab
-# table <- scarab_viability(
-#  via_results, 
-#   drc_results,
-#   cell_line = "AGP-01",
-#   cell_type = "Metastatic Gastric Adenocarcinoma",
-#   date = "260521",
-#   plate_name = "plate_02",
-#   experimenter_abbrev = "TL",
-#   decimal_separator = ","
-# )
 
 
 ## Compare plates

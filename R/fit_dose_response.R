@@ -302,7 +302,7 @@ fit_drc_3pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
   }
   
   normalize_dataframe <- function(df) {
-    df %>% dplyr::mutate(dplyr::across(-1, ~ {
+    df |> dplyr::mutate(dplyr::across(-1, ~ {
       v <- suppressWarnings(as.numeric(as.character(.x)))
       vc <- v[!is.na(v)]
       if (length(vc) < 2) return(rep(NA_real_, length(v)))
