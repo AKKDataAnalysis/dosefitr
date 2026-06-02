@@ -1,4 +1,4 @@
-#' Batch ROUT Outlier Detection for Dose–Response Plates
+#' Batch ROUT Outlier Detection for Dose-Response Plates
 #'
 #' @description
 #' Applies ROUT-based outlier detection (via \code{rout_outliers()}) across
@@ -11,7 +11,7 @@
 #'
 #' @details
 #' The function iterates over a named list of plate results, where each element
-#' is expected to contain a processed dose–response table.
+#' is expected to contain a processed dose-response table.
 #'
 #' For each plate:
 #' \itemize{
@@ -64,6 +64,11 @@
 #'   (compound fluorescence, precipitation) than true biology.
 #'
 #' @param verbose Logical. If TRUE, prints progress and summary messages.
+#'
+#' @param seed Integer or \code{NULL}.  Random seed passed to each
+#'   \code{\link{rout_outliers}} call to ensure reproducible outlier
+#'   detection across runs (default \code{42L}).  Set to \code{NULL}
+#'   to disable seeding and restore non-deterministic behaviour.
 #'
 #' @return A list containing:
 #' \itemize{
@@ -147,50 +152,51 @@ rout_outliers_batch <- function(batch_results,
                                 min_dynamic_range = 20,
                                 ntry_retry        = 3L,
                                 keep_cytotoxic    = FALSE,
-                                verbose           = TRUE) {
-
+                                verbose           = TRUE,
+                                seed              = 42L) {
+  
   # --------------------------------------------------------------------------
   # 1. Input validation
   # --------------------------------------------------------------------------
   if (!is.list(batch_results) || length(batch_results) == 0L)
     stop("batch_results must be a non-empty named list of plate results.")
-
+  
   if (!n_param %in% c(3L, 4L))
     stop("n_param must be 3 or 4.")
-
+  
   if (!direction %in% c("inhibition", "activation", "agonist"))
     stop('direction must be "inhibition" or "activation".')
   # Normalise "activation" to "agonist" for the rout_outliers() engine,
   # but store the user-facing canonical term ("activation") in $params.
   direction_engine <- if (direction == "activation") "agonist" else direction
-
+  
   if (!is.numeric(Q) || length(Q) != 1L || Q <= 0 || Q >= 1)
     stop("Q must be a single number strictly between 0 and 1.")
-
+  
   if (!is.numeric(ntry_retry) || length(ntry_retry) != 1L || ntry_retry < 0)
     stop("ntry_retry must be a single non-negative integer.")
   ntry_retry <- as.integer(ntry_retry)
-
+  
   if (!is.logical(keep_cytotoxic) || length(keep_cytotoxic) != 1L)
     stop("keep_cytotoxic must be a single logical value (TRUE or FALSE).")
-
+  
   # Verify rout_outliers is available
   if (!exists("rout_outliers", mode = "function"))
     stop(paste0(
       "rout_outliers() not found. ",
       "Please source('rout_outliers.R') before calling this function."))
-
+  
   # --------------------------------------------------------------------------
   # 2. Helpers
   # --------------------------------------------------------------------------
-
+  
   # Detect and remove NA/empty columns from a modified_ratio_table.
   # Returns list(clean_table, skipped_cols) where skipped_cols is a character
   # vector of column names that were removed.
   .remove_na_columns <- function(tbl) {
     value_cols <- seq(2L, ncol(tbl))          # col 1 is concentration
     col_names  <- colnames(tbl)[value_cols]
-
+    
     # A column is "NA/empty" if:
     #   (a) its name starts with "NA" (e.g. "NA:NA", "NA_2:NA"), OR
     #   (b) > 80% of its values are NA or NaN
@@ -206,7 +212,7 @@ rout_outliers_batch <- function(batch_results,
       else                  mean(is.na(vals))
       na_frac > 0.8
     }, logical(1L))
-
+    
     # Pair-aware removal: data columns come in replicate pairs (col i, col i+1).
     # If either column of a pair is flagged, remove BOTH -- otherwise the
     # remaining orphan column makes the total data-column count odd, which
@@ -221,12 +227,12 @@ rout_outliers_batch <- function(batch_results,
         }
       }
     }
-
+    
     skipped <- col_names[is_na_col]
     clean   <- tbl[, c(1L, value_cols[!is_na_col]), drop = FALSE]
     list(clean_table = clean, skipped_cols = skipped)
   }
-
+  
   # Prepend a plate column to a data.frame (used for summary tables).
   .prepend_plate <- function(df, plate_name) {
     if (nrow(df) == 0L) {
@@ -235,62 +241,62 @@ rout_outliers_batch <- function(batch_results,
     }
     cbind(data.frame(plate = plate_name, stringsAsFactors = FALSE), df)
   }
-
+  
   # Cytotoxicity rescue filter.
   # Takes the outlier_table and cleaned_mrt from a single plate and restores
   # points that are consistent with cytotoxicity rather than technical error.
   #
   # A point is rescued when BOTH replicates at the same compound + concentration
   # are flagged (reproducible drop). The top-2 concentration rank is used as
-  # an informational label in the rescue_reason column but is NOT a hard gate —
+  # an informational label in the rescue_reason column but is NOT a hard gate -
   # reproducible same-concentration flags anywhere in the dose range can reflect
   # real biology (e.g. cytotoxicity at sub-maximal concentrations).
   #
   # Returns list(cleaned_mrt, outlier_table, rescued_rows) where rescued_rows
   # is a data.frame (subset of outlier_table) of the rescued entries.
   .rescue_cytotoxic <- function(outlier_tbl, cleaned_mrt, original_mrt) {
-
+    
     if (nrow(outlier_tbl) == 0L)
       return(list(cleaned_mrt  = cleaned_mrt,
                   outlier_tbl  = outlier_tbl,
                   rescued_rows = outlier_tbl[0L, ]))
-
+    
     # Concentration column name (log10_conc or ln_conc)
     conc_col_name <- intersect(c("log10_conc", "ln_conc"), names(outlier_tbl))[1L]
-
+    
     # Top-2 concentrations (used for labelling only, not as a hard filter)
     conc_col_idx <- 1L
     all_concs    <- sort(unique(stats::na.omit(cleaned_mrt[[conc_col_idx]])),
                          decreasing = TRUE)
     top2_concs   <- all_concs[seq_len(min(2L, length(all_concs)))]
-
+    
     rescue_mask   <- logical(nrow(outlier_tbl))
     rescue_reason <- character(nrow(outlier_tbl))
-
+    
     for (i in seq_len(nrow(outlier_tbl))) {
       conc_i <- outlier_tbl[[conc_col_name]][i]
       cmpd_i <- outlier_tbl$compound[i]
-
+      
       # Condition: both replicates at this compound + concentration are flagged
       same_cmpd_conc <- outlier_tbl$compound == cmpd_i &
         outlier_tbl[[conc_col_name]] == conc_i
       if (sum(same_cmpd_conc) < 2L) next
-
+      
       rescue_mask[i]   <- TRUE
       rescue_reason[i] <- if (conc_i %in% top2_concs)
         "both replicates flagged at top-2 concentration (cytotoxicity)"
       else
         "both replicates flagged at same concentration (reproducible drop)"
     }
-
+    
     if (!any(rescue_mask))
       return(list(cleaned_mrt  = cleaned_mrt,
                   outlier_tbl  = outlier_tbl,
                   rescued_rows = outlier_tbl[0L, ]))
-
+    
     rescued_rows <- outlier_tbl[rescue_mask, , drop = FALSE]
     rescued_rows$rescue_reason <- rescue_reason[rescue_mask]
-
+    
     # Restore original values in cleaned_mrt for rescued rows
     restored_mrt <- cleaned_mrt
     for (i in seq_len(nrow(rescued_rows))) {
@@ -299,12 +305,12 @@ rout_outliers_batch <- function(batch_results,
       if (col %in% colnames(original_mrt) && r >= 1L && r <= nrow(original_mrt))
         restored_mrt[r, col] <- original_mrt[r, col]
     }
-
+    
     list(cleaned_mrt  = restored_mrt,
          outlier_tbl  = outlier_tbl[!rescue_mask, , drop = FALSE],
          rescued_rows = rescued_rows)
   }
-
+  
   # --------------------------------------------------------------------------
   # 3. Identify plate names
   # Exclude reserved elements appended by this function itself so that
@@ -312,10 +318,10 @@ rout_outliers_batch <- function(batch_results,
   # --------------------------------------------------------------------------
   reserved <- c("outlier_summary", "skipped_summary", "rescued_summary", "params")
   plate_names <- setdiff(names(batch_results), reserved)
-
+  
   if (length(plate_names) == 0L)
     stop("No plate entries found in batch_results (all names are reserved).")
-
+  
   if (verbose) {
     cat(strrep("=", 60), "\n")
     cat("NANOBRET BATCH ROUT OUTLIER DETECTION\n")
@@ -328,7 +334,7 @@ rout_outliers_batch <- function(batch_results,
     cat(sprintf("ntry_retry       : %d\n", ntry_retry))
     cat(sprintf("keep_cytotoxic   : %s\n\n", keep_cytotoxic))
   }
-
+  
   # --------------------------------------------------------------------------
   # 4. Per-plate processing
   # --------------------------------------------------------------------------
@@ -336,32 +342,32 @@ rout_outliers_batch <- function(batch_results,
   skipped_list <- list()
   rescued_list <- list()
   output       <- batch_results   # start with a full copy; patch in place
-
+  
   for (plate_name in plate_names) {
-
+    
     plate <- batch_results[[plate_name]]
-
+    
     if (verbose) cat(sprintf("--- %s ---\n", plate_name))
-
+    
     # BUG_2 fix: clear any stale _original table from a previous run so that
     # re-running on the same output object does not carry forward stale data.
     output[[plate_name]]$result$modified_ratio_table_original <- NULL
-
+    
     # ---- 4a. Locate modified_ratio_table ----
     mrt <- tryCatch(plate$result$modified_ratio_table, error = function(e) NULL)
-
+    
     if (is.null(mrt) || !is.data.frame(mrt) || nrow(mrt) == 0L || ncol(mrt) < 3L) {
       if (verbose)
         message(sprintf("  Skipping %s: modified_ratio_table not found or too small.",
                         plate_name))
       next
     }
-
+    
     # ---- 4b. Remove NA/empty columns silently ----
     cleaned_cols <- .remove_na_columns(mrt)
     mrt_clean    <- cleaned_cols$clean_table
     skipped_cols <- cleaned_cols$skipped_cols
-
+    
     if (length(skipped_cols) > 0L) {
       sk <- data.frame(
         compound          = skipped_cols,
@@ -373,14 +379,14 @@ rout_outliers_batch <- function(batch_results,
       # do not overwrite NA-column skips for the same plate.
       skipped_list[[paste0(plate_name, "__na")]] <- .prepend_plate(sk, plate_name)
     }
-
+    
     if (ncol(mrt_clean) < 3L) {
       if (verbose)
         message(sprintf("  Skipping %s: no valid compound columns remain after NA removal.",
                         plate_name))
       next
     }
-
+    
     # ---- 4c. Separate control rows (NA concentration) from dose rows ----
     # modified_ratio_table can have multiple NA-concentration rows:
     #   - Row at the top:    0% control mean (e.g. original row 24)
@@ -392,16 +398,16 @@ rout_outliers_batch <- function(batch_results,
     conc_col1    <- mrt_clean[[1L]]
     ctrl_rows    <- which(is.na(conc_col1))   # all NA-concentration rows
     dose_rows    <- which(!is.na(conc_col1))  # all real dose rows
-
+    
     if (length(dose_rows) < 2L) {
       if (verbose)
         message(sprintf("  Skipping %s: fewer than 2 dose rows after control removal.",
                         plate_name))
       next
     }
-
+    
     has_ctrl_rows <- length(ctrl_rows) > 0L
-
+    
     if (has_ctrl_rows) {
       # Extract only the dose rows for fitting; reset row names to 1-based
       # so that rout_outliers() internal indices are 1-based within
@@ -411,7 +417,7 @@ rout_outliers_batch <- function(batch_results,
     } else {
       tbl_for_fit <- mrt_clean
     }
-
+    
     # ---- 4d. Run ROUT outlier detection ----
     rout_out <- tryCatch(
       rout_outliers(
@@ -423,7 +429,8 @@ rout_outliers_batch <- function(batch_results,
         direction         = direction_engine,
         min_dynamic_range = min_dynamic_range,
         ntry_retry        = ntry_retry,
-        verbose           = verbose
+        verbose           = verbose,
+        seed              = seed
       ),
       error = function(e) {
         warning(sprintf("rout_outliers() failed for plate '%s': %s",
@@ -431,9 +438,9 @@ rout_outliers_batch <- function(batch_results,
         NULL
       }
     )
-
+    
     if (is.null(rout_out)) next
-
+    
     # ---- 4e. Reconstruct the full modified_ratio_table ----
     # rout_out$cleaned_table covers only the dose rows (control rows were
     # excluded before fitting). Re-insert all control rows at their ORIGINAL
@@ -442,7 +449,7 @@ rout_outliers_batch <- function(batch_results,
     # Strategy: build a full-length skeleton from mrt_clean, fill dose
     # positions with the cleaned values, leave control positions unchanged.
     cleaned_mrt <- rout_out$cleaned_table   # dose rows only, 1-based
-
+    
     if (has_ctrl_rows) {
       # Allocate a full table (same dimensions as mrt_clean)
       full_mrt <- mrt_clean   # start with original (controls already correct)
@@ -451,7 +458,7 @@ rout_outliers_batch <- function(batch_results,
       rownames(full_mrt)    <- NULL
       cleaned_mrt           <- full_mrt
     }
-
+    
     # Carry the outliers_replaced attribute from the inner call.
     # Row indices in the attribute refer to tbl_for_fit (dose rows only,
     # 1-based). Map them back to the original mrt_clean row numbers using
@@ -461,21 +468,21 @@ rout_outliers_batch <- function(batch_results,
       or_attr$row <- dose_rows[or_attr$row]
     }
     attr(cleaned_mrt, "outliers_replaced") <- or_attr
-
+    
     # ---- 4f. Map outlier row indices back to mrt_clean row numbers ----
     # rout_out$outlier_table rows refer to tbl_for_fit (dose rows only,
     # 1-based). Map them back to mrt_clean row numbers before rescue/storage.
     plate_outlier_tbl <- rout_out$outlier_table
     if (nrow(plate_outlier_tbl) > 0L && has_ctrl_rows)
       plate_outlier_tbl$row <- dose_rows[plate_outlier_tbl$row]
-
+    
     # ---- 4g. Cytotoxicity rescue (only when keep_cytotoxic = TRUE) ----
     # Restores flagged points that meet BOTH criteria:
     #   (1) Both replicates at that compound+concentration are flagged.
     #   (2) The concentration is one of the top 2 tested concentrations.
     # Rescued points are removed from plate_outlier_tbl and logged separately.
     rescued_rows_plate <- plate_outlier_tbl[0L, ]   # empty placeholder
-
+    
     if (keep_cytotoxic && nrow(plate_outlier_tbl) > 0L) {
       rescue_out <- .rescue_cytotoxic(
         outlier_tbl  = plate_outlier_tbl,
@@ -485,14 +492,14 @@ rout_outliers_batch <- function(batch_results,
       cleaned_mrt        <- rescue_out$cleaned_mrt
       plate_outlier_tbl  <- rescue_out$outlier_tbl
       rescued_rows_plate <- rescue_out$rescued_rows
-
+      
       if (nrow(rescued_rows_plate) > 0L) {
         if (verbose)
           message(sprintf(
             "  keep_cytotoxic: rescued %d point(s) for: %s",
             nrow(rescued_rows_plate),
             paste(unique(rescued_rows_plate$compound), collapse = ", ")))
-
+        
         # Update the outliers_replaced attribute to reflect the rescue
         or_attr_updated <- attr(cleaned_mrt, "outliers_replaced")
         if (!is.null(or_attr_updated) && nrow(or_attr_updated) > 0L) {
@@ -504,7 +511,7 @@ rout_outliers_batch <- function(batch_results,
         }
       }
     }
-
+    
     # ---- 4h. Patch the plate in the output list ----
     # Store the pre-cleaning table when outliers were removed OR when points
     # were rescued. The plot function needs the original values to re-fit on;
@@ -515,13 +522,13 @@ rout_outliers_batch <- function(batch_results,
       output[[plate_name]]$result$modified_ratio_table_original <- mrt_clean
     }
     output[[plate_name]]$result$modified_ratio_table <- cleaned_mrt
-
+    
     # Store per-plate rescued points so plot_outliers_batch_curves() can
     # suppress the red-X marker for these compound+concentration pairs.
     # Always written (empty data frame when nothing was rescued) so the
     # plot function can rely on it being present without NULL checks.
     output[[plate_name]]$result$rescued_cytotoxic <- rescued_rows_plate
-
+    
     # Store the ROUT results (with rescue flags already cleared) so the plot
     # function can use them directly instead of re-running ROUT from scratch.
     # This prevents any discrepancy between what was detected/rescued during
@@ -546,20 +553,20 @@ rout_outliers_batch <- function(batch_results,
     # (rout_out$results does not carry row indices directly, but the params
     # and curve data are unaffected by this mapping.)
     output[[plate_name]]$result$rout_results <- rout_out
-
+    
     # ---- 4i. Collect per-plate summaries ----
     if (nrow(plate_outlier_tbl) > 0L)
       outlier_list[[plate_name]] <- .prepend_plate(plate_outlier_tbl, plate_name)
-
+    
     if (nrow(rescued_rows_plate) > 0L)
       rescued_list[[plate_name]] <- .prepend_plate(rescued_rows_plate, plate_name)
-
+    
     if (nrow(rout_out$skipped_table) > 0L) {
       # BUG_6 fix: use a source-specific key so this does not overwrite the
       # NA-column skip entry written above for the same plate.
       skipped_list[[paste0(plate_name, "__rout")]] <- .prepend_plate(rout_out$skipped_table, plate_name)
     }
-
+    
     if (verbose) {
       n_out     <- nrow(plate_outlier_tbl)
       n_rescued <- nrow(rescued_rows_plate)
@@ -573,7 +580,7 @@ rout_outliers_batch <- function(batch_results,
       }
     }
   }
-
+  
   # --------------------------------------------------------------------------
   # 5. Aggregate summaries
   # --------------------------------------------------------------------------
@@ -586,7 +593,7 @@ rout_outliers_batch <- function(batch_results,
                std_residual = numeric(), dynamic_range_pct = numeric(),
                stringsAsFactors = FALSE)
   }
-
+  
   skipped_summary <- if (length(skipped_list) > 0L) {
     do.call(rbind, skipped_list)
   } else {
@@ -594,7 +601,7 @@ rout_outliers_batch <- function(batch_results,
                n_valid = integer(), dynamic_range_pct = numeric(),
                stringsAsFactors = FALSE)
   }
-
+  
   rescued_summary <- if (length(rescued_list) > 0L) {
     do.call(rbind, rescued_list)
   } else {
@@ -605,11 +612,11 @@ rout_outliers_batch <- function(batch_results,
                rescue_reason = character(),
                stringsAsFactors = FALSE)
   }
-
+  
   rownames(outlier_summary) <- NULL
   rownames(skipped_summary) <- NULL
   rownames(rescued_summary) <- NULL
-
+  
   # --------------------------------------------------------------------------
   # 6. Verbose final summary
   # --------------------------------------------------------------------------
@@ -624,7 +631,7 @@ rout_outliers_batch <- function(batch_results,
     if (keep_cytotoxic)
       cat(sprintf("Total rescued    : %d (cytotoxic, kept)\n", nrow(rescued_summary)))
     cat(sprintf("Total skipped    : %d compound(s)\n\n", nrow(skipped_summary)))
-
+    
     if (nrow(outlier_summary) > 0L) {
       cat("Outlier summary:\n")
       show_cols <- intersect(
@@ -634,7 +641,7 @@ rout_outliers_batch <- function(batch_results,
             row.names = FALSE, digits = 3)
       cat("\n")
     }
-
+    
     if (keep_cytotoxic && nrow(rescued_summary) > 0L) {
       cat("Rescued (cytotoxic) summary:\n")
       show_cols_r <- intersect(
@@ -645,7 +652,7 @@ rout_outliers_batch <- function(batch_results,
       cat("\n")
     }
   }
-
+  
   # --------------------------------------------------------------------------
   # 7. Append summary elements and return
   # --------------------------------------------------------------------------
@@ -658,8 +665,9 @@ rout_outliers_batch <- function(batch_results,
     direction         = direction,
     log_base          = "log10",   # hardcoded  --  modified_ratio_table is always log10
     ntry_retry        = ntry_retry,
-    keep_cytotoxic    = keep_cytotoxic
+    keep_cytotoxic    = keep_cytotoxic,
+    seed              = seed
   )
-
+  
   return(invisible(output))
 }

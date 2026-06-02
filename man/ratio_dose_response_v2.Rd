@@ -2,7 +2,7 @@
 % Please edit documentation in R/ratio_dose_response_v2.R
 \name{ratio_dose_response_v2}
 \alias{ratio_dose_response_v2}
-\title{Dose–Response Ratio Processing and Normalization Function}
+\title{Dose-Response Ratio Processing and Normalization Function}
 \usage{
 ratio_dose_response_v2(
   data,
@@ -86,15 +86,15 @@ calculates ratios, applies optional normalization to controls (0\% and 100\%),
 performs quality control metrics, handles replicate splitting, and optionally
 exports results to Excel.
 
-It is designed for high-throughput dose–response experiments where two signals
+It is designed for high-throughput dose-response experiments where two signals
 (e.g., reporter and normalization control) are measured across multiple wells.
 }
 \details{
 The function expects a raw data table structured similarly to plate-reader exports:
 \itemize{
 \item Row 9: column names
-\item Rows 10–25: first measurement (e.g., luciferase)
-\item Rows 28–43: second measurement (e.g., normalizer)
+\item Rows 10-25: first measurement (e.g., luciferase)
+\item Rows 28-43: second measurement (e.g., normalizer)
 }
 
 The ratio is calculated as:
@@ -181,5 +181,5 @@ result$modified_ratio_table
 
 }
 \seealso{
-Useful for downstream dose–response modeling and outlier detection pipelines.
+Useful for downstream dose-response modeling and outlier detection pipelines.
 }

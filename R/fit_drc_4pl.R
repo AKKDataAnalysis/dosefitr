@@ -603,7 +603,7 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
   
   # Normalize a data frame to 0-100% (same logic as fit_drc_3pl)
   normalize_dataframe <- function(df) {
-    df %>% dplyr::mutate(dplyr::across(-1, ~ {
+    df |> dplyr::mutate(dplyr::across(-1, ~ {
       v <- suppressWarnings(as.numeric(as.character(.x)))
       vc <- v[!is.na(v)]
       if (length(vc) < 2) return(rep(NA_real_, length(v)))
@@ -672,19 +672,19 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
         Compound = strsplit(result$compound, " \\| ")[[1]][1],
         Bottom = round(params[1], 3), 
         Top = round(params[2], 3),
-        LogIC50 = if (!apply_threshold) round(params[3], 3) else NA,
-        HillSlope = if (!apply_threshold) round(params[4], 3) else NA,
-        IC50 = if (!apply_threshold) format(params[5], scientific = TRUE) else NA,
+        LogIC50 = if (!apply_threshold) round(params[3], 3) else NA_real_,
+        HillSlope = if (!apply_threshold) round(params[4], 3) else NA_real_,
+        IC50 = if (!apply_threshold) format(params[5], scientific = TRUE) else NA_character_,
         Bottom_Lower_95CI = if (!is.na(ci$Bottom_Lower)) round(ci$Bottom_Lower, 3) else NA_real_,
         Bottom_Upper_95CI = if (!is.na(ci$Bottom_Upper)) round(ci$Bottom_Upper, 3) else NA_real_,
         Top_Lower_95CI = if (!is.na(ci$Top_Lower)) round(ci$Top_Lower, 3) else NA_real_,
         Top_Upper_95CI = if (!is.na(ci$Top_Upper)) round(ci$Top_Upper, 3) else NA_real_,
-        LogIC50_Lower_95CI = if (!apply_threshold && !is.na(ci$LogIC50[1])) round(ci$LogIC50[1], 3) else NA,
-        LogIC50_Upper_95CI = if (!apply_threshold && !is.na(ci$LogIC50[2])) round(ci$LogIC50[2], 3) else NA,
-        HillSlope_Lower_95CI = if (!apply_threshold && !is.na(ci$HillSlope[1])) round(ci$HillSlope[1], 3) else NA,
-        HillSlope_Upper_95CI = if (!apply_threshold && !is.na(ci$HillSlope[2])) round(ci$HillSlope[2], 3) else NA,
-        IC50_Lower_95CI = if (!apply_threshold && !is.na(ci$IC50[1])) format(ci$IC50[1], scientific = TRUE) else NA,
-        IC50_Upper_95CI = if (!apply_threshold && !is.na(ci$IC50[2])) format(ci$IC50[2], scientific = TRUE) else NA,
+        LogIC50_Lower_95CI = if (!apply_threshold && !is.na(ci$LogIC50[1])) round(ci$LogIC50[1], 3) else NA_real_,
+        LogIC50_Upper_95CI = if (!apply_threshold && !is.na(ci$LogIC50[2])) round(ci$LogIC50[2], 3) else NA_real_,
+        HillSlope_Lower_95CI = if (!apply_threshold && !is.na(ci$HillSlope[1])) round(ci$HillSlope[1], 3) else NA_real_,
+        HillSlope_Upper_95CI = if (!apply_threshold && !is.na(ci$HillSlope[2])) round(ci$HillSlope[2], 3) else NA_real_,
+        IC50_Lower_95CI = if (!apply_threshold && !is.na(ci$IC50[1])) format(ci$IC50[1], scientific = TRUE) else NA_character_,
+        IC50_Upper_95CI = if (!apply_threshold && !is.na(ci$IC50[2])) format(ci$IC50[2], scientific = TRUE) else NA_character_,
         Span = round(params[6], 3), 
         R_squared = round(gof$R_squared, 3),
         Syx = round(gof$Syx, 3), 
@@ -697,14 +697,14 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
     } else {
       data.frame(
         Compound = strsplit(result$compound, " \\| ")[[1]][1],
-        Bottom = NA, Top = NA, LogIC50 = NA, HillSlope = NA, IC50 = NA,
-        Bottom_Lower_95CI = NA, Bottom_Upper_95CI = NA,
-        Top_Lower_95CI = NA, Top_Upper_95CI = NA,
-        LogIC50_Lower_95CI = NA, LogIC50_Upper_95CI = NA,
-        HillSlope_Lower_95CI = NA, HillSlope_Upper_95CI = NA,
-        IC50_Lower_95CI = NA, IC50_Upper_95CI = NA, Span = NA,
-        R_squared = NA, Syx = NA, Sum_of_Squares = NA, Degrees_of_Freedom = NA,
-        Max_Slope = NA, Curve_Quality = "Fit failed",
+        Bottom = NA_real_, Top = NA_real_, LogIC50 = NA_real_, HillSlope = NA_real_, IC50 = NA_character_,
+        Bottom_Lower_95CI = NA_real_, Bottom_Upper_95CI = NA_real_,
+        Top_Lower_95CI = NA_real_, Top_Upper_95CI = NA_real_,
+        LogIC50_Lower_95CI = NA_real_, LogIC50_Upper_95CI = NA_real_,
+        HillSlope_Lower_95CI = NA_real_, HillSlope_Upper_95CI = NA_real_,
+        IC50_Lower_95CI = NA_character_, IC50_Upper_95CI = NA_character_, Span = NA_real_,
+        R_squared = NA_real_, Syx = NA_real_, Sum_of_Squares = NA_real_, Degrees_of_Freedom = NA_real_,
+        Max_Slope = NA_real_, Curve_Quality = "Fit failed",
         stringsAsFactors = FALSE
       )
     }

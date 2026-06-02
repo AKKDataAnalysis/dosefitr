@@ -2,7 +2,7 @@
 % Please edit documentation in R/rout_outliers_batch.R
 \name{rout_outliers_batch}
 \alias{rout_outliers_batch}
-\title{Batch ROUT Outlier Detection for Dose–Response Plates}
+\title{Batch ROUT Outlier Detection for Dose-Response Plates}
 \usage{
 rout_outliers_batch(
   batch_results,
@@ -12,7 +12,8 @@ rout_outliers_batch(
   min_dynamic_range = 20,
   ntry_retry = 3L,
   keep_cytotoxic = FALSE,
-  verbose = TRUE
+  verbose = TRUE,
+  seed = 42L
 )
 }
 \arguments{
@@ -57,6 +58,11 @@ high-concentration drops are more likely to be technical artefacts
 (compound fluorescence, precipitation) than true biology.}
 
 \item{verbose}{Logical. If TRUE, prints progress and summary messages.}
+
+\item{seed}{Integer or \code{NULL}.  Random seed passed to each
+\code{\link{rout_outliers}} call to ensure reproducible outlier
+detection across runs (default \code{42L}).  Set to \code{NULL}
+to disable seeding and restore non-deterministic behaviour.}
 }
 \value{
 A list containing:
@@ -81,7 +87,7 @@ This function is designed to operate on outputs from
 }
 \details{
 The function iterates over a named list of plate results, where each element
-is expected to contain a processed dose–response table.
+is expected to contain a processed dose-response table.
 
 For each plate:
 \itemize{

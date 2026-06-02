@@ -13,7 +13,8 @@ rout_outliers(
   direction = "inhibition",
   min_dynamic_range = 20,
   ntry_retry = 3L,
-  verbose = TRUE
+  verbose = TRUE,
+  seed = 42L
 )
 }
 \arguments{
@@ -37,6 +38,14 @@ Must be between 0 and 1 (exclusive). Default is 0.01.}
 \item{ntry_retry}{Number of retry attempts for model fitting using random starts.}
 
 \item{verbose}{Logical; if TRUE, prints detailed progress and diagnostics.}
+
+\item{seed}{Integer or \code{NULL}.  Random seed set once before the
+compound-processing loop to make results fully reproducible across runs
+(default \code{42L}).  The seed is passed to \code{\link{set.seed}}
+before the first \code{rout_fitter} call, so any random-restart
+perturbations (\code{ntry_retry > 0}) use the same RNG sequence every
+time.  Set to \code{NULL} to disable seeding and restore the previous
+non-deterministic behaviour.}
 }
 \value{
 A list with the following elements:
