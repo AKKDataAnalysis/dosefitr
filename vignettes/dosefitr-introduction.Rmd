@@ -53,7 +53,8 @@ batch_drc_analysis()          <- fits 3PL or 4PL dose-response curves
       |---> batch_save_all_drc_plots()   <- one plot per compound
       |---> plot_multiple_compounds()    <- overlay selected compounds
       |---> compare_plates_drc()         <- compare compound across plates
-      `---> scarab_table()              <- Scarab-format export (NanoBRET)
+      |---> scarab_table()              <- Scarab-format export (NanoBRET)
+      `---> scarab_viability()          <- Scarab-format export (viability)
 ```
 
 ---
@@ -191,7 +192,17 @@ The ROUT method is described in: Motulsky HJ & Brown RE, BMC Bioinformatics
 2006, 7:123 (doi:10.1186/1471-2105-7-123).
 
 ```{r nanobret-step2}
-results_clean <- rout_outliers_batch(results, Q = 0.01)
+results_clean <- rout_outliers_batch(
+  batch_results     = results,
+  Q                 = 0.01,      # 1% FDR -- recommended starting point
+  n_param           = 4L,        # 4-parameter Hill model (free Hill slope)
+  direction         = "inhibition",
+  ntry_retry        = 3L,        # random restarts on non-convergence
+  min_dynamic_range = 20,        # warn if dynamic range < 20%
+  keep_cytotoxic    = FALSE,     # set TRUE for viability assays
+  seed              = 42L,       # ensures reproducible outlier calls
+  verbose           = TRUE
+)
 
 # Inspect flagged points
 head(results_clean$outlier_summary)
@@ -204,6 +215,18 @@ plot_outliers_batch_curves(results_clean)
 cleaned data and preserves the original as `modified_ratio_table_original`.
 Pass `results_clean` (not `results`) to `batch_drc_analysis()` to use the
 cleaned data.
+
+**Choosing `Q`:**
+
+| `Q` value | Stringency | Use case |
+|---|---|---|
+| `0.001` | Very strict | High-confidence outlier removal only |
+| `0.01` | Recommended | Standard NanoBRET and viability experiments |
+| `0.05` | Lenient | Noisy assays or exploratory analysis |
+
+Start with `Q = 0.01`. If biologically plausible points are being removed,
+increase to `Q = 0.001`. If obvious outliers are being missed, decrease to
+`Q = 0.05`.
 
 ### Step 3: Fit dose-response curves
 
@@ -256,7 +279,26 @@ quality_table <- drc_results$drc_results$plate_01$drc_result$curve_quality_table
 **Save one plot per compound:**
 
 ```{r nanobret-step4-all}
-batch_save_all_drc_plots(drc_results, verbose = TRUE)
+batch_save_all_drc_plots(
+  batch_drc_results    = drc_results,
+  output_dir           = "DRC_Plots",
+  verbose              = TRUE,
+  y_axis_title         = NULL,          # auto-detects assay type
+  y_limits             = NULL,          # NULL auto-scales; use c(0, 100) for fixed scale
+  organize_by          = "plate",       # "plate" or "compound"
+  format               = "png",
+  width                = 10,
+  height               = 10,
+  dpi                  = 600,
+  compounds_to_plot    = NULL,          # character vector to restrict compounds
+  plates_to_plot       = NULL,          # character vector to restrict plates
+  save_panel           = TRUE,          # also save a combined panel per plate
+  panel_ncol           = 4L,
+  panel_width_per_col  = 6,
+  panel_height_per_row = 6,
+  panel_spacing        = 1,
+  subplot_title        = "auto"         # "auto", "compound", "construct", or fixed string
+)
 ```
 
 **Overlay selected compounds on one plot:**
@@ -451,6 +493,32 @@ plot_multiple_compounds(drc_results,
 )
 ```
 
+### Step 5: Export Scarab viability table
+
+`scarab_viability()` generates a Scarab-format export for cell viability
+experiments. It is the viability counterpart of `scarab_table()`.
+
+```{r viability-step5}
+scarab_viability(
+  results_list        = via_results,
+  drc_results_list    = drc_results,
+  plate_name          = "plate_01",
+  date                = "260323",
+  experimenter_abbrev = "TL",
+  cell_line           = "HeLa",
+  cell_type           = "cervical adenocarcinoma",
+  treatment_time      = "72h",
+  measurement_method  = "CellTiter-Glo",
+  assay_volume        = "40",
+  plate_format        = "384-well",
+  decimal_separator   = ","   # use "." for English format
+)
+```
+
+The output is saved as an `.xlsx` file with two sheets: `Scarab_Table`
+(fields as rows, compounds as columns) and `Scarab_Table_Transposed`
+(compounds as rows -- easier for filtering in Excel).
+
 ---
 
 ## Merging replicate plates (optional)
@@ -594,11 +662,96 @@ plot_multiple_compounds(drc_results,
   y_axis_title     = "% Cell Survival",  # optional override; auto-detects "Cell Viability (%)" by default
   save_plot        = TRUE
 )
+
+# 6. Export Scarab viability table
+scarab_viability(
+  results_list        = via_results,
+  drc_results_list    = drc_results,
+  plate_name          = "plate_01",
+  date                = "260323",
+  experimenter_abbrev = "TL",
+  cell_line           = "HeLa",
+  treatment_time      = "72h",
+  measurement_method  = "CellTiter-Glo",
+  decimal_separator   = ","
+)
+```
+
+---
+
+## Single-plate workflow
+
+For interactive exploration or when you have a single plate, use the
+lower-level functions directly instead of the batch pipeline.
+
+```{r single-plate-ratio}
+# Load a single raw data frame
+raw_data  <- readxl::read_excel("NanoBRET_plate_1.xlsx", sheet = 1, col_names = FALSE)
+info      <- readxl::read_excel("info_tables.xlsx", sheet = "Sheet1")
+
+# Compute BRET ratios for one plate
+plate_result <- ratio_dose_response_v2(
+  data             = raw_data,
+  control_0perc    = 16,
+  control_100perc  = c(12, 24),
+  info_table       = info,
+  split_replicates = TRUE,
+  verbose          = TRUE
+)
+
+# Detect outliers for one plate
+plate_clean <- rout_outliers(
+  data      = plate_result$modified_ratio_table,
+  Q         = 0.01,
+  seed      = 42L
+)
+
+# Visualise outlier-flagged curves for one plate
+plot_outliers_curves(
+  rout_output = plate_clean,
+  title       = "Plate 1"
+)
+```
+
+For viability data, replace `ratio_dose_response_v2()` with
+`process_viability_data()`:
+
+```{r single-plate-viability}
+raw_via  <- readxl::read_excel("viability_plate_1.xlsx", sheet = 1, col_names = FALSE)
+info_via <- readxl::read_excel("info_tables.xlsx", sheet = "Sheet1")
+
+plate_via <- process_viability_data(
+  data             = raw_via,
+  control_0perc    = 1,
+  control_100perc  = 24,
+  info_table       = info_via,
+  split_replicates = TRUE,
+  verbose          = TRUE
+)
+```
+
+To plot a single fitted dose-response curve from `fit_drc_3pl()` or
+`fit_drc_4pl()` output, use `plot_dose_response()`:
+
+```{r single-plate-plot}
+# Fit a single plate
+fit <- fit_drc_3pl(data = plate_clean$cleaned_table, normalize = TRUE)
+
+# Plot compound 1
+plot_dose_response(
+  results        = fit,
+  compound_index = 1,
+  y_limits       = c(0, 120),
+  show_ic50_line = TRUE,
+  save_plot      = "compound1_curve.png"
+)
 ```
 
 ---
 
 ## Function reference
+
+### Batch pipeline functions
 
 | Function | Description |
 |---|---|
@@ -606,11 +759,23 @@ plot_multiple_compounds(drc_results,
 | `batch_viability_analysis()` | Read raw viability plates, normalise signal |
 | `merge_plate_replicates()` | Merge replicate plates into a single combined result |
 | `rout_outliers_batch()` | ROUT outlier detection across all plates |
-| `plot_outliers_batch_curves()` | Visualise outlier-flagged curves |
+| `plot_outliers_batch_curves()` | Visualise outlier-flagged curves (batch) |
 | `batch_drc_analysis()` | Fit 3PL or 4PL dose-response curves across all plates |
-| `fit_drc_3pl()` | Fit a single plate with a 3-parameter logistic model |
-| `fit_drc_4pl()` | Fit a single plate with a 4-parameter logistic model |
 | `batch_save_all_drc_plots()` | Save one plot per compound across all plates |
 | `plot_multiple_compounds()` | Overlay selected compounds on one plot |
 | `compare_plates_drc()` | Compare the same compound across plates |
 | `scarab_table()` | Generate Scarab-format export table (NanoBRET) |
+| `scarab_viability()` | Generate Scarab-format export table (cell viability) |
+
+### Single-plate / lower-level functions
+
+| Function | Description |
+|---|---|
+| `ratio_dose_response()` | Compute BRET ratios for a single plate (v1 engine) |
+| `ratio_dose_response_v2()` | Compute BRET ratios for a single plate (v2 engine) |
+| `process_viability_data()` | Normalise viability signal for a single plate |
+| `fit_drc_3pl()` | Fit a single plate with a 3-parameter logistic model |
+| `fit_drc_4pl()` | Fit a single plate with a 4-parameter logistic model |
+| `plot_dose_response()` | Plot a single dose-response curve |
+| `rout_outliers()` | ROUT outlier detection for a single plate |
+| `plot_outliers_curves()` | Visualise outlier-flagged curves for a single plate |

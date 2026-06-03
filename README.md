@@ -34,7 +34,8 @@ batch_drc_analysis()          <- fits dose-response curves (3PL or 4PL)
       |---> batch_save_all_drc_plots()    <- saves one plot per compound
       |---> plot_multiple_compounds()     <- overlays selected compounds
       |---> compare_plates_drc()          <- compares same compound across plates
-      `---> scarab_table()               <- generates Scarab-format export (NanoBRET)
+      |---> scarab_table()               <- generates Scarab-format export (NanoBRET)
+      `---> scarab_viability()           <- generates Scarab-format export (viability)
 ```
 
 ---
@@ -346,7 +347,20 @@ clean_table    <- results_clean$plate_01$result$modified_ratio_table
 plot_outliers_batch_curves(results_clean)
 ```
 
-`rout_outliers_batch()` applies ROUT outlier detection to each plate. The `Q` parameter controls the false discovery rate (lower = more conservative). Set `keep_cytotoxic = TRUE` to retain points that look like outliers but are part of a genuine cytotoxic response.
+`rout_outliers_batch()` applies ROUT outlier detection to each plate.
+
+**Key parameters:**
+
+| Parameter | Default | Description |
+|---|---|---|
+| `Q` | `0.01` | ROUT false-discovery rate threshold. Lower = more conservative (fewer outliers flagged). Typical range: `0.001` (strict) to `0.05` (lenient). |
+| `n_param` | `4L` | Hill-model parameters: `4` (free Hill slope, default) or `3` (Hill slope fixed at -1). Use `3` for sparse data. |
+| `direction` | `"inhibition"` | Curve direction: `"inhibition"` (response decreases with concentration) or `"activation"` / `"agonist"` (response increases). |
+| `ntry_retry` | `3L` | Number of random-restart attempts when the initial fit does not converge. Increase to `10` for difficult curves. |
+| `min_dynamic_range` | `20` | Warn when the estimated dynamic range (%) is below this value. Flat curves with small dynamic range are harder to fit reliably. |
+| `keep_cytotoxic` | `FALSE` | When `TRUE`, retains data points that resemble outliers but are part of a genuine cytotoxic response (sharp drop at high concentrations). Recommended for viability assays. |
+| `seed` | `42L` | Integer random seed set before the compound loop, ensuring reproducible outlier calls on repeated runs. Set to `NULL` to disable. |
+| `verbose` | `TRUE` | Print per-plate progress and a final summary. |
 
 The ROUT method is described in: Motulsky HJ & Brown RE, BMC Bioinformatics 2006, 7:123 (doi:10.1186/1471-2105-7-123).
 
@@ -677,6 +691,48 @@ drc_results <- batch_drc_analysis(
 
 ---
 
+### Step 4 -- Generate Scarab export table (viability)
+
+```r
+scarab_viability(
+  results_list        = via_results,
+  drc_results_list    = drc_results,
+  plate_name          = "plate_01",
+  date                = "260323",
+  experimenter_abbrev = "TL",
+  cell_line           = "HeLa",
+  cell_type           = "cervical adenocarcinoma",
+  treatment_time      = "72h",
+  measurement_method  = "CellTiter-Glo",
+  assay_volume        = "40",
+  plate_format        = "384-well",
+  decimal_separator   = ","   # use "." for English format
+)
+```
+
+`scarab_viability()` generates a Scarab-format data frame for cell viability experiments. It is the viability counterpart of `scarab_table()` and produces an `.xlsx` file with two sheets: **`Scarab_Table`** (fields as rows, compounds as columns) and **`Scarab_Table_Transposed`** (compounds as rows -- easier for filtering in Excel).
+
+**Key parameters (viability-specific):**
+
+| Parameter | Default | Description |
+|---|---|---|
+| `cell_line` | `"HeLa"` | Cell line used in the experiment. |
+| `cell_type` | `"cervical adenocarcinoma"` | Cell type description. |
+| `treatment_time` | `"72h"` | Duration of compound treatment (e.g. `"24h"`, `"48h"`, `"72h"`). |
+| `measurement_method` | `"CellTiter-Glo"` | Viability measurement method (e.g. `"CellTiter-Glo"`, `"resazurin"`, `"MTT"`). |
+| `assay_volume` | `"40"` | Assay volume in µL. |
+| `plate_format` | `"384-well"` | Plate format string. |
+| `plate_manufacturer` | `"3570"` | Plate manufacturer or catalog number. |
+| `plate_material` | `"PS"` | Plate material. |
+| `sgc_compound_id` | `NA` | SGC global compound identifier / batch number. |
+| `eln_id` | `NA` | Electronic Lab Notebook ID. |
+| `comments` | `NA` | Free-text comments. |
+| `decimal_separator` | `"."` | Decimal separator for numeric values in the output: `"."` (English) or `","` (European). |
+| `save` | `TRUE` | Save the output as an `.xlsx` file. |
+| `file_name` | `NULL` | Custom filename; `NULL` auto-generates a name from the plate name and date. |
+
+---
+
 ## Merging Replicate Plates (optional)
 
 When the same experiment is run across multiple plates (biological replicates), `merge_plate_replicates()` combines their `modified_ratio_table`s into a single merged entry that feeds directly into all downstream functions.
@@ -800,14 +856,50 @@ merged <- merge_plate_replicates(results, generate_reports = FALSE)
 
 ```r
 batch_save_all_drc_plots(
-  batch_drc_results = drc_results,
-  verbose           = TRUE,
-  y_axis_title      = "% Cell Survival",      # optional override; auto-detects "Cell Viability (%)" by default
-  y_limits          = NULL                   # NULL auto-scales each plot; use c(0, 100) for a fixed scale
+  batch_drc_results    = drc_results,
+  output_dir           = "DRC_Plots",
+  verbose              = TRUE,
+  y_axis_title         = "% Cell Survival",   # optional override; auto-detects "Cell Viability (%)" by default
+  y_limits             = NULL,                # NULL auto-scales each plot; use c(0, 100) for a fixed scale
+  organize_by          = "plate",             # "plate" (default) or "compound"
+  format               = "png",              # "png", "pdf", "svg", "tiff", "eps"
+  width                = 10,
+  height               = 10,
+  dpi                  = 600,
+  compounds_to_plot    = NULL,               # character vector to restrict to specific compounds
+  plates_to_plot       = NULL,               # character vector to restrict to specific plates
+  save_panel           = TRUE,               # also save a combined panel PNG per plate
+  panel_ncol           = 4L,                 # columns in the panel grid
+  panel_width_per_col  = 6,                  # inches per panel column
+  panel_height_per_row = 6,                  # inches per panel row
+  panel_spacing        = 1,                  # spacing between sub-plots (in cm)
+  subplot_title        = "auto",             # "auto", "compound", "construct", or a fixed string
+  show_ic50_line       = FALSE,
+  point_color          = "black",
+  point_size           = 2
 )
 ```
 
-Saves one PNG per compound across all plates into the output directory.
+Saves one PNG per compound across all plates into `output_dir`. When `save_panel = TRUE` (default), also saves a combined panel image per plate with all compounds arranged in a grid.
+
+**Key parameters:**
+
+| Parameter | Default | Description |
+|---|---|---|
+| `output_dir` | `"DRC_Plots"` | Directory for saved files; created automatically if it does not exist. |
+| `organize_by` | `"plate"` | Sub-folder structure: `"plate"` creates one sub-folder per plate; `"compound"` creates one sub-folder per compound. |
+| `format` | `"png"` | File format for individual compound plots. Any format accepted by `ggplot2::ggsave()`. |
+| `compounds_to_plot` | `NULL` | Character vector of compound names to include; `NULL` plots all compounds. |
+| `plates_to_plot` | `NULL` | Character vector of plate names to include; `NULL` plots all plates. |
+| `save_panel` | `TRUE` | Save a combined panel image per plate in addition to individual plots. |
+| `panel_ncol` | `4L` | Number of columns in the panel grid. |
+| `panel_width_per_col` | `6` | Width in inches allocated to each panel column. |
+| `panel_height_per_row` | `6` | Height in inches allocated to each panel row. |
+| `panel_spacing` | `1` | Spacing between sub-plots in the panel (in cm). |
+| `subplot_title` | `"auto"` | Title shown on each sub-plot: `"auto"` uses the compound label; `"compound"` shows only the compound name; `"construct"` shows only the construct name; any other string is used as a fixed title. |
+| `y_axis_title` | `NULL` | Y-axis label. `NULL` auto-detects `"Cell Viability (%)"` for viability assays and `"Normalized BRET ratio [%]"` for NanoBRET. |
+| `y_limits` | `NULL` | Y-axis limits as `c(min, max)`. `NULL` auto-scales each plot independently. |
+| `show_ic50_line` | `FALSE` | Draw a vertical dashed line at the fitted IC50. |
 
 ---
 
@@ -1099,23 +1191,53 @@ plot_multiple_compounds(drc_results,
   save_plot        = TRUE,
   plot_width       = 12
 )
+
+# 6. Export Scarab viability table
+scarab_viability(
+  results_list        = via_results,
+  drc_results_list    = drc_results,
+  plate_name          = "plate_01",
+  date                = "260323",
+  experimenter_abbrev = "TL",
+  cell_line           = "HeLa",
+  treatment_time      = "72h",
+  measurement_method  = "CellTiter-Glo",
+  decimal_separator   = ","
+)
 ```
 
 ---
 
 ## Function Reference
 
+### Batch pipeline functions
+
 | Function | Description |
 |---|---|
-| `batch_ratio_analysis()` | Read raw plates, compute BRET ratios |
-| `batch_viability_analysis()` | Read raw plates for viability assays |
+| `batch_ratio_analysis()` | Read raw NanoBRET plates, compute BRET ratios |
+| `batch_viability_analysis()` | Read raw viability plates, normalise signal |
 | `merge_plate_replicates()` | Merge replicate plates into a single combined result |
 | `rout_outliers_batch()` | ROUT outlier detection across all plates |
-| `plot_outliers_batch_curves()` | Visualise outlier-flagged curves |
+| `plot_outliers_batch_curves()` | Visualise outlier-flagged curves (batch) |
 | `batch_drc_analysis()` | Fit 3PL or 4PL dose-response curves across all plates |
-| `fit_drc_3pl()` | Fit a single plate with a 3-parameter logistic model |
-| `fit_drc_4pl()` | Fit a single plate with a 4-parameter logistic model |
 | `batch_save_all_drc_plots()` | Save one plot per compound across all plates |
 | `plot_multiple_compounds()` | Overlay selected compounds on one plot |
 | `compare_plates_drc()` | Compare the same compound across plates |
 | `scarab_table()` | Generate Scarab-format export table (NanoBRET) |
+| `scarab_viability()` | Generate Scarab-format export table (cell viability) |
+
+### Single-plate / lower-level functions
+
+These functions are called internally by the batch pipeline but can also be
+used directly for interactive exploration of a single plate.
+
+| Function | Description |
+|---|---|
+| `ratio_dose_response()` | Compute BRET ratios for a single plate (v1 engine) |
+| `ratio_dose_response_v2()` | Compute BRET ratios for a single plate (v2 engine — supports multiple 100% control columns and fixed 0% values) |
+| `process_viability_data()` | Normalise viability signal for a single plate |
+| `fit_drc_3pl()` | Fit a single plate with a 3-parameter logistic model |
+| `fit_drc_4pl()` | Fit a single plate with a 4-parameter logistic model |
+| `plot_dose_response()` | Plot a single dose-response curve |
+| `rout_outliers()` | ROUT outlier detection for a single plate |
+| `plot_outliers_curves()` | Visualise outlier-flagged curves for a single plate |

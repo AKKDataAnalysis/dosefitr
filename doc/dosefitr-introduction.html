@@ -12,7 +12,7 @@
 
 <meta name="author" content="Thiago Loreto Matos" />
 
-<meta name="date" content="2026-05-18" />
+<meta name="date" content="2026-06-03" />
 
 <title>Introduction to dosefitr</title>
 
@@ -340,7 +340,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 <h1 class="title toc-ignore">Introduction to dosefitr</h1>
 <h4 class="author">Thiago Loreto Matos</h4>
-<h4 class="date">2026-05-18</h4>
+<h4 class="date">2026-06-03</h4>
 
 
 <div id="TOC">
@@ -380,14 +380,22 @@ assay</a>
 curves</a></li>
 <li><a href="#step-4-visualise-and-export" id="toc-step-4-visualise-and-export">Step 4: Visualise and
 export</a></li>
+<li><a href="#step-5-export-scarab-viability-table" id="toc-step-5-export-scarab-viability-table">Step 5: Export Scarab
+viability table</a></li>
 </ul></li>
 <li><a href="#merging-replicate-plates-optional" id="toc-merging-replicate-plates-optional">Merging replicate plates
 (optional)</a></li>
 <li><a href="#complete-example-nanobret" id="toc-complete-example-nanobret">Complete example – NanoBRET</a></li>
 <li><a href="#complete-example-cell-viability" id="toc-complete-example-cell-viability">Complete example – Cell
 viability</a></li>
+<li><a href="#single-plate-workflow" id="toc-single-plate-workflow">Single-plate workflow</a></li>
 <li><a href="#function-reference" id="toc-function-reference">Function
-reference</a></li>
+reference</a>
+<ul>
+<li><a href="#batch-pipeline-functions" id="toc-batch-pipeline-functions">Batch pipeline functions</a></li>
+<li><a href="#single-plate-lower-level-functions" id="toc-single-plate-lower-level-functions">Single-plate / lower-level
+functions</a></li>
+</ul></li>
 </ul>
 </div>
 
@@ -424,7 +432,8 @@ batch_drc_analysis()          &lt;- fits 3PL or 4PL dose-response curves
       |---&gt; batch_save_all_drc_plots()   &lt;- one plot per compound
       |---&gt; plot_multiple_compounds()    &lt;- overlay selected compounds
       |---&gt; compare_plates_drc()         &lt;- compare compound across plates
-      `---&gt; scarab_table()              &lt;- Scarab-format export (NanoBRET)</code></pre>
+      |---&gt; scarab_table()              &lt;- Scarab-format export (NanoBRET)
+      `---&gt; scarab_viability()          &lt;- Scarab-format export (viability)</code></pre>
 <hr />
 </div>
 </div>
@@ -656,18 +665,58 @@ maximum acceptable false discovery rate for outlier labelling (lower =
 more conservative).</p>
 <p>The ROUT method is described in: Motulsky HJ &amp; Brown RE, BMC
 Bioinformatics 2006, 7:123 (<a href="doi:10.1186/1471-2105-7-123" class="uri">doi:10.1186/1471-2105-7-123</a>).</p>
-<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>results_clean <span class="ot">&lt;-</span> <span class="fu">rout_outliers_batch</span>(results, <span class="at">Q =</span> <span class="fl">0.01</span>)</span>
-<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a></span>
-<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a><span class="co"># Inspect flagged points</span></span>
-<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a><span class="fu">head</span>(results_clean<span class="sc">$</span>outlier_summary)</span>
-<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a></span>
-<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a><span class="co"># Visualise outlier-flagged curves</span></span>
-<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a><span class="fu">plot_outliers_batch_curves</span>(results_clean)</span></code></pre></div>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>results_clean <span class="ot">&lt;-</span> <span class="fu">rout_outliers_batch</span>(</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>  <span class="at">batch_results     =</span> results,</span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>  <span class="at">Q                 =</span> <span class="fl">0.01</span>,      <span class="co"># 1% FDR -- recommended starting point</span></span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>  <span class="at">n_param           =</span> <span class="dv">4</span><span class="dt">L</span>,        <span class="co"># 4-parameter Hill model (free Hill slope)</span></span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>  <span class="at">direction         =</span> <span class="st">&quot;inhibition&quot;</span>,</span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a>  <span class="at">ntry_retry        =</span> <span class="dv">3</span><span class="dt">L</span>,        <span class="co"># random restarts on non-convergence</span></span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a>  <span class="at">min_dynamic_range =</span> <span class="dv">20</span>,        <span class="co"># warn if dynamic range &lt; 20%</span></span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a>  <span class="at">keep_cytotoxic    =</span> <span class="cn">FALSE</span>,     <span class="co"># set TRUE for viability assays</span></span>
+<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a>  <span class="at">seed              =</span> <span class="dv">42</span><span class="dt">L</span>,       <span class="co"># ensures reproducible outlier calls</span></span>
+<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a>  <span class="at">verbose           =</span> <span class="cn">TRUE</span></span>
+<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a>)</span>
+<span id="cb8-12"><a href="#cb8-12" tabindex="-1"></a></span>
+<span id="cb8-13"><a href="#cb8-13" tabindex="-1"></a><span class="co"># Inspect flagged points</span></span>
+<span id="cb8-14"><a href="#cb8-14" tabindex="-1"></a><span class="fu">head</span>(results_clean<span class="sc">$</span>outlier_summary)</span>
+<span id="cb8-15"><a href="#cb8-15" tabindex="-1"></a></span>
+<span id="cb8-16"><a href="#cb8-16" tabindex="-1"></a><span class="co"># Visualise outlier-flagged curves</span></span>
+<span id="cb8-17"><a href="#cb8-17" tabindex="-1"></a><span class="fu">plot_outliers_batch_curves</span>(results_clean)</span></code></pre></div>
 <p><code>rout_outliers_batch()</code> overwrites
 <code>modified_ratio_table</code> in-place with the cleaned data and
 preserves the original as <code>modified_ratio_table_original</code>.
 Pass <code>results_clean</code> (not <code>results</code>) to
 <code>batch_drc_analysis()</code> to use the cleaned data.</p>
+<p><strong>Choosing <code>Q</code>:</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th><code>Q</code> value</th>
+<th>Stringency</th>
+<th>Use case</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>0.001</code></td>
+<td>Very strict</td>
+<td>High-confidence outlier removal only</td>
+</tr>
+<tr class="even">
+<td><code>0.01</code></td>
+<td>Recommended</td>
+<td>Standard NanoBRET and viability experiments</td>
+</tr>
+<tr class="odd">
+<td><code>0.05</code></td>
+<td>Lenient</td>
+<td>Noisy assays or exploratory analysis</td>
+</tr>
+</tbody>
+</table>
+<p>Start with <code>Q = 0.01</code>. If biologically plausible points
+are being removed, increase to <code>Q = 0.001</code>. If obvious
+outliers are being missed, decrease to <code>Q = 0.05</code>.</p>
 </div>
 <div id="step-3-fit-dose-response-curves" class="section level3">
 <h3>Step 3: Fit dose-response curves</h3>
@@ -708,7 +757,26 @@ increases with concentration):</p>
 <div id="step-4-visualise-results" class="section level3">
 <h3>Step 4: Visualise results</h3>
 <p><strong>Save one plot per compound:</strong></p>
-<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a><span class="fu">batch_save_all_drc_plots</span>(drc_results, <span class="at">verbose =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a><span class="fu">batch_save_all_drc_plots</span>(</span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a>  <span class="at">batch_drc_results    =</span> drc_results,</span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a>  <span class="at">output_dir           =</span> <span class="st">&quot;DRC_Plots&quot;</span>,</span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a>  <span class="at">verbose              =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a>  <span class="at">y_axis_title         =</span> <span class="cn">NULL</span>,          <span class="co"># auto-detects assay type</span></span>
+<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a>  <span class="at">y_limits             =</span> <span class="cn">NULL</span>,          <span class="co"># NULL auto-scales; use c(0, 100) for fixed scale</span></span>
+<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a>  <span class="at">organize_by          =</span> <span class="st">&quot;plate&quot;</span>,       <span class="co"># &quot;plate&quot; or &quot;compound&quot;</span></span>
+<span id="cb12-8"><a href="#cb12-8" tabindex="-1"></a>  <span class="at">format               =</span> <span class="st">&quot;png&quot;</span>,</span>
+<span id="cb12-9"><a href="#cb12-9" tabindex="-1"></a>  <span class="at">width                =</span> <span class="dv">10</span>,</span>
+<span id="cb12-10"><a href="#cb12-10" tabindex="-1"></a>  <span class="at">height               =</span> <span class="dv">10</span>,</span>
+<span id="cb12-11"><a href="#cb12-11" tabindex="-1"></a>  <span class="at">dpi                  =</span> <span class="dv">600</span>,</span>
+<span id="cb12-12"><a href="#cb12-12" tabindex="-1"></a>  <span class="at">compounds_to_plot    =</span> <span class="cn">NULL</span>,          <span class="co"># character vector to restrict compounds</span></span>
+<span id="cb12-13"><a href="#cb12-13" tabindex="-1"></a>  <span class="at">plates_to_plot       =</span> <span class="cn">NULL</span>,          <span class="co"># character vector to restrict plates</span></span>
+<span id="cb12-14"><a href="#cb12-14" tabindex="-1"></a>  <span class="at">save_panel           =</span> <span class="cn">TRUE</span>,          <span class="co"># also save a combined panel per plate</span></span>
+<span id="cb12-15"><a href="#cb12-15" tabindex="-1"></a>  <span class="at">panel_ncol           =</span> <span class="dv">4</span><span class="dt">L</span>,</span>
+<span id="cb12-16"><a href="#cb12-16" tabindex="-1"></a>  <span class="at">panel_width_per_col  =</span> <span class="dv">6</span>,</span>
+<span id="cb12-17"><a href="#cb12-17" tabindex="-1"></a>  <span class="at">panel_height_per_row =</span> <span class="dv">6</span>,</span>
+<span id="cb12-18"><a href="#cb12-18" tabindex="-1"></a>  <span class="at">panel_spacing        =</span> <span class="dv">1</span>,</span>
+<span id="cb12-19"><a href="#cb12-19" tabindex="-1"></a>  <span class="at">subplot_title        =</span> <span class="st">&quot;auto&quot;</span>         <span class="co"># &quot;auto&quot;, &quot;compound&quot;, &quot;construct&quot;, or fixed string</span></span>
+<span id="cb12-20"><a href="#cb12-20" tabindex="-1"></a>)</span></code></pre></div>
 <p><strong>Overlay selected compounds on one plot:</strong></p>
 <div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="co"># By index</span></span>
 <span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a><span class="fu">plot_multiple_compounds</span>(drc_results,</span>
@@ -875,6 +943,30 @@ workflow. Pass a custom y-axis label where appropriate:</p>
 <span id="cb21-26"><a href="#cb21-26" tabindex="-1"></a>  <span class="at">show_border            =</span> <span class="cn">FALSE</span>,</span>
 <span id="cb21-27"><a href="#cb21-27" tabindex="-1"></a>  <span class="at">transparent_background =</span> <span class="cn">FALSE</span></span>
 <span id="cb21-28"><a href="#cb21-28" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+<div id="step-5-export-scarab-viability-table" class="section level3">
+<h3>Step 5: Export Scarab viability table</h3>
+<p><code>scarab_viability()</code> generates a Scarab-format export for
+cell viability experiments. It is the viability counterpart of
+<code>scarab_table()</code>.</p>
+<div class="sourceCode" id="cb22"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" tabindex="-1"></a><span class="fu">scarab_viability</span>(</span>
+<span id="cb22-2"><a href="#cb22-2" tabindex="-1"></a>  <span class="at">results_list        =</span> via_results,</span>
+<span id="cb22-3"><a href="#cb22-3" tabindex="-1"></a>  <span class="at">drc_results_list    =</span> drc_results,</span>
+<span id="cb22-4"><a href="#cb22-4" tabindex="-1"></a>  <span class="at">plate_name          =</span> <span class="st">&quot;plate_01&quot;</span>,</span>
+<span id="cb22-5"><a href="#cb22-5" tabindex="-1"></a>  <span class="at">date                =</span> <span class="st">&quot;260323&quot;</span>,</span>
+<span id="cb22-6"><a href="#cb22-6" tabindex="-1"></a>  <span class="at">experimenter_abbrev =</span> <span class="st">&quot;TL&quot;</span>,</span>
+<span id="cb22-7"><a href="#cb22-7" tabindex="-1"></a>  <span class="at">cell_line           =</span> <span class="st">&quot;HeLa&quot;</span>,</span>
+<span id="cb22-8"><a href="#cb22-8" tabindex="-1"></a>  <span class="at">cell_type           =</span> <span class="st">&quot;cervical adenocarcinoma&quot;</span>,</span>
+<span id="cb22-9"><a href="#cb22-9" tabindex="-1"></a>  <span class="at">treatment_time      =</span> <span class="st">&quot;72h&quot;</span>,</span>
+<span id="cb22-10"><a href="#cb22-10" tabindex="-1"></a>  <span class="at">measurement_method  =</span> <span class="st">&quot;CellTiter-Glo&quot;</span>,</span>
+<span id="cb22-11"><a href="#cb22-11" tabindex="-1"></a>  <span class="at">assay_volume        =</span> <span class="st">&quot;40&quot;</span>,</span>
+<span id="cb22-12"><a href="#cb22-12" tabindex="-1"></a>  <span class="at">plate_format        =</span> <span class="st">&quot;384-well&quot;</span>,</span>
+<span id="cb22-13"><a href="#cb22-13" tabindex="-1"></a>  <span class="at">decimal_separator   =</span> <span class="st">&quot;,&quot;</span>   <span class="co"># use &quot;.&quot; for English format</span></span>
+<span id="cb22-14"><a href="#cb22-14" tabindex="-1"></a>)</span></code></pre></div>
+<p>The output is saved as an <code>.xlsx</code> file with two sheets:
+<code>Scarab_Table</code> (fields as rows, compounds as columns) and
+<code>Scarab_Table_Transposed</code> (compounds as rows – easier for
+filtering in Excel).</p>
 <hr />
 </div>
 </div>
@@ -884,24 +976,24 @@ workflow. Pass a custom y-axis label where appropriate:</p>
 replicates), <code>merge_plate_replicates()</code> combines their data
 tables into a single entry that feeds directly into all downstream
 functions.</p>
-<div class="sourceCode" id="cb22"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" tabindex="-1"></a><span class="co"># Merge all plates</span></span>
-<span id="cb22-2"><a href="#cb22-2" tabindex="-1"></a>merged <span class="ot">&lt;-</span> <span class="fu">merge_plate_replicates</span>(results)</span>
-<span id="cb22-3"><a href="#cb22-3" tabindex="-1"></a></span>
-<span id="cb22-4"><a href="#cb22-4" tabindex="-1"></a><span class="co"># Merge a subset, keeping others separate</span></span>
-<span id="cb22-5"><a href="#cb22-5" tabindex="-1"></a>merged <span class="ot">&lt;-</span> <span class="fu">merge_plate_replicates</span>(results,</span>
-<span id="cb22-6"><a href="#cb22-6" tabindex="-1"></a>  <span class="at">plates      =</span> <span class="fu">c</span>(<span class="st">&quot;plate_01&quot;</span>, <span class="st">&quot;plate_02&quot;</span>),</span>
-<span id="cb22-7"><a href="#cb22-7" tabindex="-1"></a>  <span class="at">merged_name =</span> <span class="st">&quot;rep1_rep2&quot;</span></span>
-<span id="cb22-8"><a href="#cb22-8" tabindex="-1"></a>)</span>
-<span id="cb22-9"><a href="#cb22-9" tabindex="-1"></a></span>
-<span id="cb22-10"><a href="#cb22-10" tabindex="-1"></a><span class="co"># Save the Excel report to a custom directory (default: drc_quality/ in working dir)</span></span>
-<span id="cb22-11"><a href="#cb22-11" tabindex="-1"></a>merged <span class="ot">&lt;-</span> <span class="fu">merge_plate_replicates</span>(results, <span class="at">output_dir =</span> <span class="st">&quot;./my_reports&quot;</span>)</span>
-<span id="cb22-12"><a href="#cb22-12" tabindex="-1"></a></span>
-<span id="cb22-13"><a href="#cb22-13" tabindex="-1"></a><span class="co"># Feed into the DRC step as usual</span></span>
-<span id="cb22-14"><a href="#cb22-14" tabindex="-1"></a>drc_results <span class="ot">&lt;-</span> <span class="fu">batch_drc_analysis</span>(</span>
-<span id="cb22-15"><a href="#cb22-15" tabindex="-1"></a>  <span class="at">batch_results =</span> merged,</span>
-<span id="cb22-16"><a href="#cb22-16" tabindex="-1"></a>  <span class="at">normalize     =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb22-17"><a href="#cb22-17" tabindex="-1"></a>  <span class="at">output_dir    =</span> <span class="st">&quot;./drc_results&quot;</span></span>
-<span id="cb22-18"><a href="#cb22-18" tabindex="-1"></a>)</span></code></pre></div>
+<div class="sourceCode" id="cb23"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" tabindex="-1"></a><span class="co"># Merge all plates</span></span>
+<span id="cb23-2"><a href="#cb23-2" tabindex="-1"></a>merged <span class="ot">&lt;-</span> <span class="fu">merge_plate_replicates</span>(results)</span>
+<span id="cb23-3"><a href="#cb23-3" tabindex="-1"></a></span>
+<span id="cb23-4"><a href="#cb23-4" tabindex="-1"></a><span class="co"># Merge a subset, keeping others separate</span></span>
+<span id="cb23-5"><a href="#cb23-5" tabindex="-1"></a>merged <span class="ot">&lt;-</span> <span class="fu">merge_plate_replicates</span>(results,</span>
+<span id="cb23-6"><a href="#cb23-6" tabindex="-1"></a>  <span class="at">plates      =</span> <span class="fu">c</span>(<span class="st">&quot;plate_01&quot;</span>, <span class="st">&quot;plate_02&quot;</span>),</span>
+<span id="cb23-7"><a href="#cb23-7" tabindex="-1"></a>  <span class="at">merged_name =</span> <span class="st">&quot;rep1_rep2&quot;</span></span>
+<span id="cb23-8"><a href="#cb23-8" tabindex="-1"></a>)</span>
+<span id="cb23-9"><a href="#cb23-9" tabindex="-1"></a></span>
+<span id="cb23-10"><a href="#cb23-10" tabindex="-1"></a><span class="co"># Save the Excel report to a custom directory (default: drc_quality/ in working dir)</span></span>
+<span id="cb23-11"><a href="#cb23-11" tabindex="-1"></a>merged <span class="ot">&lt;-</span> <span class="fu">merge_plate_replicates</span>(results, <span class="at">output_dir =</span> <span class="st">&quot;./my_reports&quot;</span>)</span>
+<span id="cb23-12"><a href="#cb23-12" tabindex="-1"></a></span>
+<span id="cb23-13"><a href="#cb23-13" tabindex="-1"></a><span class="co"># Feed into the DRC step as usual</span></span>
+<span id="cb23-14"><a href="#cb23-14" tabindex="-1"></a>drc_results <span class="ot">&lt;-</span> <span class="fu">batch_drc_analysis</span>(</span>
+<span id="cb23-15"><a href="#cb23-15" tabindex="-1"></a>  <span class="at">batch_results =</span> merged,</span>
+<span id="cb23-16"><a href="#cb23-16" tabindex="-1"></a>  <span class="at">normalize     =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb23-17"><a href="#cb23-17" tabindex="-1"></a>  <span class="at">output_dir    =</span> <span class="st">&quot;./drc_results&quot;</span></span>
+<span id="cb23-18"><a href="#cb23-18" tabindex="-1"></a>)</span></code></pre></div>
 <p>Replicate columns are renumbered sequentially across plates
 (<code>KinaseA:CpdA</code>, <code>KinaseA:CpdA.2</code> from plate 1
 become <code>KinaseA:CpdA.3</code>, <code>KinaseA:CpdA.4</code> from
@@ -912,110 +1004,184 @@ added.</p>
 </div>
 <div id="complete-example-nanobret" class="section level2">
 <h2>Complete example – NanoBRET</h2>
-<div class="sourceCode" id="cb23"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" tabindex="-1"></a><span class="fu">library</span>(dosefitr)</span>
-<span id="cb23-2"><a href="#cb23-2" tabindex="-1"></a></span>
-<span id="cb23-3"><a href="#cb23-3" tabindex="-1"></a><span class="fu">setwd</span>(<span class="st">&quot;path/to/experiment&quot;</span>)</span>
-<span id="cb23-4"><a href="#cb23-4" tabindex="-1"></a></span>
-<span id="cb23-5"><a href="#cb23-5" tabindex="-1"></a><span class="co"># 1. Process raw plates</span></span>
-<span id="cb23-6"><a href="#cb23-6" tabindex="-1"></a>results <span class="ot">&lt;-</span> <span class="fu">batch_ratio_analysis</span>(</span>
-<span id="cb23-7"><a href="#cb23-7" tabindex="-1"></a>  <span class="at">control_0perc       =</span> <span class="dv">24</span>,</span>
-<span id="cb23-8"><a href="#cb23-8" tabindex="-1"></a>  <span class="at">control_100perc     =</span> <span class="dv">12</span>,</span>
-<span id="cb23-9"><a href="#cb23-9" tabindex="-1"></a>  <span class="at">output_dir          =</span> <span class="st">&quot;./qc_output&quot;</span>,</span>
-<span id="cb23-10"><a href="#cb23-10" tabindex="-1"></a>  <span class="at">low_value_threshold =</span> <span class="dv">1000</span>,</span>
-<span id="cb23-11"><a href="#cb23-11" tabindex="-1"></a>  <span class="at">verbose             =</span> <span class="cn">TRUE</span></span>
-<span id="cb23-12"><a href="#cb23-12" tabindex="-1"></a>)</span>
-<span id="cb23-13"><a href="#cb23-13" tabindex="-1"></a></span>
-<span id="cb23-14"><a href="#cb23-14" tabindex="-1"></a><span class="co"># 2. Remove outliers</span></span>
-<span id="cb23-15"><a href="#cb23-15" tabindex="-1"></a>results_clean <span class="ot">&lt;-</span> <span class="fu">rout_outliers_batch</span>(results, <span class="at">Q =</span> <span class="fl">0.01</span>)</span>
-<span id="cb23-16"><a href="#cb23-16" tabindex="-1"></a><span class="fu">plot_outliers_batch_curves</span>(results_clean)</span>
-<span id="cb23-17"><a href="#cb23-17" tabindex="-1"></a></span>
-<span id="cb23-18"><a href="#cb23-18" tabindex="-1"></a><span class="co"># 3. Fit dose-response curves</span></span>
-<span id="cb23-19"><a href="#cb23-19" tabindex="-1"></a>drc_results <span class="ot">&lt;-</span> <span class="fu">batch_drc_analysis</span>(</span>
-<span id="cb23-20"><a href="#cb23-20" tabindex="-1"></a>  <span class="at">batch_results =</span> results_clean,</span>
-<span id="cb23-21"><a href="#cb23-21" tabindex="-1"></a>  <span class="at">normalize     =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb23-22"><a href="#cb23-22" tabindex="-1"></a>  <span class="at">output_dir    =</span> <span class="st">&quot;./drc_results&quot;</span>,</span>
-<span id="cb23-23"><a href="#cb23-23" tabindex="-1"></a>  <span class="at">verbose       =</span> <span class="cn">TRUE</span></span>
-<span id="cb23-24"><a href="#cb23-24" tabindex="-1"></a>)</span>
-<span id="cb23-25"><a href="#cb23-25" tabindex="-1"></a></span>
-<span id="cb23-26"><a href="#cb23-26" tabindex="-1"></a><span class="co"># 4. Save all individual plots</span></span>
-<span id="cb23-27"><a href="#cb23-27" tabindex="-1"></a><span class="fu">batch_save_all_drc_plots</span>(drc_results, <span class="at">verbose =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb23-28"><a href="#cb23-28" tabindex="-1"></a></span>
-<span id="cb23-29"><a href="#cb23-29" tabindex="-1"></a><span class="co"># 5. Overlay selected compounds</span></span>
-<span id="cb23-30"><a href="#cb23-30" tabindex="-1"></a><span class="fu">plot_multiple_compounds</span>(drc_results,</span>
-<span id="cb23-31"><a href="#cb23-31" tabindex="-1"></a>  <span class="at">plate            =</span> <span class="st">&quot;plate_01&quot;</span>,</span>
-<span id="cb23-32"><a href="#cb23-32" tabindex="-1"></a>  <span class="at">compound_indices =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>,</span>
-<span id="cb23-33"><a href="#cb23-33" tabindex="-1"></a>  <span class="at">color_palette    =</span> <span class="st">&quot;colorblind&quot;</span>,</span>
-<span id="cb23-34"><a href="#cb23-34" tabindex="-1"></a>  <span class="at">y_limits         =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">100</span>),   <span class="co"># or NULL to auto-scale</span></span>
-<span id="cb23-35"><a href="#cb23-35" tabindex="-1"></a>  <span class="at">y_axis_title     =</span> <span class="st">&quot;Normalized BRET ratio [%]&quot;</span>,</span>
-<span id="cb23-36"><a href="#cb23-36" tabindex="-1"></a>  <span class="at">save_plot        =</span> <span class="cn">TRUE</span></span>
-<span id="cb23-37"><a href="#cb23-37" tabindex="-1"></a>)</span>
-<span id="cb23-38"><a href="#cb23-38" tabindex="-1"></a></span>
-<span id="cb23-39"><a href="#cb23-39" tabindex="-1"></a><span class="co"># 6. Compare the same compound across plates</span></span>
-<span id="cb23-40"><a href="#cb23-40" tabindex="-1"></a><span class="fu">compare_plates_drc</span>(drc_results, <span class="at">compare_by =</span> <span class="st">&quot;compound&quot;</span>)</span>
-<span id="cb23-41"><a href="#cb23-41" tabindex="-1"></a></span>
-<span id="cb23-42"><a href="#cb23-42" tabindex="-1"></a><span class="co"># 7. Export Scarab table</span></span>
-<span id="cb23-43"><a href="#cb23-43" tabindex="-1"></a><span class="fu">scarab_table</span>(</span>
-<span id="cb23-44"><a href="#cb23-44" tabindex="-1"></a>  <span class="at">results_list              =</span> results,</span>
-<span id="cb23-45"><a href="#cb23-45" tabindex="-1"></a>  <span class="at">drc_results_list          =</span> drc_results,</span>
-<span id="cb23-46"><a href="#cb23-46" tabindex="-1"></a>  <span class="at">plate_name                =</span> <span class="st">&quot;plate_01&quot;</span>,</span>
-<span id="cb23-47"><a href="#cb23-47" tabindex="-1"></a>  <span class="at">date                      =</span> <span class="st">&quot;260323&quot;</span>,</span>
-<span id="cb23-48"><a href="#cb23-48" tabindex="-1"></a>  <span class="at">experimenter_abbrev       =</span> <span class="st">&quot;TL&quot;</span>,</span>
-<span id="cb23-49"><a href="#cb23-49" tabindex="-1"></a>  <span class="at">nLuc_orientation          =</span> <span class="st">&quot;C&quot;</span>,</span>
-<span id="cb23-50"><a href="#cb23-50" tabindex="-1"></a>  <span class="at">tracer                    =</span> <span class="st">&quot;Tracer K10&quot;</span>,</span>
-<span id="cb23-51"><a href="#cb23-51" tabindex="-1"></a>  <span class="at">tracer_kd_app             =</span> <span class="sc">-</span><span class="fl">7.5</span>,</span>
-<span id="cb23-52"><a href="#cb23-52" tabindex="-1"></a>  <span class="at">tracer_concentration_used =</span> <span class="sc">-</span><span class="fl">7.5</span>,</span>
-<span id="cb23-53"><a href="#cb23-53" tabindex="-1"></a>  <span class="at">decimal_separator         =</span> <span class="st">&quot;,&quot;</span>,</span>
-<span id="cb23-54"><a href="#cb23-54" tabindex="-1"></a>  <span class="at">eubscarab_ready           =</span> <span class="st">&quot;No&quot;</span></span>
-<span id="cb23-55"><a href="#cb23-55" tabindex="-1"></a>)</span></code></pre></div>
-<hr />
-</div>
-<div id="complete-example-cell-viability" class="section level2">
-<h2>Complete example – Cell viability</h2>
 <div class="sourceCode" id="cb24"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" tabindex="-1"></a><span class="fu">library</span>(dosefitr)</span>
 <span id="cb24-2"><a href="#cb24-2" tabindex="-1"></a></span>
 <span id="cb24-3"><a href="#cb24-3" tabindex="-1"></a><span class="fu">setwd</span>(<span class="st">&quot;path/to/experiment&quot;</span>)</span>
 <span id="cb24-4"><a href="#cb24-4" tabindex="-1"></a></span>
 <span id="cb24-5"><a href="#cb24-5" tabindex="-1"></a><span class="co"># 1. Process raw plates</span></span>
-<span id="cb24-6"><a href="#cb24-6" tabindex="-1"></a>via_results <span class="ot">&lt;-</span> <span class="fu">batch_viability_analysis</span>(</span>
-<span id="cb24-7"><a href="#cb24-7" tabindex="-1"></a>  <span class="at">control_0perc    =</span> <span class="dv">13</span>,</span>
-<span id="cb24-8"><a href="#cb24-8" tabindex="-1"></a>  <span class="at">control_100perc  =</span> <span class="dv">12</span>,</span>
-<span id="cb24-9"><a href="#cb24-9" tabindex="-1"></a>  <span class="at">selected_columns =</span> <span class="dv">2</span><span class="sc">:</span><span class="dv">23</span>,</span>
-<span id="cb24-10"><a href="#cb24-10" tabindex="-1"></a>  <span class="at">verbose          =</span> <span class="cn">TRUE</span></span>
-<span id="cb24-11"><a href="#cb24-11" tabindex="-1"></a>)</span>
-<span id="cb24-12"><a href="#cb24-12" tabindex="-1"></a></span>
-<span id="cb24-13"><a href="#cb24-13" tabindex="-1"></a><span class="co"># 2. Remove outliers (keep cytotoxic points)</span></span>
-<span id="cb24-14"><a href="#cb24-14" tabindex="-1"></a>results_clean <span class="ot">&lt;-</span> <span class="fu">rout_outliers_batch</span>(via_results,</span>
-<span id="cb24-15"><a href="#cb24-15" tabindex="-1"></a>  <span class="at">Q              =</span> <span class="fl">0.01</span>,</span>
-<span id="cb24-16"><a href="#cb24-16" tabindex="-1"></a>  <span class="at">keep_cytotoxic =</span> <span class="cn">TRUE</span></span>
-<span id="cb24-17"><a href="#cb24-17" tabindex="-1"></a>)</span>
-<span id="cb24-18"><a href="#cb24-18" tabindex="-1"></a><span class="fu">plot_outliers_batch_curves</span>(results_clean)</span>
-<span id="cb24-19"><a href="#cb24-19" tabindex="-1"></a></span>
-<span id="cb24-20"><a href="#cb24-20" tabindex="-1"></a><span class="co"># 3. Fit dose-response curves</span></span>
-<span id="cb24-21"><a href="#cb24-21" tabindex="-1"></a>drc_results <span class="ot">&lt;-</span> <span class="fu">batch_drc_analysis</span>(</span>
-<span id="cb24-22"><a href="#cb24-22" tabindex="-1"></a>  <span class="at">batch_results =</span> results_clean,</span>
-<span id="cb24-23"><a href="#cb24-23" tabindex="-1"></a>  <span class="at">normalize     =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb24-24"><a href="#cb24-24" tabindex="-1"></a>  <span class="at">output_dir    =</span> <span class="st">&quot;./drc_results&quot;</span>,</span>
-<span id="cb24-25"><a href="#cb24-25" tabindex="-1"></a>  <span class="at">verbose       =</span> <span class="cn">TRUE</span></span>
-<span id="cb24-26"><a href="#cb24-26" tabindex="-1"></a>)</span>
-<span id="cb24-27"><a href="#cb24-27" tabindex="-1"></a></span>
-<span id="cb24-28"><a href="#cb24-28" tabindex="-1"></a><span class="co"># 4. Save all individual plots</span></span>
-<span id="cb24-29"><a href="#cb24-29" tabindex="-1"></a><span class="fu">batch_save_all_drc_plots</span>(drc_results,</span>
-<span id="cb24-30"><a href="#cb24-30" tabindex="-1"></a>  <span class="at">verbose      =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb24-31"><a href="#cb24-31" tabindex="-1"></a>  <span class="at">y_axis_title =</span> <span class="st">&quot;% Cell Survival&quot;</span>  <span class="co"># optional override; auto-detects &quot;Cell Viability (%)&quot; by default</span></span>
-<span id="cb24-32"><a href="#cb24-32" tabindex="-1"></a>)</span>
-<span id="cb24-33"><a href="#cb24-33" tabindex="-1"></a></span>
-<span id="cb24-34"><a href="#cb24-34" tabindex="-1"></a><span class="co"># 5. Overlay selected compounds</span></span>
-<span id="cb24-35"><a href="#cb24-35" tabindex="-1"></a><span class="fu">plot_multiple_compounds</span>(drc_results,</span>
-<span id="cb24-36"><a href="#cb24-36" tabindex="-1"></a>  <span class="at">compound_indices =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>,</span>
-<span id="cb24-37"><a href="#cb24-37" tabindex="-1"></a>  <span class="at">color_palette    =</span> <span class="st">&quot;colorblind&quot;</span>,</span>
-<span id="cb24-38"><a href="#cb24-38" tabindex="-1"></a>  <span class="at">y_limits         =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">100</span>),   <span class="co"># or NULL to auto-scale</span></span>
-<span id="cb24-39"><a href="#cb24-39" tabindex="-1"></a>  <span class="at">y_axis_title     =</span> <span class="st">&quot;% Cell Survival&quot;</span>,  <span class="co"># optional override; auto-detects &quot;Cell Viability (%)&quot; by default</span></span>
-<span id="cb24-40"><a href="#cb24-40" tabindex="-1"></a>  <span class="at">save_plot        =</span> <span class="cn">TRUE</span></span>
-<span id="cb24-41"><a href="#cb24-41" tabindex="-1"></a>)</span></code></pre></div>
+<span id="cb24-6"><a href="#cb24-6" tabindex="-1"></a>results <span class="ot">&lt;-</span> <span class="fu">batch_ratio_analysis</span>(</span>
+<span id="cb24-7"><a href="#cb24-7" tabindex="-1"></a>  <span class="at">control_0perc       =</span> <span class="dv">24</span>,</span>
+<span id="cb24-8"><a href="#cb24-8" tabindex="-1"></a>  <span class="at">control_100perc     =</span> <span class="dv">12</span>,</span>
+<span id="cb24-9"><a href="#cb24-9" tabindex="-1"></a>  <span class="at">output_dir          =</span> <span class="st">&quot;./qc_output&quot;</span>,</span>
+<span id="cb24-10"><a href="#cb24-10" tabindex="-1"></a>  <span class="at">low_value_threshold =</span> <span class="dv">1000</span>,</span>
+<span id="cb24-11"><a href="#cb24-11" tabindex="-1"></a>  <span class="at">verbose             =</span> <span class="cn">TRUE</span></span>
+<span id="cb24-12"><a href="#cb24-12" tabindex="-1"></a>)</span>
+<span id="cb24-13"><a href="#cb24-13" tabindex="-1"></a></span>
+<span id="cb24-14"><a href="#cb24-14" tabindex="-1"></a><span class="co"># 2. Remove outliers</span></span>
+<span id="cb24-15"><a href="#cb24-15" tabindex="-1"></a>results_clean <span class="ot">&lt;-</span> <span class="fu">rout_outliers_batch</span>(results, <span class="at">Q =</span> <span class="fl">0.01</span>)</span>
+<span id="cb24-16"><a href="#cb24-16" tabindex="-1"></a><span class="fu">plot_outliers_batch_curves</span>(results_clean)</span>
+<span id="cb24-17"><a href="#cb24-17" tabindex="-1"></a></span>
+<span id="cb24-18"><a href="#cb24-18" tabindex="-1"></a><span class="co"># 3. Fit dose-response curves</span></span>
+<span id="cb24-19"><a href="#cb24-19" tabindex="-1"></a>drc_results <span class="ot">&lt;-</span> <span class="fu">batch_drc_analysis</span>(</span>
+<span id="cb24-20"><a href="#cb24-20" tabindex="-1"></a>  <span class="at">batch_results =</span> results_clean,</span>
+<span id="cb24-21"><a href="#cb24-21" tabindex="-1"></a>  <span class="at">normalize     =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb24-22"><a href="#cb24-22" tabindex="-1"></a>  <span class="at">output_dir    =</span> <span class="st">&quot;./drc_results&quot;</span>,</span>
+<span id="cb24-23"><a href="#cb24-23" tabindex="-1"></a>  <span class="at">verbose       =</span> <span class="cn">TRUE</span></span>
+<span id="cb24-24"><a href="#cb24-24" tabindex="-1"></a>)</span>
+<span id="cb24-25"><a href="#cb24-25" tabindex="-1"></a></span>
+<span id="cb24-26"><a href="#cb24-26" tabindex="-1"></a><span class="co"># 4. Save all individual plots</span></span>
+<span id="cb24-27"><a href="#cb24-27" tabindex="-1"></a><span class="fu">batch_save_all_drc_plots</span>(drc_results, <span class="at">verbose =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb24-28"><a href="#cb24-28" tabindex="-1"></a></span>
+<span id="cb24-29"><a href="#cb24-29" tabindex="-1"></a><span class="co"># 5. Overlay selected compounds</span></span>
+<span id="cb24-30"><a href="#cb24-30" tabindex="-1"></a><span class="fu">plot_multiple_compounds</span>(drc_results,</span>
+<span id="cb24-31"><a href="#cb24-31" tabindex="-1"></a>  <span class="at">plate            =</span> <span class="st">&quot;plate_01&quot;</span>,</span>
+<span id="cb24-32"><a href="#cb24-32" tabindex="-1"></a>  <span class="at">compound_indices =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>,</span>
+<span id="cb24-33"><a href="#cb24-33" tabindex="-1"></a>  <span class="at">color_palette    =</span> <span class="st">&quot;colorblind&quot;</span>,</span>
+<span id="cb24-34"><a href="#cb24-34" tabindex="-1"></a>  <span class="at">y_limits         =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">100</span>),   <span class="co"># or NULL to auto-scale</span></span>
+<span id="cb24-35"><a href="#cb24-35" tabindex="-1"></a>  <span class="at">y_axis_title     =</span> <span class="st">&quot;Normalized BRET ratio [%]&quot;</span>,</span>
+<span id="cb24-36"><a href="#cb24-36" tabindex="-1"></a>  <span class="at">save_plot        =</span> <span class="cn">TRUE</span></span>
+<span id="cb24-37"><a href="#cb24-37" tabindex="-1"></a>)</span>
+<span id="cb24-38"><a href="#cb24-38" tabindex="-1"></a></span>
+<span id="cb24-39"><a href="#cb24-39" tabindex="-1"></a><span class="co"># 6. Compare the same compound across plates</span></span>
+<span id="cb24-40"><a href="#cb24-40" tabindex="-1"></a><span class="fu">compare_plates_drc</span>(drc_results, <span class="at">compare_by =</span> <span class="st">&quot;compound&quot;</span>)</span>
+<span id="cb24-41"><a href="#cb24-41" tabindex="-1"></a></span>
+<span id="cb24-42"><a href="#cb24-42" tabindex="-1"></a><span class="co"># 7. Export Scarab table</span></span>
+<span id="cb24-43"><a href="#cb24-43" tabindex="-1"></a><span class="fu">scarab_table</span>(</span>
+<span id="cb24-44"><a href="#cb24-44" tabindex="-1"></a>  <span class="at">results_list              =</span> results,</span>
+<span id="cb24-45"><a href="#cb24-45" tabindex="-1"></a>  <span class="at">drc_results_list          =</span> drc_results,</span>
+<span id="cb24-46"><a href="#cb24-46" tabindex="-1"></a>  <span class="at">plate_name                =</span> <span class="st">&quot;plate_01&quot;</span>,</span>
+<span id="cb24-47"><a href="#cb24-47" tabindex="-1"></a>  <span class="at">date                      =</span> <span class="st">&quot;260323&quot;</span>,</span>
+<span id="cb24-48"><a href="#cb24-48" tabindex="-1"></a>  <span class="at">experimenter_abbrev       =</span> <span class="st">&quot;TL&quot;</span>,</span>
+<span id="cb24-49"><a href="#cb24-49" tabindex="-1"></a>  <span class="at">nLuc_orientation          =</span> <span class="st">&quot;C&quot;</span>,</span>
+<span id="cb24-50"><a href="#cb24-50" tabindex="-1"></a>  <span class="at">tracer                    =</span> <span class="st">&quot;Tracer K10&quot;</span>,</span>
+<span id="cb24-51"><a href="#cb24-51" tabindex="-1"></a>  <span class="at">tracer_kd_app             =</span> <span class="sc">-</span><span class="fl">7.5</span>,</span>
+<span id="cb24-52"><a href="#cb24-52" tabindex="-1"></a>  <span class="at">tracer_concentration_used =</span> <span class="sc">-</span><span class="fl">7.5</span>,</span>
+<span id="cb24-53"><a href="#cb24-53" tabindex="-1"></a>  <span class="at">decimal_separator         =</span> <span class="st">&quot;,&quot;</span>,</span>
+<span id="cb24-54"><a href="#cb24-54" tabindex="-1"></a>  <span class="at">eubscarab_ready           =</span> <span class="st">&quot;No&quot;</span></span>
+<span id="cb24-55"><a href="#cb24-55" tabindex="-1"></a>)</span></code></pre></div>
+<hr />
+</div>
+<div id="complete-example-cell-viability" class="section level2">
+<h2>Complete example – Cell viability</h2>
+<div class="sourceCode" id="cb25"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" tabindex="-1"></a><span class="fu">library</span>(dosefitr)</span>
+<span id="cb25-2"><a href="#cb25-2" tabindex="-1"></a></span>
+<span id="cb25-3"><a href="#cb25-3" tabindex="-1"></a><span class="fu">setwd</span>(<span class="st">&quot;path/to/experiment&quot;</span>)</span>
+<span id="cb25-4"><a href="#cb25-4" tabindex="-1"></a></span>
+<span id="cb25-5"><a href="#cb25-5" tabindex="-1"></a><span class="co"># 1. Process raw plates</span></span>
+<span id="cb25-6"><a href="#cb25-6" tabindex="-1"></a>via_results <span class="ot">&lt;-</span> <span class="fu">batch_viability_analysis</span>(</span>
+<span id="cb25-7"><a href="#cb25-7" tabindex="-1"></a>  <span class="at">control_0perc    =</span> <span class="dv">13</span>,</span>
+<span id="cb25-8"><a href="#cb25-8" tabindex="-1"></a>  <span class="at">control_100perc  =</span> <span class="dv">12</span>,</span>
+<span id="cb25-9"><a href="#cb25-9" tabindex="-1"></a>  <span class="at">selected_columns =</span> <span class="dv">2</span><span class="sc">:</span><span class="dv">23</span>,</span>
+<span id="cb25-10"><a href="#cb25-10" tabindex="-1"></a>  <span class="at">verbose          =</span> <span class="cn">TRUE</span></span>
+<span id="cb25-11"><a href="#cb25-11" tabindex="-1"></a>)</span>
+<span id="cb25-12"><a href="#cb25-12" tabindex="-1"></a></span>
+<span id="cb25-13"><a href="#cb25-13" tabindex="-1"></a><span class="co"># 2. Remove outliers (keep cytotoxic points)</span></span>
+<span id="cb25-14"><a href="#cb25-14" tabindex="-1"></a>results_clean <span class="ot">&lt;-</span> <span class="fu">rout_outliers_batch</span>(via_results,</span>
+<span id="cb25-15"><a href="#cb25-15" tabindex="-1"></a>  <span class="at">Q              =</span> <span class="fl">0.01</span>,</span>
+<span id="cb25-16"><a href="#cb25-16" tabindex="-1"></a>  <span class="at">keep_cytotoxic =</span> <span class="cn">TRUE</span></span>
+<span id="cb25-17"><a href="#cb25-17" tabindex="-1"></a>)</span>
+<span id="cb25-18"><a href="#cb25-18" tabindex="-1"></a><span class="fu">plot_outliers_batch_curves</span>(results_clean)</span>
+<span id="cb25-19"><a href="#cb25-19" tabindex="-1"></a></span>
+<span id="cb25-20"><a href="#cb25-20" tabindex="-1"></a><span class="co"># 3. Fit dose-response curves</span></span>
+<span id="cb25-21"><a href="#cb25-21" tabindex="-1"></a>drc_results <span class="ot">&lt;-</span> <span class="fu">batch_drc_analysis</span>(</span>
+<span id="cb25-22"><a href="#cb25-22" tabindex="-1"></a>  <span class="at">batch_results =</span> results_clean,</span>
+<span id="cb25-23"><a href="#cb25-23" tabindex="-1"></a>  <span class="at">normalize     =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb25-24"><a href="#cb25-24" tabindex="-1"></a>  <span class="at">output_dir    =</span> <span class="st">&quot;./drc_results&quot;</span>,</span>
+<span id="cb25-25"><a href="#cb25-25" tabindex="-1"></a>  <span class="at">verbose       =</span> <span class="cn">TRUE</span></span>
+<span id="cb25-26"><a href="#cb25-26" tabindex="-1"></a>)</span>
+<span id="cb25-27"><a href="#cb25-27" tabindex="-1"></a></span>
+<span id="cb25-28"><a href="#cb25-28" tabindex="-1"></a><span class="co"># 4. Save all individual plots</span></span>
+<span id="cb25-29"><a href="#cb25-29" tabindex="-1"></a><span class="fu">batch_save_all_drc_plots</span>(drc_results,</span>
+<span id="cb25-30"><a href="#cb25-30" tabindex="-1"></a>  <span class="at">verbose      =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb25-31"><a href="#cb25-31" tabindex="-1"></a>  <span class="at">y_axis_title =</span> <span class="st">&quot;% Cell Survival&quot;</span>  <span class="co"># optional override; auto-detects &quot;Cell Viability (%)&quot; by default</span></span>
+<span id="cb25-32"><a href="#cb25-32" tabindex="-1"></a>)</span>
+<span id="cb25-33"><a href="#cb25-33" tabindex="-1"></a></span>
+<span id="cb25-34"><a href="#cb25-34" tabindex="-1"></a><span class="co"># 5. Overlay selected compounds</span></span>
+<span id="cb25-35"><a href="#cb25-35" tabindex="-1"></a><span class="fu">plot_multiple_compounds</span>(drc_results,</span>
+<span id="cb25-36"><a href="#cb25-36" tabindex="-1"></a>  <span class="at">compound_indices =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>,</span>
+<span id="cb25-37"><a href="#cb25-37" tabindex="-1"></a>  <span class="at">color_palette    =</span> <span class="st">&quot;colorblind&quot;</span>,</span>
+<span id="cb25-38"><a href="#cb25-38" tabindex="-1"></a>  <span class="at">y_limits         =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">100</span>),   <span class="co"># or NULL to auto-scale</span></span>
+<span id="cb25-39"><a href="#cb25-39" tabindex="-1"></a>  <span class="at">y_axis_title     =</span> <span class="st">&quot;% Cell Survival&quot;</span>,  <span class="co"># optional override; auto-detects &quot;Cell Viability (%)&quot; by default</span></span>
+<span id="cb25-40"><a href="#cb25-40" tabindex="-1"></a>  <span class="at">save_plot        =</span> <span class="cn">TRUE</span></span>
+<span id="cb25-41"><a href="#cb25-41" tabindex="-1"></a>)</span>
+<span id="cb25-42"><a href="#cb25-42" tabindex="-1"></a></span>
+<span id="cb25-43"><a href="#cb25-43" tabindex="-1"></a><span class="co"># 6. Export Scarab viability table</span></span>
+<span id="cb25-44"><a href="#cb25-44" tabindex="-1"></a><span class="fu">scarab_viability</span>(</span>
+<span id="cb25-45"><a href="#cb25-45" tabindex="-1"></a>  <span class="at">results_list        =</span> via_results,</span>
+<span id="cb25-46"><a href="#cb25-46" tabindex="-1"></a>  <span class="at">drc_results_list    =</span> drc_results,</span>
+<span id="cb25-47"><a href="#cb25-47" tabindex="-1"></a>  <span class="at">plate_name          =</span> <span class="st">&quot;plate_01&quot;</span>,</span>
+<span id="cb25-48"><a href="#cb25-48" tabindex="-1"></a>  <span class="at">date                =</span> <span class="st">&quot;260323&quot;</span>,</span>
+<span id="cb25-49"><a href="#cb25-49" tabindex="-1"></a>  <span class="at">experimenter_abbrev =</span> <span class="st">&quot;TL&quot;</span>,</span>
+<span id="cb25-50"><a href="#cb25-50" tabindex="-1"></a>  <span class="at">cell_line           =</span> <span class="st">&quot;HeLa&quot;</span>,</span>
+<span id="cb25-51"><a href="#cb25-51" tabindex="-1"></a>  <span class="at">treatment_time      =</span> <span class="st">&quot;72h&quot;</span>,</span>
+<span id="cb25-52"><a href="#cb25-52" tabindex="-1"></a>  <span class="at">measurement_method  =</span> <span class="st">&quot;CellTiter-Glo&quot;</span>,</span>
+<span id="cb25-53"><a href="#cb25-53" tabindex="-1"></a>  <span class="at">decimal_separator   =</span> <span class="st">&quot;,&quot;</span></span>
+<span id="cb25-54"><a href="#cb25-54" tabindex="-1"></a>)</span></code></pre></div>
+<hr />
+</div>
+<div id="single-plate-workflow" class="section level2">
+<h2>Single-plate workflow</h2>
+<p>For interactive exploration or when you have a single plate, use the
+lower-level functions directly instead of the batch pipeline.</p>
+<div class="sourceCode" id="cb26"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" tabindex="-1"></a><span class="co"># Load a single raw data frame</span></span>
+<span id="cb26-2"><a href="#cb26-2" tabindex="-1"></a>raw_data  <span class="ot">&lt;-</span> readxl<span class="sc">::</span><span class="fu">read_excel</span>(<span class="st">&quot;NanoBRET_plate_1.xlsx&quot;</span>, <span class="at">sheet =</span> <span class="dv">1</span>, <span class="at">col_names =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb26-3"><a href="#cb26-3" tabindex="-1"></a>info      <span class="ot">&lt;-</span> readxl<span class="sc">::</span><span class="fu">read_excel</span>(<span class="st">&quot;info_tables.xlsx&quot;</span>, <span class="at">sheet =</span> <span class="st">&quot;Sheet1&quot;</span>)</span>
+<span id="cb26-4"><a href="#cb26-4" tabindex="-1"></a></span>
+<span id="cb26-5"><a href="#cb26-5" tabindex="-1"></a><span class="co"># Compute BRET ratios for one plate</span></span>
+<span id="cb26-6"><a href="#cb26-6" tabindex="-1"></a>plate_result <span class="ot">&lt;-</span> <span class="fu">ratio_dose_response_v2</span>(</span>
+<span id="cb26-7"><a href="#cb26-7" tabindex="-1"></a>  <span class="at">data             =</span> raw_data,</span>
+<span id="cb26-8"><a href="#cb26-8" tabindex="-1"></a>  <span class="at">control_0perc    =</span> <span class="dv">16</span>,</span>
+<span id="cb26-9"><a href="#cb26-9" tabindex="-1"></a>  <span class="at">control_100perc  =</span> <span class="fu">c</span>(<span class="dv">12</span>, <span class="dv">24</span>),</span>
+<span id="cb26-10"><a href="#cb26-10" tabindex="-1"></a>  <span class="at">info_table       =</span> info,</span>
+<span id="cb26-11"><a href="#cb26-11" tabindex="-1"></a>  <span class="at">split_replicates =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb26-12"><a href="#cb26-12" tabindex="-1"></a>  <span class="at">verbose          =</span> <span class="cn">TRUE</span></span>
+<span id="cb26-13"><a href="#cb26-13" tabindex="-1"></a>)</span>
+<span id="cb26-14"><a href="#cb26-14" tabindex="-1"></a></span>
+<span id="cb26-15"><a href="#cb26-15" tabindex="-1"></a><span class="co"># Detect outliers for one plate</span></span>
+<span id="cb26-16"><a href="#cb26-16" tabindex="-1"></a>plate_clean <span class="ot">&lt;-</span> <span class="fu">rout_outliers</span>(</span>
+<span id="cb26-17"><a href="#cb26-17" tabindex="-1"></a>  <span class="at">data      =</span> plate_result<span class="sc">$</span>modified_ratio_table,</span>
+<span id="cb26-18"><a href="#cb26-18" tabindex="-1"></a>  <span class="at">Q         =</span> <span class="fl">0.01</span>,</span>
+<span id="cb26-19"><a href="#cb26-19" tabindex="-1"></a>  <span class="at">seed      =</span> <span class="dv">42</span><span class="dt">L</span></span>
+<span id="cb26-20"><a href="#cb26-20" tabindex="-1"></a>)</span>
+<span id="cb26-21"><a href="#cb26-21" tabindex="-1"></a></span>
+<span id="cb26-22"><a href="#cb26-22" tabindex="-1"></a><span class="co"># Visualise outlier-flagged curves for one plate</span></span>
+<span id="cb26-23"><a href="#cb26-23" tabindex="-1"></a><span class="fu">plot_outliers_curves</span>(</span>
+<span id="cb26-24"><a href="#cb26-24" tabindex="-1"></a>  <span class="at">rout_output =</span> plate_clean,</span>
+<span id="cb26-25"><a href="#cb26-25" tabindex="-1"></a>  <span class="at">title       =</span> <span class="st">&quot;Plate 1&quot;</span></span>
+<span id="cb26-26"><a href="#cb26-26" tabindex="-1"></a>)</span></code></pre></div>
+<p>For viability data, replace <code>ratio_dose_response_v2()</code>
+with <code>process_viability_data()</code>:</p>
+<div class="sourceCode" id="cb27"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" tabindex="-1"></a>raw_via  <span class="ot">&lt;-</span> readxl<span class="sc">::</span><span class="fu">read_excel</span>(<span class="st">&quot;viability_plate_1.xlsx&quot;</span>, <span class="at">sheet =</span> <span class="dv">1</span>, <span class="at">col_names =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb27-2"><a href="#cb27-2" tabindex="-1"></a>info_via <span class="ot">&lt;-</span> readxl<span class="sc">::</span><span class="fu">read_excel</span>(<span class="st">&quot;info_tables.xlsx&quot;</span>, <span class="at">sheet =</span> <span class="st">&quot;Sheet1&quot;</span>)</span>
+<span id="cb27-3"><a href="#cb27-3" tabindex="-1"></a></span>
+<span id="cb27-4"><a href="#cb27-4" tabindex="-1"></a>plate_via <span class="ot">&lt;-</span> <span class="fu">process_viability_data</span>(</span>
+<span id="cb27-5"><a href="#cb27-5" tabindex="-1"></a>  <span class="at">data             =</span> raw_via,</span>
+<span id="cb27-6"><a href="#cb27-6" tabindex="-1"></a>  <span class="at">control_0perc    =</span> <span class="dv">1</span>,</span>
+<span id="cb27-7"><a href="#cb27-7" tabindex="-1"></a>  <span class="at">control_100perc  =</span> <span class="dv">24</span>,</span>
+<span id="cb27-8"><a href="#cb27-8" tabindex="-1"></a>  <span class="at">info_table       =</span> info_via,</span>
+<span id="cb27-9"><a href="#cb27-9" tabindex="-1"></a>  <span class="at">split_replicates =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb27-10"><a href="#cb27-10" tabindex="-1"></a>  <span class="at">verbose          =</span> <span class="cn">TRUE</span></span>
+<span id="cb27-11"><a href="#cb27-11" tabindex="-1"></a>)</span></code></pre></div>
+<p>To plot a single fitted dose-response curve from
+<code>fit_drc_3pl()</code> or <code>fit_drc_4pl()</code> output, use
+<code>plot_dose_response()</code>:</p>
+<div class="sourceCode" id="cb28"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" tabindex="-1"></a><span class="co"># Fit a single plate</span></span>
+<span id="cb28-2"><a href="#cb28-2" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">fit_drc_3pl</span>(<span class="at">data =</span> plate_clean<span class="sc">$</span>cleaned_table, <span class="at">normalize =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb28-3"><a href="#cb28-3" tabindex="-1"></a></span>
+<span id="cb28-4"><a href="#cb28-4" tabindex="-1"></a><span class="co"># Plot compound 1</span></span>
+<span id="cb28-5"><a href="#cb28-5" tabindex="-1"></a><span class="fu">plot_dose_response</span>(</span>
+<span id="cb28-6"><a href="#cb28-6" tabindex="-1"></a>  <span class="at">results        =</span> fit,</span>
+<span id="cb28-7"><a href="#cb28-7" tabindex="-1"></a>  <span class="at">compound_index =</span> <span class="dv">1</span>,</span>
+<span id="cb28-8"><a href="#cb28-8" tabindex="-1"></a>  <span class="at">y_limits       =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">120</span>),</span>
+<span id="cb28-9"><a href="#cb28-9" tabindex="-1"></a>  <span class="at">show_ic50_line =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb28-10"><a href="#cb28-10" tabindex="-1"></a>  <span class="at">save_plot      =</span> <span class="st">&quot;compound1_curve.png&quot;</span></span>
+<span id="cb28-11"><a href="#cb28-11" tabindex="-1"></a>)</span></code></pre></div>
 <hr />
 </div>
 <div id="function-reference" class="section level2">
 <h2>Function reference</h2>
+<div id="batch-pipeline-functions" class="section level3">
+<h3>Batch pipeline functions</h3>
 <table>
 <colgroup>
 <col width="50%" />
@@ -1046,19 +1212,11 @@ added.</p>
 </tr>
 <tr class="odd">
 <td><code>plot_outliers_batch_curves()</code></td>
-<td>Visualise outlier-flagged curves</td>
+<td>Visualise outlier-flagged curves (batch)</td>
 </tr>
 <tr class="even">
 <td><code>batch_drc_analysis()</code></td>
 <td>Fit 3PL or 4PL dose-response curves across all plates</td>
-</tr>
-<tr class="odd">
-<td><code>fit_drc_3pl()</code></td>
-<td>Fit a single plate with a 3-parameter logistic model</td>
-</tr>
-<tr class="even">
-<td><code>fit_drc_4pl()</code></td>
-<td>Fit a single plate with a 4-parameter logistic model</td>
 </tr>
 <tr class="odd">
 <td><code>batch_save_all_drc_plots()</code></td>
@@ -1076,8 +1234,62 @@ added.</p>
 <td><code>scarab_table()</code></td>
 <td>Generate Scarab-format export table (NanoBRET)</td>
 </tr>
+<tr class="odd">
+<td><code>scarab_viability()</code></td>
+<td>Generate Scarab-format export table (cell viability)</td>
+</tr>
 </tbody>
 </table>
+</div>
+<div id="single-plate-lower-level-functions" class="section level3">
+<h3>Single-plate / lower-level functions</h3>
+<table>
+<colgroup>
+<col width="50%" />
+<col width="50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Function</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>ratio_dose_response()</code></td>
+<td>Compute BRET ratios for a single plate (v1 engine)</td>
+</tr>
+<tr class="even">
+<td><code>ratio_dose_response_v2()</code></td>
+<td>Compute BRET ratios for a single plate (v2 engine)</td>
+</tr>
+<tr class="odd">
+<td><code>process_viability_data()</code></td>
+<td>Normalise viability signal for a single plate</td>
+</tr>
+<tr class="even">
+<td><code>fit_drc_3pl()</code></td>
+<td>Fit a single plate with a 3-parameter logistic model</td>
+</tr>
+<tr class="odd">
+<td><code>fit_drc_4pl()</code></td>
+<td>Fit a single plate with a 4-parameter logistic model</td>
+</tr>
+<tr class="even">
+<td><code>plot_dose_response()</code></td>
+<td>Plot a single dose-response curve</td>
+</tr>
+<tr class="odd">
+<td><code>rout_outliers()</code></td>
+<td>ROUT outlier detection for a single plate</td>
+</tr>
+<tr class="even">
+<td><code>plot_outliers_curves()</code></td>
+<td>Visualise outlier-flagged curves for a single plate</td>
+</tr>
+</tbody>
+</table>
+</div>
 </div>
 
 
