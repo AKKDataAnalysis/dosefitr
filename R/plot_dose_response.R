@@ -505,13 +505,23 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
   
   if (any(valid_mask)) {
     valid_data <- summary_data[valid_mask, ]
+    # Clip error-bar whiskers to the y-axis limits so they never extend past
+    # (and visually cross) the drawn x-axis baseline. y_seg_limits holds the
+    # resolved lower/upper bounds (explicit y_limits, or the auto-derived range
+    # used for the manual axis segment above). Whiskers that would fall below
+    # y_seg_limits[1] are cut off exactly at the baseline; symmetric clamp at
+    # the top guards the rare point sitting above the upper limit.
+    y_lo_clip <- y_seg_limits[1]
+    y_hi_clip <- y_seg_limits[2]
+    valid_data$ymin_clipped <- pmax(valid_data$mean_response - valid_data$sd_response, y_lo_clip)
+    valid_data$ymax_clipped <- pmin(valid_data$mean_response + valid_data$sd_response, y_hi_clip)
     p <- p +
       ggplot2::geom_errorbar(
         data = valid_data,
         ggplot2::aes(
           x = log_inhibitor,
-          ymin = mean_response - sd_response,
-          ymax = mean_response + sd_response
+          ymin = ymin_clipped,
+          ymax = ymax_clipped
         ),
         width = error_bar_width * 10,
         color = point_color,

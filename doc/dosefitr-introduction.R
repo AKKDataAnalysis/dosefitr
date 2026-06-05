@@ -37,6 +37,13 @@ knitr::opts_chunk$set(
 #   verbose             = TRUE
 # )
 
+## ----nanobret-step1-sep, eval=FALSE-------------------------------------------
+# results <- batch_ratio_analysis(
+#   control_0perc   = 24,
+#   control_100perc = 12,
+#   label_sep       = "/"   # columns will be named e.g. "EPHA1/KK135"
+# )
+
 ## ----nanobret-step2-----------------------------------------------------------
 # results_clean <- rout_outliers_batch(
 #   batch_results     = results,
