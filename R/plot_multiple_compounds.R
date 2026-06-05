@@ -330,6 +330,12 @@ plot_multiple_compounds <- function(results,
                                     legend_label_wrap = 25,
                                     legend_ncol = NULL,
                                     point_size = NULL,
+                                    error_linewidth = 0.5,
+                                    axis_line_width = NULL,
+                                    axis_vjust = NULL,
+                                    axis_label_size = NULL,
+                                    axis_line_width = NULL,
+                                    tick_length = NULL,
                                     plate = NULL) {
   
   # ============================================================================
@@ -1073,7 +1079,7 @@ plot_multiple_compounds <- function(results,
         full_name = compound_name,
         target = target_clean,
         compound = compound_clean,
-        target_compound = paste(target_clean, compound_clean, sep = ":"),
+        target_compound = paste(target_clean, compound_clean, sep = "/"),
         result = result,
         success = TRUE
       )
@@ -1612,7 +1618,7 @@ plot_multiple_compounds <- function(results,
         ggplot2::geom_point(data = plot_data$points,
                             ggplot2::aes(x = log_inhibitor, y = mean_response,
                                          color = compound),
-                            size = point_size, shape = 16)
+                            size = point_size, shape = 16, alpha = point_alpha)
     }
     
     if (show_error_bars && "sd_response" %in% colnames(plot_data$points)) {
@@ -1623,7 +1629,7 @@ plot_multiple_compounds <- function(results,
                                             ymax = mean_response + sd_response,
                                             color = compound),
                                width = error_bar_width,
-                               linewidth = 0.5, alpha = 0.6)
+                               linewidth = error_linewidth, alpha = point_alpha)
     }
   }
   
@@ -1685,12 +1691,15 @@ plot_multiple_compounds <- function(results,
                                          size = if (!is.null(plot_title_size)) plot_title_size else axis_title_size + 2),
       axis.text = ggplot2::element_text(color = axis_text_color, size = axis_text_size),
       axis.title = ggplot2::element_text(color = axis_title_color, size = axis_title_size, face = "bold"),
+      axis.line = ggplot2::element_line(linewidth = axis_line_width),                                  
       axis.line.x.bottom = ggplot2::element_blank(),
       axis.line.y.left   = ggplot2::element_blank(),
       axis.line.x.top    = ggplot2::element_blank(),
       axis.line.y.right  = ggplot2::element_blank(),
-      axis.ticks = ggplot2::element_line(color = axis_line_color),
-      axis.ticks.length = ggplot2::unit(0.15, "cm"),
+      axis.title.x = element_text(margin = margin(t = axis_vjust)),
+      axis.title.y = element_text(margin = margin(r = axis_vjust)),
+      axis.ticks = ggplot2::element_line(color = axis_line_color, linewidth = axis_line_width),
+      axis.ticks.length = ggplot2::unit(axis_tick_length, "pt"),
       legend.text = ggplot2::element_text(size = legend_text_size, lineheight = 0.8),
       legend.title = ggplot2::element_text(size = legend_title_size, face = "bold"),
       legend.key = ggplot2::element_rect(fill = "white", color = NA),
