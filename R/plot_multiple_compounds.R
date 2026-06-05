@@ -84,6 +84,23 @@
 #' @param verbose Logical; if TRUE (default), prints informative messages about processing
 #'   steps, compound matches, and color assignments.
 #' @param point_size Numeric value for the point size
+#' @param axis_line_width Numeric. Line width of the manually drawn x/y axis
+#'   lines (default: 0.8).
+#' @param axis_vjust Numeric or NULL. Vertical justification (\code{vjust}) of
+#'   the axis titles. \code{NULL} (default) leaves the ggplot2 default unchanged.
+#' @param tick_length Numeric. Axis tick length in centimetres (default: 0.15).
+#' @param error_linewidth Numeric. Line width of the error bars (default: 0.5).
+#' @param point_alpha Numeric between 0 and 1. Opacity of the data points
+#'   (default: 1, fully opaque). Does not affect error-bar opacity.
+#' @param legend_spacing Numeric or NULL. Spacing (in points) between legend
+#'   items, applied via \code{legend.spacing}. \code{NULL} (default) leaves the
+#'   theme default unchanged.
+#' @param aspect_ratio Numeric or NULL. Panel aspect ratio (\code{aspect.ratio}
+#'   in \code{theme()}). \code{NULL} (default) leaves it unset.
+#' @param byrow Logical. Whether legend keys are filled by row (\code{TRUE}) or
+#'   by column (\code{FALSE}, default). Applied via \code{theme(legend.byrow=)}
+#'   (the modern ggplot2 mechanism; the old \code{guide_legend(byrow=)} argument
+#'   was removed in ggplot2 4.0).
 #' @param plate Character. Plate name to plot. When \code{results} is the
 #'   output of \code{batch_drc_analysis()}, the function detects this
 #'   automatically and extracts the correct \code{drc_result}. If
@@ -330,8 +347,19 @@ plot_multiple_compounds <- function(results,
                                     legend_label_wrap = 25,
                                     legend_ncol = NULL,
                                     point_size = NULL,
+                                    axis_line_width = 0.8,
+                                    axis_vjust = NULL,
+                                    tick_length = 0.15,
+                                    error_linewidth = 0.5,
+                                    point_alpha = 1,
+                                    legend_spacing = NULL,
+                                    aspect_ratio = NULL,
+                                    byrow = FALSE,
                                     plate = NULL) {
-  
+
+  # Read label_sep from the results attribute (set by batch_ratio_analysis)
+  .sep <- attr(results, "label_sep") %||% ":"
+
   # ============================================================================
   # 0. PLATE EXTRACTION (when batch_drc_analysis result is supplied)
   # ============================================================================
@@ -374,70 +402,70 @@ plot_multiple_compounds <- function(results,
       stop("No drc_result found for plate '", plate, "'.")
     }
   }
-  
+
   # ============================================================================
   # 1. DEPENDENCY CHECK AND INITIAL VALIDATION
   # ============================================================================
-  
+
   # Check required packages
   required_packages <- c("ggplot2", "scales", "grDevices")
   missing_packages <- sapply(required_packages, function(pkg) {
     !requireNamespace(pkg, quietly = TRUE)
   })
-  
+
   if (any(missing_packages)) {
     stop("The following packages are required: ",
          paste(required_packages[missing_packages], collapse = ", "))
   }
-  
+
   # Validate input
   if (is.null(results$detailed_results) || length(results$detailed_results) == 0) {
     stop("Results object is empty or invalid")
   }
-  
+
   if (verbose) {
     message("Processing multiple compounds for plotting...")
     message("Total compounds available: ", length(results$detailed_results))
   }
-  
+
   # ============================================================================
   # 2. HELPER FUNCTIONS
   # ============================================================================
-  
+
   detect_input_type <- function(input) {
     if (is.null(input)) return("none")
-    if (grepl(":", input)) {
-      parts <- strsplit(input, ":")[[1]]
+    if (grepl(.sep, input, fixed = TRUE)) {
+      parts <- strsplit(input, .sep, fixed = TRUE)[[1]]
       if (length(parts) == 2 && nchar(parts[1]) > 0 && nchar(parts[2]) > 0) {
         return("both")
       }
     }
     return("unknown")
   }
-  
+
   find_matches <- function(pattern, compound_list, exact_first = TRUE) {
     all_names <- sapply(compound_list, function(x) {
       name <- strsplit(x$compound, " \\| ")[[1]][1]
       return(name)
     })
-    
+
     searchable <- list()
     for (i in seq_along(all_names)) {
       name <- all_names[i]
-      
-      if (grepl(":", name)) {
-        parts <- strsplit(name, ":")[[1]]
+
+      if (grepl(.sep, name, fixed = TRUE)) {
+        parts <- strsplit(name, .sep, fixed = TRUE)[[1]]
         target <- parts[1]
         compound <- ifelse(length(parts) >= 2, parts[2], name)
-        
+
         compound_clean <- trimws(gsub("\\.2$", "", compound))
         target_clean <- trimws(gsub("\\.2$", "", target))
-        
+
         searchable[[i]] <- list(
           full = name,
           target = target_clean,
           compound = compound_clean,
-          target_compound = paste(target_clean, compound_clean, sep = ":")
+          target_compound = paste(target_clean, compound_clean, sep = .sep)
         )
       } else {
         searchable[[i]] <- list(
@@ -448,7 +476,7 @@ plot_multiple_compounds <- function(results,
         )
       }
     }
-    
+
     if (exact_first) {
       for (i in seq_along(searchable)) {
         if (searchable[[i]]$full == pattern) {
@@ -458,12 +486,12 @@ plot_multiple_compounds <- function(results,
         }
       }
     }
-    
-    if (grepl(":", pattern)) {
-      pattern_parts <- strsplit(pattern, ":")[[1]]
+
+    if (grepl(.sep, pattern, fixed = TRUE)) {
+      pattern_parts <- strsplit(pattern, .sep, fixed = TRUE)[[1]]
       pattern_target <- pattern_parts[1]
       pattern_compound <- ifelse(length(pattern_parts) >= 2, pattern_parts[2], "")
-      
+
       for (i in seq_along(searchable)) {
         if (searchable[[i]]$target == pattern_target &&
             searchable[[i]]$compound == pattern_compound) {
@@ -473,10 +501,10 @@ plot_multiple_compounds <- function(results,
         }
       }
     }
-    
+
     matches <- list()
     match_indices <- c()
-    
+
     for (i in seq_along(searchable)) {
       if (grepl(pattern, searchable[[i]]$target, ignore.case = TRUE)) {
         matches[[length(matches) + 1]] <- compound_list[[i]]
@@ -491,18 +519,18 @@ plot_multiple_compounds <- function(results,
         match_indices <- c(match_indices, i)
       }
     }
-    
+
     if (length(matches) > 0) {
       return(list(matches = matches, indices = match_indices, type = "partial"))
     }
-    
+
     return(NULL)
   }
-  
+
   smart_label_wrap <- function(labels, width = legend_label_wrap) {
     sapply(labels, function(label) {
       if (is.na(label) || nchar(label) <= width) return(label)
-      
+
       if (grepl("[-_]", label)) {
         parts <- strsplit(label, "[-_]")[[1]]
         if (length(parts) > 1) {
@@ -514,7 +542,7 @@ plot_multiple_compounds <- function(results,
               break_points <- c(break_points, j)
             }
           }
-          
+
           if (length(break_points) > 0) {
             break_point <- max(break_points)
             if (break_point < length(parts)) {
@@ -525,12 +553,12 @@ plot_multiple_compounds <- function(results,
           }
         }
       }
-      
+
       words <- strsplit(label, " ")[[1]]
       if (length(words) > 1) {
         lines <- character(0)
         current_line <- words[1]
-        
+
         for (j in 2:length(words)) {
           test_line <- paste(current_line, words[j])
           if (nchar(test_line) <= width) {
@@ -541,7 +569,7 @@ plot_multiple_compounds <- function(results,
           }
         }
         lines <- c(lines, current_line)
-        
+
         if (length(lines) <= 3) {
           return(paste(lines, collapse = "\n"))
         } else {
@@ -551,24 +579,24 @@ plot_multiple_compounds <- function(results,
           return(paste(line1, line2, sep = "\n"))
         }
       }
-      
+
       if (nchar(label) > width) {
         break_point <- ceiling(nchar(label) / 2)
         part1 <- substr(label, 1, break_point)
         part2 <- substr(label, break_point + 1, nchar(label))
         return(paste(part1, part2, sep = "\n"))
       }
-      
+
       return(label)
     }, USE.NAMES = FALSE)
   }
-  
+
   # ============================================================================
   # 3. COLOR PALETTE FUNCTIONS
   # ============================================================================
-  
+
   generate_colors_from_palette <- function(n, palette = "hue") {
-    
+
     # Scientific journal palettes
     nature_palettes <- list(
       nature = function(n) {
@@ -617,7 +645,7 @@ plot_multiple_compounds <- function(results,
         }
       }
     )
-    
+
     # Corporate palettes
     corporate_palettes <- list(
       ibm = function(n) {
@@ -657,7 +685,7 @@ plot_multiple_compounds <- function(results,
         }
       }
     )
-    
+
     # Colorblind-friendly palettes
     colorblind_palettes <- list(
       okabe_ito = function(n) {
@@ -700,7 +728,7 @@ plot_multiple_compounds <- function(results,
         return(colorRampPalette(base)(n))
       }
     )
-    
+
     # Publisher-specific palettes
     journal_palettes <- list(
       bmc = function(n) {
@@ -776,7 +804,7 @@ plot_multiple_compounds <- function(results,
         }
       }
     )
-    
+
     # Gradient palettes
     gradient_palettes <- list(
       blue_red = function(n) colorRampPalette(c("#313695", "#4575B4", "#74ADD1", "#ABD9E9", "#E0F3F8",
@@ -787,13 +815,13 @@ plot_multiple_compounds <- function(results,
       blue_yellow = function(n) colorRampPalette(c("#053061", "#2166AC", "#4393C3", "#92C5DE", "#D1E5F0",
                                                    "#F7F7F7", "#FDDBC7", "#F4A582", "#D6604D", "#B2182B", "#67001F"))(n)
     )
-    
+
     palettes <- c(
       # Base palettes
       hue = function(n) scales::hue_pal()(n),
       ggplot2 = function(n) scales::hue_pal()(n),
       default = function(n) scales::hue_pal()(n),
-      
+
       # ColorBrewer qualitative palettes
       set1 = function(n) {
         if (requireNamespace("RColorBrewer", quietly = TRUE)) {
@@ -859,7 +887,7 @@ plot_multiple_compounds <- function(results,
           scales::hue_pal()(n)
         }
       },
-      
+
       # ColorBrewer sequential palettes
       blues = function(n) {
         if (requireNamespace("RColorBrewer", quietly = TRUE)) {
@@ -903,7 +931,7 @@ plot_multiple_compounds <- function(results,
           colorRampPalette(c("#FFFFFF", "#000000"))(n)
         }
       },
-      
+
       # ColorBrewer diverging palettes
       spectral = function(n) {
         if (requireNamespace("RColorBrewer", quietly = TRUE)) {
@@ -945,7 +973,7 @@ plot_multiple_compounds <- function(results,
                              "#E7D4E8", "#D9F0D3", "#ACD39E", "#5AAE61", "#1B7837"))(n)
         }
       },
-      
+
       # Viridis palettes (perceptually uniform)
       viridis = function(n) {
         if (requireNamespace("viridisLite", quietly = TRUE)) {
@@ -976,7 +1004,7 @@ plot_multiple_compounds <- function(results,
                              "#D8576B", "#ED7953", "#FA9E3B", "#FDC926", "#F0F921"))(n)
         }
       },
-      
+
       # Classic R palettes
       rainbow = function(n) rainbow(n),
       heat = function(n) heat.colors(n),
@@ -984,15 +1012,15 @@ plot_multiple_compounds <- function(results,
       topo = function(n) topo.colors(n),
       cm = function(n) cm.colors(n)
     )
-    
+
     # Combine all palette groups
     palettes <- c(palettes, nature_palettes, corporate_palettes, colorblind_palettes, journal_palettes, gradient_palettes)
-    
+
     # Use the requested palette if it exists
     if (!is.null(palette) && palette %in% names(palettes)) {
       return(palettes[[palette]](n))
     }
-    
+
     # Fallback: try RColorBrewer if palette name is not in the list above
     if (!is.null(palette) && requireNamespace("RColorBrewer", quietly = TRUE)) {
       if (palette %in% rownames(RColorBrewer::brewer.pal.info)) {
@@ -1000,107 +1028,107 @@ plot_multiple_compounds <- function(results,
         return(colorRampPalette(RColorBrewer::brewer.pal(max_colors, palette))(n))
       }
     }
-    
+
     # Final fallback to default hue palette
     warning("Palette '", palette, "' not recognized. Using default hue palette.")
     return(scales::hue_pal()(n))
   }
-  
+
   list_available_palettes <- function() {
     palettes <- c(
       # Base palettes
       "hue", "ggplot2",
-      
+
       # ColorBrewer qualitative
       "set1", "set2", "set3", "dark2", "paired", "accent", "pastel1", "pastel2",
-      
+
       # ColorBrewer sequential
       "blues", "reds", "greens", "purples", "oranges", "greys",
-      
+
       # ColorBrewer diverging
       "spectral", "rdylbu", "rdylgn", "piyg", "prgn",
-      
+
       # Viridis
       "viridis", "magma", "inferno", "plasma",
-      
+
       # Scientific journals
       "nature", "science", "cell", "plos", "elife",
       "bmc", "frontiers", "wiley", "elsevier", "oxford", "springer", "acs", "rsc",
-      
+
       # Corporate
       "ibm", "google", "microsoft", "twitter",
-      
+
       # Colorblind-friendly
       "okabe_ito", "colorblind", "cud", "tol",
-      
+
       # Gradient
       "blue_red", "green_red", "purple_orange", "cool_warm", "blue_yellow",
-      
+
       # Classic R
       "rainbow", "heat", "terrain", "topo", "cm"
     )
     return(palettes)
   }
-  
+
   # ============================================================================
   # 4. BUILD COMPOUND LIST
   # ============================================================================
-  
+
   build_compound_list <- function(results) {
     compound_list <- list()
-    
+
     for (i in seq_along(results$detailed_results)) {
       result <- results$detailed_results[[i]]
-      
+
       if (is.null(result$model) || !isTRUE(result$success)) next
-      
+
       compound_name <- strsplit(result$compound, " \\| ")[[1]][1]
-      
-      if (grepl(":", compound_name)) {
-        name_parts <- strsplit(compound_name, ":")[[1]]
+
+      if (grepl(.sep, compound_name, fixed = TRUE)) {
+        name_parts <- strsplit(compound_name, .sep, fixed = TRUE)[[1]]
         target <- name_parts[1]
         compound <- ifelse(length(name_parts) >= 2, name_parts[2], target)
       } else {
         target <- compound_name
         compound <- compound_name
       }
-      
+
       target_clean <- trimws(gsub("\\.2$", "", target))
       compound_clean <- trimws(gsub("\\.2$", "", compound))
-      
+
       compound_list[[i]] <- list(
         index = i,
         full_name = compound_name,
         target = target_clean,
         compound = compound_clean,
-        target_compound = paste(target_clean, compound_clean, sep = ":"),
+        target_compound = paste(target_clean, compound_clean, sep = .sep),
         result = result,
         success = TRUE
       )
     }
-    
+
     return(compound_list)
   }
-  
+
   compound_list <- build_compound_list(results)
-  
+
   if (length(compound_list) == 0) {
     stop("No compounds with successful model fits found")
   }
-  
+
   if (verbose) {
     message("Valid compounds with successful fits: ", length(compound_list))
   }
-  
+
   # ============================================================================
   # 5. SELECT COMPOUNDS
   # ============================================================================
-  
+
   selected_compounds <- list()
   match_type <- "unknown"
   input_used <- NULL
   selected_indices <- c()
-  
+
   if (!is.null(position)) {
     if (position > length(compound_list)) {
       stop("Position ", position, " is out of range. Only ", length(compound_list), " compounds available.")
@@ -1109,7 +1137,7 @@ plot_multiple_compounds <- function(results,
     selected_indices <- position
     match_type <- "position"
     input_used <- paste("Position", position)
-    
+
     if (verbose) {
       message("Selected by position ", position, ": ", compound_list[[position]]$target_compound)
     }
@@ -1117,16 +1145,16 @@ plot_multiple_compounds <- function(results,
   else if (!is.null(target_compound)) {
     input_type <- detect_input_type(target_compound)
     input_used <- target_compound
-    
+
     if (verbose) message("Input '", target_compound, "' detected as type: ", input_type)
-    
+
     result <- find_matches(target_compound, compound_list)
-    
+
     if (!is.null(result)) {
       selected_compounds <- result$matches
       selected_indices <- result$indices
       match_type <- result$type
-      
+
       if (verbose) {
         message("Found ", length(selected_compounds), " matches (match type: ", match_type, ")")
         for (i in seq_along(selected_compounds)) {
@@ -1141,7 +1169,7 @@ plot_multiple_compounds <- function(results,
     if (max(compound_indices) > length(compound_list)) {
       stop("Compound indices exceed available compounds")
     }
-    
+
     for (idx in compound_indices) {
       if (idx <= length(compound_list) && !is.null(compound_list[[idx]])) {
         selected_compounds[[length(selected_compounds) + 1]] <- compound_list[[idx]]
@@ -1150,7 +1178,7 @@ plot_multiple_compounds <- function(results,
     }
     match_type <- "indices"
     input_used <- paste(compound_indices, collapse = ", ")
-    
+
     if (verbose) {
       message("Selected by indices: ", length(selected_compounds), " compounds")
     }
@@ -1159,43 +1187,43 @@ plot_multiple_compounds <- function(results,
     selected_compounds <- compound_list
     selected_indices <- seq_along(compound_list)
     match_type <- "all"
-    
+
     if (verbose) message("No selection criteria provided. Using all valid compounds.")
   }
-  
+
   if (length(selected_compounds) == 0) {
     stop("No compounds selected for plotting.")
   }
-  
+
   n_compounds <- length(selected_compounds)
-  
+
   if (verbose) {
     message("Selected ", n_compounds, " compounds for plotting (match type: ", match_type, ")")
   }
-  
+
   # ============================================================================
   # 6. EXTRACT DATA
   # ============================================================================
-  
+
   extract_compound_data <- function(selected_compounds) {
     curve_data_list <- list()
     point_data_list <- list()
-    
+
     for (i in seq_along(selected_compounds)) {
       comp_info <- selected_compounds[[i]]
       result <- comp_info$result
-      
+
       data <- result$data
       valid_data <- data[is.finite(data$log_inhibitor) & is.finite(data$response), ]
-      
+
       if (nrow(valid_data) < 2) {
         warning("Compound ", comp_info$target_compound, ": insufficient data - skipping")
         next
       }
-      
+
       x_range <- range(valid_data$log_inhibitor, na.rm = TRUE)
       x_seq <- seq(x_range[1], x_range[2], length.out = 100)
-      
+
       curve_df <- data.frame(
         log_inhibitor = x_seq,
         response = predict(result$model, newdata = data.frame(log_inhibitor = x_seq)),
@@ -1205,11 +1233,11 @@ plot_multiple_compounds <- function(results,
         compound_name = comp_info$compound,
         full_name = comp_info$full_name
       )
-      
+
       curve_data_list[[i]] <- curve_df
-      
+
       conc_levels <- unique(valid_data$log_inhibitor)
-      
+
       point_stats <- do.call(rbind, lapply(conc_levels, function(conc) {
         conc_data <- valid_data[valid_data$log_inhibitor == conc, ]
         if (nrow(conc_data) > 0) {
@@ -1226,40 +1254,40 @@ plot_multiple_compounds <- function(results,
           )
         }
       }))
-      
+
       point_data_list[[i]] <- point_stats
     }
-    
+
     curve_data_list <- Filter(Negate(is.null), curve_data_list)
     point_data_list <- Filter(Negate(is.null), point_data_list)
-    
+
     if (length(curve_data_list) == 0) {
       stop("No valid data to plot")
     }
-    
+
     list(
       curves = do.call(rbind, curve_data_list),
       points = if (length(point_data_list) > 0) do.call(rbind, point_data_list) else data.frame()
     )
   }
-  
+
   plot_data <- extract_compound_data(selected_compounds)
   n_valid_compounds <- length(unique(plot_data$curves$compound))
-  
+
   if (verbose) {
     message("Plot data prepared: ", nrow(plot_data$curves), " curve points")
     if (nrow(plot_data$points) > 0) {
       message("  and ", nrow(plot_data$points), " data points for ", n_valid_compounds, " compounds")
     }
   }
-  
+
   # ============================================================================
   # 7. ANALYZE DATA
   # ============================================================================
-  
+
   unique_targets <- unique(plot_data$curves$target)
   unique_compounds <- unique(plot_data$curves$compound_name)
-  
+
   if (verbose) {
     message("Analysis for title generation:")
     message("  Unique targets: ", paste(unique_targets, collapse = ", "))
@@ -1267,9 +1295,9 @@ plot_multiple_compounds <- function(results,
     message("  Match type: ", match_type)
     message("  Input used: ", ifelse(is.null(input_used), "None", input_used))
   }
-  
+
   is_normalized <- if (!is.null(results$normalized)) results$normalized else FALSE
-  
+
   # Auto-detect y-axis title from assay type when not supplied by the user.
   # Reads assay_type and normalize from the batch_drc_analysis() metadata if
   # available; falls back to the legacy normalization-only heuristic otherwise.
@@ -1281,23 +1309,23 @@ plot_multiple_compounds <- function(results,
     if (!is.null(assay_src) && assay_src == "viability") {
       if (normalized) "Cell Viability (%)" else "Luminescence"
     } else {
-      # nanobret or unknown - legacy behaviour
+      # nanobret or unknown — legacy behaviour
       if (normalized) "Normalized BRET ratio [%]" else "BRET ratio"
     }
   }
-  
+
   # ============================================================================
   # 8. GENERATE TITLE
   # ============================================================================
-  
+
   generate_intelligent_title <- function(match_type, input_used, unique_targets,
                                          unique_compounds, n_compounds) {
-    
+
     if (!is.null(plot_title)) {
       if (verbose) message("Using custom plot title: ", plot_title)
       return(plot_title)
     }
-    
+
     if (n_compounds == 1) {
       if (length(unique_compounds) == 1 && unique_compounds[1] != "") {
         title <- unique_compounds[1]
@@ -1305,23 +1333,23 @@ plot_multiple_compounds <- function(results,
         return(title)
       }
     }
-    
+
     if (length(unique_compounds) == 1 && unique_compounds[1] != "") {
       title <- unique_compounds[1]
       if (verbose) message("Title strategy: Single compound across targets -> ", title)
       return(title)
     }
-    
+
     if (length(unique_targets) == 1 && unique_targets[1] != "") {
       title <- unique_targets[1]
       if (verbose) message("Title strategy: Single target -> ", title)
       return(title)
     }
-    
+
     if (match_type %in% c("exact_full", "exact_target_compound", "partial")) {
       if (!is.null(input_used)) {
-        if (grepl(":", input_used)) {
-          parts <- strsplit(input_used, ":")[[1]]
+        if (grepl(.sep, input_used, fixed = TRUE)) {
+          parts <- strsplit(input_used, .sep, fixed = TRUE)[[1]]
           if (length(parts) >= 2) {
             title <- parts[2]
           } else {
@@ -1334,46 +1362,46 @@ plot_multiple_compounds <- function(results,
         return(title)
       }
     }
-    
+
     if (n_compounds > 1) {
       title <- paste("Multiple Compounds (", n_compounds, ")", sep = "")
     } else {
       title <- "Dose-Response Curve"
     }
-    
+
     if (verbose) message("Title strategy: Default -> ", title)
     return(title)
   }
-  
+
   plot_title_final <- generate_intelligent_title(match_type, input_used, unique_targets,
                                                  unique_compounds, n_valid_compounds)
-  
+
   # ============================================================================
   # 9. SET LEGEND TITLE AND LABELS
   # ============================================================================
-  
+
   # Generate smart legend labels
   generate_smart_legend_labels <- function(compound_labels, unique_targets, unique_compounds) {
-    
+
     # Extract target and compound from each label (format "target:compound")
     extract_parts <- function(label) {
-      if (grepl(":", label)) {
-        parts <- strsplit(label, ":")[[1]]
+      if (grepl(.sep, label, fixed = TRUE)) {
+        parts <- strsplit(label, .sep, fixed = TRUE)[[1]]
         return(list(target = parts[1], compound = parts[2]))
       } else {
         return(list(target = label, compound = label))
       }
     }
-    
+
     parts_list <- lapply(compound_labels, extract_parts)
     targets <- sapply(parts_list, function(x) x$target)
     compounds <- sapply(parts_list, function(x) x$compound)
-    
+
     all_targets_same  <- length(unique(targets))   == 1
     all_compounds_same <- length(unique(compounds)) == 1
-    
+
     smart_labels <- character(length(compound_labels))
-    
+
     if (all_targets_same && !all_compounds_same) {
       # Same target, different compounds -> show only compound names
       if (verbose) message("Legend strategy: Same target, different compounds -> showing only compound names")
@@ -1387,18 +1415,18 @@ plot_multiple_compounds <- function(results,
       if (verbose) message("Legend strategy: Showing full target:compound format")
       smart_labels <- compound_labels
     }
-    
+
     return(smart_labels)
   }
-  
+
   compound_labels <- unique(plot_data$curves$compound)
-  
+
   smart_legend_names <- generate_smart_legend_labels(compound_labels, unique_targets, unique_compounds)
-  
+
   wrapped_labels <- smart_label_wrap(smart_legend_names, legend_label_wrap)
-  
+
   legend_title_final <- legend_title
-  
+
   # Factor compounds to preserve order
   plot_data$curves$compound <- factor(plot_data$curves$compound,
                                       levels = compound_labels)
@@ -1406,17 +1434,17 @@ plot_multiple_compounds <- function(results,
     plot_data$points$compound <- factor(plot_data$points$compound,
                                         levels = compound_labels)
   }
-  
+
   # ============================================================================
   # 10. CONFIGURE SHAPES AND COLORS
   # ============================================================================
-  
+
   # Point shape selection
-  # point_shapes = TRUE  -> default optimal shapes, one per compound
-  # point_shapes = NULL  -> all points use shape 16 (filled circle), no per-compound mapping
-  # point_shapes = <vec> -> custom shapes, recycled to cover all compounds
+  # point_shapes = TRUE  → default optimal shapes, one per compound
+  # point_shapes = NULL  → all points use shape 16 (filled circle), no per-compound mapping
+  # point_shapes = <vec> → custom shapes, recycled to cover all compounds
   optimal_shapes <- c(16, 17, 15, 18, 8, 1, 2, 0, 5, 6, 7, 10, 11, 12, 13, 14)
-  
+
   if (isTRUE(point_shapes)) {
     use_shape_mapping <- TRUE
     point_shapes <- if (n_valid_compounds <= length(optimal_shapes)) {
@@ -1431,15 +1459,15 @@ plot_multiple_compounds <- function(results,
     use_shape_mapping <- TRUE
     point_shapes <- rep(point_shapes, length.out = n_valid_compounds)
   }
-  
+
   determine_colors <- function(colors_param, color_palette_param, n_colors) {
-    
+
     # colors = TRUE: use automatic hue palette
     if (is.logical(colors_param) && isTRUE(colors_param)) {
       if (verbose) message("Using automatic colors (colors = TRUE)")
       return(generate_colors_from_palette(n_colors, "hue"))
     }
-    
+
     # Custom color vector supplied via 'colors'
     if (!is.null(colors_param) && is.character(colors_param)) {
       if (length(colors_param) < n_colors) {
@@ -1451,12 +1479,12 @@ plot_multiple_compounds <- function(results,
         return(colors_param[1:n_colors])
       }
     }
-    
+
     # Named palette specified via 'color_palette'
     if (!is.null(color_palette_param)) {
       if (verbose) {
         message("Using color palette: ", color_palette_param)
-        
+
         # Informational messages about the palette type
         if (color_palette_param %in% c("set1", "set2", "set3", "dark2", "paired", "accent", "pastel1", "pastel2")) {
           message("  Note: ColorBrewer qualitative palette - good for distinct categories")
@@ -1480,14 +1508,14 @@ plot_multiple_compounds <- function(results,
       }
       return(generate_colors_from_palette(n_colors, color_palette_param))
     }
-    
+
     # Fallback to default hue palette
     if (verbose) message("Using default hue palette")
     return(generate_colors_from_palette(n_colors, "hue"))
   }
-  
+
   colors_final <- determine_colors(colors, color_palette, n_valid_compounds)
-  
+
   if (verbose && n_valid_compounds <= 10) {
     message("Colors assigned:")
     for (i in seq_along(compound_labels)) {
@@ -1499,31 +1527,31 @@ plot_multiple_compounds <- function(results,
       message("  ", compound_labels[i], ": ", colors_final[i])
     }
   }
-  
+
   # ============================================================================
   # 11. CREATE THE PLOT
   # ============================================================================
-  
+
   calculate_x_limits <- function(curve_data, point_data) {
     all_x <- c(curve_data$log_inhibitor)
     if (nrow(point_data) > 0) {
       all_x <- c(all_x, point_data$log_inhibitor)
     }
     valid_x <- all_x[is.finite(all_x)]
-    
+
     if (length(valid_x) == 0) return(c(-10, -2))
-    
+
     x_range <- range(valid_x)
     x_margin <- diff(x_range) * 0.05
     return(c(x_range[1] - x_margin, x_range[2] + x_margin))
   }
-  
+
   # Resolve x_limits to log10 molar scale.
   # x_limits_scale controls the unit of the user-supplied values:
-  #   "log10"  - already log10 molar (default, no conversion)
-  #   "molar"  - raw molar (e.g. 1e-9); converted via log10()
-  #   "uM"     - micromolar (e.g. 0.001 to 25); converted via log10(x * 1e-6)
-  #   "nM"     - nanomolar; converted via log10(x * 1e-9)
+  #   "log10"  — already log10 molar (default, no conversion)
+  #   "molar"  — raw molar (e.g. 1e-9); converted via log10()
+  #   "uM"     — micromolar (e.g. 0.001 to 25); converted via log10(x * 1e-6)
+  #   "nM"     — nanomolar; converted via log10(x * 1e-9)
   resolve_x_limits <- function(xl) {
     if (is.null(xl)) return(calculate_x_limits(plot_data$curves, plot_data$points))
     if (length(xl) != 2 || !all(is.finite(xl)))
@@ -1540,7 +1568,7 @@ plot_multiple_compounds <- function(results,
                       scale, converted[1], converted[2]))
     converted
   }
-  
+
   calculate_y_limits <- function(curve_data, point_data) {
     all_y <- c(curve_data$response)
     if (nrow(point_data) > 0) {
@@ -1559,25 +1587,25 @@ plot_multiple_compounds <- function(results,
     y_margin <- diff(y_range) * 0.08
     return(c(y_range[1] - y_margin, y_range[2] + y_margin))
   }
-  
+
   x_limits_final <- resolve_x_limits(x_limits)
   y_limits_final <- if (!is.null(y_limits)) y_limits else
     calculate_y_limits(plot_data$curves, plot_data$points)
-  
+
   x_axis_title_final <- if (!is.null(x_axis_title)) x_axis_title else
     expression(paste("Log"[10], " Concentration [M]"))
-  
+
   point_size <- if (!is.null(point_size)) point_size else if (n_valid_compounds > 15) 3 else if (n_valid_compounds > 8) 3.5 else 4
-  
+
   if (is.null(legend_ncol)) {
     legend_ncol <- if (n_valid_compounds > 10) 2 else 1
   }
-  
+
   # Smart defaults for legend text size
   if (is.null(legend_text_size)) {
     legend_text_size <- if (n_valid_compounds > 15) 9 else if (n_valid_compounds > 8) 10 else 11
   }
-  
+
   p <- ggplot2::ggplot() +
     ggplot2::labs(
       x = x_axis_title_final,
@@ -1588,21 +1616,21 @@ plot_multiple_compounds <- function(results,
     ggplot2::scale_y_continuous(expand = c(0, 0)) +
     ggplot2::scale_x_continuous(expand = c(0, 0)) +
     ggplot2::coord_cartesian(xlim = x_limits_final, ylim = y_limits_final, clip = "on")
-  
+
   p <- p +
     ggplot2::geom_line(data = plot_data$curves,
                        ggplot2::aes(x = log_inhibitor, y = response,
                                     group = compound, color = compound),
                        linewidth = curve_linewidth, alpha = curve_alpha)
-  
+
   if (nrow(plot_data$points) > 0) {
     if (use_shape_mapping) {
       p <- p +
         ggplot2::geom_point(data = plot_data$points,
                             ggplot2::aes(x = log_inhibitor, y = mean_response,
                                          shape = compound, color = compound),
-                            size = point_size)
-      
+                            size = point_size, alpha = point_alpha)
+
       p <- p + ggplot2::scale_shape_manual(
         values = setNames(point_shapes[1:n_valid_compounds], compound_labels),
         guide = "none"
@@ -1612,9 +1640,9 @@ plot_multiple_compounds <- function(results,
         ggplot2::geom_point(data = plot_data$points,
                             ggplot2::aes(x = log_inhibitor, y = mean_response,
                                          color = compound),
-                            size = point_size, shape = 16)
+                            size = point_size, shape = 16, alpha = point_alpha)
     }
-    
+
     if (show_error_bars && "sd_response" %in% colnames(plot_data$points)) {
       p <- p +
         ggplot2::geom_errorbar(data = plot_data$points,
@@ -1623,10 +1651,10 @@ plot_multiple_compounds <- function(results,
                                             ymax = mean_response + sd_response,
                                             color = compound),
                                width = error_bar_width,
-                               linewidth = 0.5, alpha = 0.6)
+                               linewidth = error_linewidth, alpha = 0.6)
     }
   }
-  
+
   # Optional IC50 vertical reference lines
   if (show_ic50_lines) {
     ic50_rows <- lapply(seq_along(selected_compounds), function(i) {
@@ -1648,14 +1676,17 @@ plot_multiple_compounds <- function(results,
       )
     }
   }
-  
+
   # Apply colors and smart legend labels
   p <- p + ggplot2::scale_color_manual(
     values = setNames(colors_final[1:n_valid_compounds], compound_labels),
     labels = setNames(wrapped_labels, compound_labels)
   )
-  
+
   # Configure legend guide
+  # NOTE: row-vs-column fill order (`byrow`) is applied via theme(legend.byrow=)
+  # below, not here -- ggplot2 >= 4.0 removed the `byrow` argument from
+  # guide_legend() and ignores it silently.
   guide_args <- list(
     ncol = legend_ncol,
     override.aes = list(
@@ -1666,33 +1697,35 @@ plot_multiple_compounds <- function(results,
     ),
     title = legend_title_final
   )
-  
+
   # Add shapes to legend override when shape mapping is active
   if (nrow(plot_data$points) > 0 && use_shape_mapping) {
     guide_args$override.aes$shape <- point_shapes[1:n_valid_compounds]
   }
-  
+
   p <- p + ggplot2::guides(color = do.call(ggplot2::guide_legend, guide_args))
-  
+
   # ============================================================================
   # 12. CONFIGURE PLOT THEME
   # ============================================================================
-  
+
   base_theme <- ggplot2::theme_minimal() +
     ggplot2::theme(
       legend.position = ifelse(show_legend, legend_position, "none"),
       plot.title = ggplot2::element_text(hjust = 0.5, face = "bold",
                                          size = if (!is.null(plot_title_size)) plot_title_size else axis_title_size + 2),
       axis.text = ggplot2::element_text(color = axis_text_color, size = axis_text_size),
-      axis.title = ggplot2::element_text(color = axis_title_color, size = axis_title_size, face = "bold"),
+      axis.title = ggplot2::element_text(color = axis_title_color, size = axis_title_size, face = "bold",
+                                         vjust = axis_vjust),
       axis.line.x.bottom = ggplot2::element_blank(),
       axis.line.y.left   = ggplot2::element_blank(),
       axis.line.x.top    = ggplot2::element_blank(),
       axis.line.y.right  = ggplot2::element_blank(),
       axis.ticks = ggplot2::element_line(color = axis_line_color),
-      axis.ticks.length = ggplot2::unit(0.15, "cm"),
+      axis.ticks.length = ggplot2::unit(tick_length, "cm"),
       legend.text = ggplot2::element_text(size = legend_text_size, lineheight = 0.8),
       legend.title = ggplot2::element_text(size = legend_title_size, face = "bold"),
+      legend.byrow = byrow,
       legend.key = ggplot2::element_rect(fill = "white", color = NA),
       legend.background = ggplot2::element_rect(fill = "white", color = NA),
       panel.background = ggplot2::element_rect(fill = "white", color = NA),
@@ -1700,7 +1733,7 @@ plot_multiple_compounds <- function(results,
       panel.border = ggplot2::element_blank(),
       plot.margin  = ggplot2::margin(t = 12, r = 8, b = 8, l = 8, unit = "pt")
     )
-  
+
   if (transparent_background) {
     base_theme <- base_theme + ggplot2::theme(
       legend.key        = ggplot2::element_rect(fill = NA, color = NA),
@@ -1709,13 +1742,13 @@ plot_multiple_compounds <- function(results,
       plot.background   = ggplot2::element_rect(fill = NA, color = NA)
     )
   }
-  
+
   if (show_border) {
     base_theme <- base_theme + ggplot2::theme(
       panel.border = ggplot2::element_rect(color = axis_line_color, fill = NA, linewidth = 0.5)
     )
   }
-  
+
   if (!show_grid) {
     base_theme <- base_theme + ggplot2::theme(
       panel.grid.major = ggplot2::element_blank(),
@@ -1727,9 +1760,18 @@ plot_multiple_compounds <- function(results,
       panel.grid.minor = ggplot2::element_line(color = "grey95", linewidth = 0.25)
     )
   }
-  
+
   p <- p + base_theme
-  
+
+  # Optional theme tweaks (only applied when explicitly set, so the defaults
+  # leave the appearance unchanged).
+  if (!is.null(aspect_ratio)) {
+    p <- p + ggplot2::theme(aspect.ratio = aspect_ratio)
+  }
+  if (!is.null(legend_spacing)) {
+    p <- p + ggplot2::theme(legend.spacing = ggplot2::unit(legend_spacing, "pt"))
+  }
+
   # Draw axis lines manually so they stop exactly at the data limits.
   # ggplot2's axis.line elements always span the full panel edge regardless of
   # coord_cartesian / expand, so we blank them above and draw our own here.
@@ -1745,15 +1787,15 @@ plot_multiple_compounds <- function(results,
     ggplot2::geom_segment(
       data = axis_segs_mc,
       ggplot2::aes(x = .data$x, xend = .data$xend, y = .data$y, yend = .data$yend),
-      colour = axis_line_color, linewidth = 0.8,
+      colour = axis_line_color, linewidth = axis_line_width,
       inherit.aes = FALSE)
-  
+
   # ============================================================================
   # 13. DISPLAY AND SAVE
   # ============================================================================
-  
+
   print(p)
-  
+
   if (!is.null(save_plot)) {
     if (is.character(save_plot)) {
       filename <- save_plot
@@ -1763,27 +1805,27 @@ plot_multiple_compounds <- function(results,
     } else {
       stop("save_plot must be either a file path or TRUE for auto-naming")
     }
-    
+
     plot_dir <- dirname(filename)
     if (plot_dir != "." && !dir.exists(plot_dir)) {
       dir.create(plot_dir, recursive = TRUE, showWarnings = FALSE)
     }
-    
+
     if (transparent_background && grepl("\\.jpe?g$", filename, ignore.case = TRUE))
       warning("transparent_background = TRUE has no effect when saving as JPEG: ",
               "JPEG does not support transparency. Use PNG, PDF, or SVG instead.")
-    
+
     ggplot2::ggsave(filename, plot = p, width = plot_width,
                     height = plot_height, dpi = plot_dpi,
                     bg = if (transparent_background) "transparent" else "white")
-    
+
     if (verbose) message("Plot saved as: ", normalizePath(filename))
   }
-  
+
   # ============================================================================
   # 14. RETURN METADATA
   # ============================================================================
-  
+
   metadata <- list(
     selected_compounds = compound_labels,
     smart_legend_names = smart_legend_names,
@@ -1812,16 +1854,12 @@ plot_multiple_compounds <- function(results,
     show_grid = show_grid,
     available_palettes = list_available_palettes()
   )
-  
+
   attr(p, "metadata") <- metadata
-  
+
   if (verbose && !is.null(color_palette)) {
     message("\nTip: To see all available palettes, run: names(attr(p, 'metadata')$available_palettes)")
   }
-  
+
   return(p)
 }
-
-
-
-

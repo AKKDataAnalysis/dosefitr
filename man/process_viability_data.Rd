@@ -14,7 +14,8 @@ process_viability_data(
   low_value_threshold = 0,
   verbose = TRUE,
   apply_control_means = TRUE,
-  auto_detect = TRUE
+  auto_detect = TRUE,
+  label_sep = ":"
 )
 }
 \arguments{
@@ -52,6 +53,11 @@ construct-specific means based on \code{info_table}.}
 
 \item{auto_detect}{Logical. If TRUE (default), automatically detects the plate
 structure within the input data.}
+
+\item{label_sep}{Single character used to separate the construct name from
+the compound name in column labels (e.g. \code{"EPHA1:KK135"}).
+Defaults to \code{":"}.  Change to e.g. \code{"/"} if your construct
+or compound names contain colons.}
 }
 \value{
 A list with the following elements:

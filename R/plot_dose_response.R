@@ -30,6 +30,24 @@
 #' @param enforce_bottom_threshold Logical indicating whether bottom threshold enforcement
 #'   was used in analysis (default: NULL, auto-detected from results).
 #' @param bottom_threshold Numeric value for bottom threshold (default: 60).
+#' @param axis_line_width Numeric. Line width of the manually drawn x/y axis
+#'   lines (default: 0.8).
+#' @param axis_vjust Numeric or NULL. Vertical justification (\code{vjust}) of
+#'   the axis titles. \code{NULL} (default) leaves the ggplot2 default unchanged.
+#' @param tick_length Numeric or NULL. Axis tick length in centimetres. \code{NULL}
+#'   (default) keeps the inherited \code{theme_minimal()} tick length.
+#' @param error_linewidth Numeric. Line width of the error bars (default: 0.8).
+#' @param point_alpha Numeric between 0 and 1. Opacity of the data points
+#'   (default: 1, fully opaque).
+#' @param legend_spacing Numeric or NULL. Spacing (in points) between legend
+#'   items, applied via \code{legend.spacing}. \code{NULL} (default) leaves the
+#'   theme default unchanged. (No visible effect here, as the parameter legend is
+#'   drawn as text annotations rather than a ggplot2 guide.)
+#' @param aspect_ratio Numeric or NULL. Panel aspect ratio (\code{aspect.ratio}
+#'   in \code{theme()}). \code{NULL} (default) leaves it unset.
+#' @param byrow Logical. Whether legend keys are filled by row (\code{TRUE}) or by
+#'   column (\code{FALSE}, default). Accepted for interface consistency; has no
+#'   effect here, as this function has no colour/shape legend guide.
 #' @param verbose Logical indicating whether to show verbose messages (default: FALSE).
 #' @param plot_title Controls the plot title. \code{FALSE} (default) = no title;
 #'   \code{TRUE} = automatic title (construct + compound name);
@@ -181,6 +199,10 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
                                x_axis_title = NULL, y_axis_title = NULL,
                                plot_title = TRUE,
                                enforce_bottom_threshold = NULL, bottom_threshold = 60,
+                               axis_line_width = 0.8, axis_vjust = NULL,
+                               tick_length = NULL, error_linewidth = 0.8,
+                               point_alpha = 1, legend_spacing = NULL,
+                               aspect_ratio = NULL, byrow = FALSE,
                                verbose = FALSE) {
   
   # Check if required packages are installed
@@ -408,7 +430,8 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
       clip = "on") +
     ggplot2::theme_minimal() +
     ggplot2::theme(
-      axis.title = ggplot2::element_text(size = axis_label_size, face = "bold", color = "black"),
+      axis.title = ggplot2::element_text(size = axis_label_size, face = "bold", color = "black",
+                                         vjust = axis_vjust),
       axis.text = ggplot2::element_text(size = axis_text_size, color = "black"),
       axis.line = ggplot2::element_blank(),
       axis.ticks = ggplot2::element_line(color = "black"),
@@ -421,6 +444,18 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
       panel.border = ggplot2::element_blank(),
       plot.margin = ggplot2::margin(t = 12, r = 8, b = 8, l = 8, unit = "pt")
     )
+
+  # Optional theme tweaks (only applied when explicitly set, so defaults leave
+  # the appearance unchanged).
+  if (!is.null(tick_length)) {
+    p <- p + ggplot2::theme(axis.ticks.length = ggplot2::unit(tick_length, "cm"))
+  }
+  if (!is.null(aspect_ratio)) {
+    p <- p + ggplot2::theme(aspect.ratio = aspect_ratio)
+  }
+  if (!is.null(legend_spacing)) {
+    p <- p + ggplot2::theme(legend.spacing = ggplot2::unit(legend_spacing, "pt"))
+  }
   
   # Draw axis lines manually so they stop exactly at the data limits.
   # ggplot2's axis.line element always spans the full panel edge regardless of
@@ -449,7 +484,7 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
     ggplot2::geom_segment(
       data = axis_segs,
       ggplot2::aes(x = .data$x, xend = .data$xend, y = .data$y, yend = .data$yend),
-      colour = "black", linewidth = 0.8,
+      colour = "black", linewidth = axis_line_width,
       inherit.aes = FALSE)
   
   # Add experimental data points
@@ -458,7 +493,8 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
       data = summary_data,
       ggplot2::aes(x = log_inhibitor, y = mean_response),
       color = point_color,
-      size = point_size * 2
+      size = point_size * 2,
+      alpha = point_alpha
     )
   
   # Add error bars for replicates
@@ -479,7 +515,7 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
         ),
         width = error_bar_width * 10,
         color = point_color,
-        linewidth = 0.8
+        linewidth = error_linewidth
       )
   }
   

@@ -36,7 +36,7 @@
 #'
 #' @param verbose Logical.  Print per-plate progress messages (default
 #'   \code{TRUE}).
-#'   
+#'
 #' @param panel_spacing Numeric. Spacing between sub-plots in the panel, in
 #'   centimetres (default \code{0.5}). Increase for more breathing room between
 #'   plots.
@@ -127,7 +127,10 @@ plot_outliers_batch_curves <- function(batch_rout_output,
                                        verbose         = TRUE,
                                        panel_spacing   = 0.5,
                                        subplot_title   = "auto") {
-  
+
+  # Read label_sep from the batch_rout_output attribute (set by batch_ratio_analysis)
+  .sep <- attr(batch_rout_output, "label_sep") %||% ":"
+
   # --------------------------------------------------------------------------
   # 1. Dependency checks
   # --------------------------------------------------------------------------
@@ -139,41 +142,41 @@ plot_outliers_batch_curves <- function(batch_rout_output,
       paste(missing_pkgs, collapse = ", "),
       paste(sprintf('"%s"', missing_pkgs), collapse = ", ")),
       call. = FALSE)
-  
+
   if (!exists("rout_outliers", mode = "function"))
     stop(paste0("rout_outliers() not found. ",
                 "Please source('rout_outliers.R') before calling this function."))
-  
+
   if (!exists("plot_outliers_curves", mode = "function"))
     stop(paste0("plot_outliers_curves() not found. ",
                 "Please source('rout_outliers.R') before calling this function."))
-  
+
   subplot_title <- match.arg(subplot_title, c("auto", "full", "compound", "construct"))
-  
+
   # --------------------------------------------------------------------------
   # 2. Input validation
   # --------------------------------------------------------------------------
   if (!is.list(batch_rout_output) || length(batch_rout_output) == 0L)
     stop("batch_rout_output must be the non-empty return value of rout_outliers_batch().")
-  
+
   if (is.null(batch_rout_output$params))
     stop(paste0("batch_rout_output$params not found. ",
                 "Pass the direct return value of rout_outliers_batch()."))
-  
+
   # --------------------------------------------------------------------------
   # 3. Setup
   # --------------------------------------------------------------------------
   if (is.null(output_dir)) output_dir <- getwd()
-  
+
   plot_dir <- file.path(output_dir, "ROUT_Plots")
   if (!dir.exists(plot_dir)) {
     dir.create(plot_dir, recursive = TRUE)
     if (verbose) message(sprintf("Created output folder: %s", plot_dir))
   }
-  
+
   # BUG_1 fix: define %||% BEFORE any use of it.
   `%||%` <- function(a, b) if (is.null(a) || length(a) == 0L || all(is.na(a))) b else a
-  
+
   # Extract ROUT parameters used during batch processing
   params     <- batch_rout_output$params
   Q          <- params$Q          %||% 0.01
@@ -181,14 +184,14 @@ plot_outliers_batch_curves <- function(batch_rout_output,
   direction  <- params$direction  %||% "inhibition"
   ntry_retry <- params$ntry_retry %||% 3L
   log_base   <- params$log_base   %||% "log10"
-  
+
   # Identify plate names (exclude reserved summary elements)
   reserved    <- c("outlier_summary", "skipped_summary", "rescued_summary", "params")
   plate_names <- setdiff(names(batch_rout_output), reserved)
-  
+
   if (length(plate_names) == 0L)
     stop("No plate entries found in batch_rout_output.")
-  
+
   # Filter to requested subset if `plates` is specified
   if (!is.null(plates)) {
     unknown <- setdiff(plates, plate_names)
@@ -199,7 +202,7 @@ plot_outliers_batch_curves <- function(batch_rout_output,
     if (length(plate_names) == 0L)
       stop("None of the requested plates were found in batch_rout_output.")
   }
-  
+
   if (verbose) {
     cat(strrep("=", 60), "\n")
     cat("NANOBRET BATCH CURVE PLOTS\n")
@@ -207,7 +210,7 @@ plot_outliers_batch_curves <- function(batch_rout_output,
     cat(sprintf("Plates to plot   : %d\n", length(plate_names)))
     cat(sprintf("Output folder    : %s\n\n", plot_dir))
   }
-  
+
   # --------------------------------------------------------------------------
   # 4. Helper: remove NA/empty columns (mirrors batch function logic)
   # --------------------------------------------------------------------------
@@ -226,7 +229,7 @@ plot_outliers_batch_curves <- function(batch_rout_output,
     }, logical(1L))
     tbl[, c(1L, value_cols[keep]), drop = FALSE]
   }
-  
+
   # --------------------------------------------------------------------------
   # 4b. Auto-detect subplot_title mode from batch composition
   # --------------------------------------------------------------------------
@@ -245,7 +248,7 @@ plot_outliers_batch_curves <- function(batch_rout_output,
     if (is.null(x) || length(x) == 0L || is.na(x)) return(TRUE)
     toupper(sub("_\\d+$", "", trimws(x))) == "NA"
   }
-  
+
   all_cmpd_names <- character(0)
   all_cons_names <- character(0)
   for (.pn in plate_names) {
@@ -267,29 +270,29 @@ plot_outliers_batch_curves <- function(batch_rout_output,
     "full"
   }
   effective_subplot_mode <- if (subplot_title == "auto") auto_mode else subplot_title
-  
+
   # --------------------------------------------------------------------------
   # 5. Per-plate plotting loop
   # --------------------------------------------------------------------------
   saved_files <- list()
-  
+
   for (plate_name in plate_names) {
-    
+
     if (verbose) cat(sprintf("Plotting %s ... ", plate_name))
-    
+
     plate <- batch_rout_output[[plate_name]]
-    
+
     # ---- 5a. Extract the pre-cleaning modified_ratio_table ----
     # rout_outliers_batch() stores the original (uncleaned)
     # modified_ratio_table at $result$modified_ratio_table_original so that
     # the plot function can re-fit on the original data and show outlier points
-    # as red X markers. The cleaned version (outliers -> NA) is at
+    # as red X markers. The cleaned version (outliers → NA) is at
     # $result$modified_ratio_table and is used by batch_drc_analysis().
     mrt_original <- tryCatch(plate$result$modified_ratio_table_original,
                              error = function(e) NULL)
     mrt_cleaned  <- tryCatch(plate$result$modified_ratio_table,
                              error = function(e) NULL)
-    
+
     # Use original for re-fitting (so outlier points are visible as red X).
     # Fall back to cleaned only if original was not stored (e.g. no outliers
     # were detected on this plate, in which case both tables are identical).
@@ -299,20 +302,20 @@ plot_outliers_batch_curves <- function(batch_rout_output,
     } else {
       mrt_cleaned
     }
-    
+
     if (is.null(mrt) || !is.data.frame(mrt) || nrow(mrt) == 0L || ncol(mrt) < 3L) {
       if (verbose) cat("SKIPPED (no valid ratio table)\n")
       next
     }
-    
+
     # ---- 5b. Drop NA/empty columns ----
     mrt_clean <- .drop_na_cols(mrt)
-    
+
     if (ncol(mrt_clean) < 3L) {
       if (verbose) cat("SKIPPED (no valid compound columns after NA removal)\n")
       next
     }
-    
+
     # ---- 5c. Extract dose rows only (drop ALL NA-concentration rows) ----
     # modified_ratio_table can have multiple NA-concentration rows:
     #   - top row:    0% control mean
@@ -322,28 +325,28 @@ plot_outliers_batch_curves <- function(batch_rout_output,
     # of NA-concentration rows regardless of their position.
     conc_vals   <- mrt_clean[[1L]]
     dose_rows   <- which(!is.na(conc_vals))
-    
+
     if (length(dose_rows) < 2L) {
       if (verbose) cat("SKIPPED (fewer than 2 dose rows)\n")
       next
     }
-    
+
     tbl_for_fit           <- mrt_clean[dose_rows, , drop = FALSE]
     rownames(tbl_for_fit) <- NULL
-    
+
     # ---- 5d. Obtain ROUT results for this plate ----
     # Prefer the pre-computed rout_results stored by rout_outliers_batch(),
     # which already has rescue flags cleared and is guaranteed to match
     # outlier_summary exactly. Fall back to re-running ROUT only for results
     # produced by older versions of rout_outliers_batch() that did not store it.
     rout_out <- tryCatch(plate$result$rout_results, error = function(e) NULL)
-    
+
     if (is.null(rout_out) || is.null(rout_out$results) ||
         nrow(rout_out$results) == 0L) {
-      
+
       if (verbose) message(sprintf(
         "  [%s] rout_results not cached; re-running ROUT (fallback).", plate_name))
-      
+
       rout_out <- tryCatch(
         rout_outliers(
           data              = tbl_for_fit,
@@ -360,12 +363,12 @@ plot_outliers_batch_curves <- function(batch_rout_output,
           NULL
         }
       )
-      
+
       if (is.null(rout_out) || nrow(rout_out$results) == 0L) {
         if (verbose) cat("SKIPPED (fit failed)\n")
         next
       }
-      
+
       # Fallback path: still apply rescue flag-clearing so the plot is correct
       rescued_plate <- tryCatch(plate$result$rescued_cytotoxic, error = function(e) NULL)
       if (!is.null(rescued_plate) && nrow(rescued_plate) > 0L) {
@@ -380,13 +383,13 @@ plot_outliers_batch_curves <- function(batch_rout_output,
         }
       }
     }
-    
+
     # ---- 5g. Compute plot dimensions ----
     n_compounds <- length(unique(rout_out$results$compound))
     n_rows_grid <- ceiling(n_compounds / ncol)
     plot_width  <- ncol * width_per_col
     plot_height <- n_rows_grid * height_per_row + 0.8   # +0.8 for title/caption
-    
+
     # ---- 5f. Build plate title (include data_file if available) ----
     data_file  <- plate$data_file %||% ""
     plate_title <- if (nchar(data_file) > 0L) {
@@ -394,10 +397,10 @@ plot_outliers_batch_curves <- function(batch_rout_output,
     } else {
       plate_name
     }
-    
+
     # ---- 5g. Save PNG ----
     out_file <- file.path(plot_dir, sprintf("%s_curves.png", plate_name))
-    
+
     tryCatch({
       plot_outliers_curves(
         rout_output    = rout_out,
@@ -407,7 +410,8 @@ plot_outliers_batch_curves <- function(batch_rout_output,
         width          = plot_width,
         height         = plot_height,
         subplot_title  = effective_subplot_mode,
-        panel_spacing  = panel_spacing
+        panel_spacing  = panel_spacing,
+        label_sep      = .sep
       )
       saved_files[[plate_name]] <- out_file
       if (verbose) cat(sprintf("saved (%d compounds, %dx%d in)\n",
@@ -418,7 +422,7 @@ plot_outliers_batch_curves <- function(batch_rout_output,
       if (verbose) cat(sprintf("FAILED (%s)\n", e$message))
     })
   }
-  
+
   # --------------------------------------------------------------------------
   # 6. Summary
   # --------------------------------------------------------------------------
@@ -430,6 +434,6 @@ plot_outliers_batch_curves <- function(batch_rout_output,
     }
     cat(strrep("=", 60), "\n")
   }
-  
+
   invisible(saved_files)
 }

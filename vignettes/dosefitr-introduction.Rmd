@@ -182,6 +182,24 @@ results <- batch_ratio_analysis(
 )
 ```
 
+**Configuring the construct/compound separator (`label_sep`):**
+
+By default, construct and compound names are joined with `":"` (e.g.
+`EPHA1:KK135`). If your names already contain colons, choose a different
+separator with `label_sep`:
+
+```{r nanobret-step1-sep, eval=FALSE}
+results <- batch_ratio_analysis(
+  control_0perc   = 24,
+  control_100perc = 12,
+  label_sep       = "/"   # columns will be named e.g. "EPHA1/KK135"
+)
+```
+
+The separator is stored as an attribute and propagated automatically through
+the entire pipeline — you only need to set it once. The same parameter is
+available in `batch_viability_analysis()`.
+
 ### Step 2: Remove outliers (optional)
 
 `rout_outliers_batch()` applies the ROUT method to each compound curve

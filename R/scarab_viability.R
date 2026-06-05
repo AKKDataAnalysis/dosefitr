@@ -126,11 +126,14 @@ scarab_viability <- function(results_list,
                              file_name           = NULL,
                              decimal_separator   = ".") {
 
-  # -- Validate decimal separator --------------------------------------------
+  # Read label_sep from the results_list attribute
+  .sep <- attr(results_list, "label_sep") %||% ":"
+
+  # ── Validate decimal separator ────────────────────────────────────────────
   if (!decimal_separator %in% c(".", ","))
     stop("decimal_separator must be either '.' or ','")
 
-  # -- Helper: format numbers with correct decimal separator -----------------
+  # ── Helper: format numbers with correct decimal separator ─────────────────
   format_number <- function(x, digits = NULL) {
     if (is.null(x)) return(NA_character_)
     if (length(x) > 1)
@@ -145,35 +148,35 @@ scarab_viability <- function(results_list,
       else                   as.character(x_num)
     } else {
       num_str <- if (!is.null(digits)) format(round(x_num, digits), nsmall = digits)
-                 else                  as.character(x_num)
+      else                  as.character(x_num)
       gsub("\\.", ",", num_str)
     }
   }
 
 
-  # -- Internal helper: recompute viability quality metrics ------------------
+  # ── Internal helper: recompute viability quality metrics ──────────────────
   compute_quality <- function(result) {
-  
+
     proc_info        <- result$processing_info
     if (is.null(proc_info)) return(NULL)
-  
+
     viability_data   <- proc_info$viability_data
     control_0_info   <- proc_info$control_0_info
     control_100_info <- proc_info$control_100_info
     info_tbl         <- proc_info$info_table
-  
+
     if (is.null(viability_data) || is.null(control_0_info) ||
         is.null(control_100_info) || is.null(info_tbl)) return(NULL)
-  
+
     if (!"Construct_Modified" %in% colnames(info_tbl))
       info_tbl$Construct_Modified <- info_tbl[[3]]
-  
+
     plate_row_values  <- info_tbl[[2]]
     construct_values  <- info_tbl$Construct_Modified
     unique_constructs <- unique(construct_values)
-  
+
     row_index_map <- stats::setNames(seq_len(16L), LETTERS[seq_len(16L)])
-  
+
     construct_groups <- lapply(
       stats::setNames(unique_constructs, unique_constructs),
       function(cn) {
@@ -182,20 +185,20 @@ scarab_viability <- function(results_list,
       }
     )
     construct_groups <- Filter(function(x) length(x) > 0L, construct_groups)
-  
+
     ctrl0_col   <- control_0_info$name
     ctrl100_col <- control_100_info$name
-  
+
     if (!ctrl0_col   %in% colnames(viability_data) ||
         !ctrl100_col %in% colnames(viability_data)) return(NULL)
-  
+
     cv_quality_level <- function(cv_val) {
       if (is.na(cv_val))  return("insufficient (NA)")
       if (cv_val <= 10)   return("high (<=10%)")
       if (cv_val <= 20)   return("medium (10-20%)")
       return("low (>20%)")
     }
-  
+
     lowest_quality <- function(...) {
       quality_order <- c("insufficient", "low", "medium", "high")
       lvls <- c(...)
@@ -207,36 +210,36 @@ scarab_viability <- function(results_list,
       scores[is.na(scores)] <- 1L
       quality_order[min(scores)]
     }
-  
+
     rows_list <- lapply(names(construct_groups), function(cn) {
       valid_rows <- construct_groups[[cn]]
       valid_rows <- valid_rows[
         !is.na(valid_rows) & valid_rows >= 1L & valid_rows <= nrow(viability_data)
       ]
       if (length(valid_rows) == 0L) return(NULL)
-  
+
       bg_vals  <- viability_data[valid_rows, ctrl0_col]
       pos_vals <- viability_data[valid_rows, ctrl100_col]
-  
+
       mean_bg  <- mean(bg_vals,  na.rm = TRUE)
       sd_bg    <- stats::sd(bg_vals,  na.rm = TRUE)
       mean_pos <- mean(pos_vals, na.rm = TRUE)
       sd_pos   <- stats::sd(pos_vals, na.rm = TRUE)
-  
+
       cv_bg  <- if (!is.na(mean_bg)  && abs(mean_bg)  > 1e-9)
         (sd_bg  / mean_bg)  * 100 else NA_real_
       cv_pos <- if (!is.na(mean_pos) && abs(mean_pos) > 1e-9)
         (sd_pos / mean_pos) * 100 else NA_real_
-  
+
       sb_ratio <- if (!is.na(mean_bg) && abs(mean_bg) > 1e-9)
         mean_pos / mean_bg else NA_real_
-  
+
       cv_bg_comment  <- cv_quality_level(cv_bg)
       cv_pos_comment <- cv_quality_level(cv_pos)
       overall        <- lowest_quality(cv_bg_comment, cv_pos_comment)
-  
+
       row_range <- paste(LETTERS[range(valid_rows)], collapse = "-")
-  
+
       data.frame(
         Construct            = cn,
         Mean_Positive_Ctrl   = round(mean_pos,  3L),
@@ -254,10 +257,10 @@ scarab_viability <- function(results_list,
         stringsAsFactors     = FALSE
       )
     })
-  
+
     rows_df <- do.call(rbind, Filter(Negate(is.null), rows_list))
     if (is.null(rows_df) || nrow(rows_df) == 0L) return(NULL)
-  
+
     # Transpose: constructs as columns, metrics as rows
     metrics_cols <- setdiff(colnames(rows_df), "Construct")
     mat          <- as.data.frame(t(rows_df[, metrics_cols, drop = FALSE]))
@@ -265,7 +268,7 @@ scarab_viability <- function(results_list,
     mat
   }
 
-  # -- Access plate data -----------------------------------------------------
+  # ── Access plate data ─────────────────────────────────────────────────────
   plate_results <- results_list[[plate_name]]
   plate_drc     <- drc_results_list$drc_results[[plate_name]]
 
@@ -277,7 +280,7 @@ scarab_viability <- function(results_list,
          "Available plates: ",
          paste(names(drc_results_list$drc_results), collapse = ", "))
 
-  # -- Extract tables --------------------------------------------------------
+  # ── Extract tables ────────────────────────────────────────────────────────
   # batch_viability_analysis renames $modified_table -> $modified_ratio_table
   result         <- plate_results$result
   modified_table <- result$modified_ratio_table
@@ -290,13 +293,13 @@ scarab_viability <- function(results_list,
     stop("Could not find final_summary_table in drc_results_list for plate '",
          plate_name, "'.")
 
-  # -- Recompute quality metrics from processing_info -------------------------
+  # ── Recompute quality metrics from processing_info ────────────────────────
   # batch_viability_analysis computes quality metrics internally but does NOT
   # store them in $result. compute_quality() (defined above) recomputes them
   # from the raw viability data in $processing_info.
   quality_table <- compute_quality(result)
 
-  # -- Helper: is a name an NA placeholder? -----------------------------------
+  # ── Helper: is a name an NA placeholder? ─────────────────────────────────
   # Catches: NA, NA_2, NA.2, NA:NA, NA_2:NA_2, etc.
   is_na_name <- function(x) {
     if (is.na(x)) return(TRUE)
@@ -305,20 +308,20 @@ scarab_viability <- function(results_list,
       grepl("^NA(_\\d+)?:NA",      x, ignore.case = TRUE)
   }
 
-  # -- Identify compound columns --------------------------------------------
+  # ── Identify compound columns ─────────────────────────────────────────────
   log_col_name  <- colnames(modified_table)[1]   # always the log(inhibitor) column
 
   # Filter 1: drop the log column and any column whose full name is NA-like
   compound_cols <- colnames(modified_table)[
     colnames(modified_table) != log_col_name &
-    !sapply(colnames(modified_table), is_na_name)
+      !sapply(colnames(modified_table), is_na_name)
   ]
 
   base_names <- gsub("\\.2$", "", compound_cols)
 
   # Filter 2: also drop entries where the construct part (before ":") is NA-like
   construct_part <- vapply(base_names, function(nm) {
-    if (grepl(":", nm)) trimws(strsplit(nm, ":")[[1]][1]) else nm
+    if (grepl(.sep, nm, fixed = TRUE)) trimws(strsplit(nm, .sep, fixed = TRUE)[[1]][1]) else nm
   }, character(1L), USE.NAMES = FALSE)
 
   keep          <- !sapply(construct_part, is_na_name)
@@ -327,7 +330,7 @@ scarab_viability <- function(results_list,
 
   unique_compounds <- unique(base_names)
 
-  # -- Extract log concentrations --------------------------------------------
+  # ── Extract log concentrations ────────────────────────────────────────────
   # Row 1 = 0% control (NA log conc), rows 2:(n-1) = experimental, row n = 100% ctrl
   log_col_vals <- modified_table[[log_col_name]]
   n_rows_mod   <- nrow(modified_table)
@@ -335,7 +338,7 @@ scarab_viability <- function(results_list,
   log_concs    <- format_number(as.numeric(log_col_vals[exp_row_idx]), digits = 2)
   n_concs      <- min(length(log_concs), 12L)
 
-  # -- Define the 67 row labels ----------------------------------------------
+  # ── Define the 67 row labels ──────────────────────────────────────────────
   # Rows 16-25 use the exact viability quality metric names.
   rows <- c(
     "Cell line",                                          #  1
@@ -396,18 +399,18 @@ scarab_viability <- function(results_list,
     "Signal_to_Background"
   )
 
-  # -- Build base data frame ------------------------------------------------
+  # ── Build base data frame ─────────────────────────────────────────────────
   table_out <- data.frame(Field = rows, stringsAsFactors = FALSE)
 
-  # -- Fill one column per unique compound ----------------------------------
+  # ── Fill one column per unique compound ──────────────────────────────────
   for (i in seq_along(unique_compounds)) {
     compound_full <- unique_compounds[i]   # e.g. "LRRK2:JQ1"
 
     # Split into construct (before ":") and compound (after ":")
-    if (grepl(":", compound_full)) {
-      parts     <- strsplit(compound_full, ":")[[1]]
+    if (grepl(.sep, compound_full, fixed = TRUE)) {
+      parts     <- strsplit(compound_full, .sep, fixed = TRUE)[[1]]
       construct <- trimws(parts[1])
-      compound  <- trimws(paste(parts[-1], collapse = ":"))
+      compound  <- trimws(paste(parts[-1], collapse = .sep))
     } else {
       construct <- compound_full
       compound  <- compound_full
@@ -419,7 +422,7 @@ scarab_viability <- function(results_list,
 
     col_data <- rep(NA_character_, length(rows))
 
-    # -- Rows 1-7: Basic information ------------------------------------------
+    # ── Rows 1–7: Basic information ──────────────────────────────────────────
     col_data[1] <- cell_line
     col_data[2] <- as.character(cell_type)
     col_data[3] <- as.character(treatment_time)
@@ -428,7 +431,7 @@ scarab_viability <- function(results_list,
     col_data[6] <- as.character(sgc_compound_id)
     col_data[7] <- as.character(measurement_method)
 
-    # -- Rows 8-15: Curve parameters ------------------------------------------
+    # ── Rows 8–15: Curve parameters ──────────────────────────────────────────
     if (!is.null(final_summary) && compound_full %in% colnames(final_summary)) {
       sc <- compound_full
 
@@ -468,7 +471,7 @@ scarab_viability <- function(results_list,
         col_data[15] <- tolower(v)
     }
 
-    # -- Rows 16-25: Quality control ------------------------------------------
+    # ── Rows 16–25: Quality control ───────────────────────────────────────────
     # quality_table rows = metric names, cols = construct names (direct 1:1 mapping)
     qc_col <- if (!is.null(quality_table) && construct %in% colnames(quality_table))
       construct else NULL
@@ -477,47 +480,47 @@ scarab_viability <- function(results_list,
       for (j in seq_along(qc_metrics)) {
         metric <- qc_metrics[j]
         v <- if (metric %in% rownames(quality_table))
-               quality_table[metric, qc_col] else NA_character_
+          quality_table[metric, qc_col] else NA_character_
         v <- if (is.na(v) || identical(v, "<NA>")) NA_character_ else as.character(v)
         col_data[15L + j] <- if (metric %in% numeric_qc_metrics)
           format_number(v, digits = 2) else v
       }
     }
 
-    # -- Rows 26-29: Plate specifications -------------------------------------
+    # ── Rows 26–29: Plate specifications ─────────────────────────────────────
     col_data[26] <- assay_volume
     col_data[27] <- plate_format
     col_data[28] <- plate_manufacturer
     col_data[29] <- plate_material
 
-    # -- Rows 30-41: LOG concentrations ---------------------------------------
+    # ── Rows 30–41: LOG concentrations ───────────────────────────────────────
     for (j in seq_len(n_concs))
       col_data[29L + j] <- log_concs[j]
 
-    # -- Rows 42-53: Viability values (replicate 1) ---------------------------
+    # ── Rows 42–53: Viability values (replicate 1) ───────────────────────────
     if (length(main_col) > 0) {
       exp_vals <- modified_table[[main_col[1]]][exp_row_idx]
       for (j in seq_len(min(length(exp_vals), 12L)))
         col_data[41L + j] <- format_number(exp_vals[j])
     }
 
-    # -- Rows 54-65: Viability values (duplicate) -----------------------------
+    # ── Rows 54–65: Viability values (duplicate) ─────────────────────────────
     if (length(dup_col) > 0) {
       exp_vals_dup <- modified_table[[dup_col[1]]][exp_row_idx]
       for (j in seq_len(min(length(exp_vals_dup), 12L)))
         col_data[53L + j] <- format_number(exp_vals_dup[j])
     }
 
-    # -- Rows 66-67: Metadata -------------------------------------------------
+    # ── Rows 66–67: Metadata ──────────────────────────────────────────────────
     col_data[66] <- as.character(eln_id)
     col_data[67] <- as.character(comments)
 
-    # -- Attach column --------------------------------------------------------
+    # ── Attach column ─────────────────────────────────────────────────────────
     col_label <- if (i == 1L) "X4" else paste0("X", i + 3L)
     table_out[[col_label]] <- col_data
   }
 
-  # -- Save -------------------------------------------------------------------
+  # ── Save ──────────────────────────────────────────────────────────────────
   if (save) {
     if (!requireNamespace("openxlsx", quietly = TRUE))
       stop("Package 'openxlsx' is required. Install with: install.packages('openxlsx')")

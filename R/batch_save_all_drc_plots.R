@@ -140,11 +140,14 @@ batch_save_all_drc_plots <- function(batch_drc_results,
                                      panel_spacing        = 1,
                                      subplot_title = "auto",
                                      ...) {
-  
+
   # ============================================================================
   # 1. VALIDATION AND SETUP
   # ============================================================================
-  
+
+  # Read label_sep from the batch_drc_results attribute
+  .sep <- attr(batch_drc_results, "label_sep") %||% ":"
+
   # Check if required packages are installed
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
     stop("Package 'ggplot2' is required. Please install it.")
@@ -155,7 +158,7 @@ batch_save_all_drc_plots <- function(batch_drc_results,
             "Individual plots will still be saved; panels will be skipped.")
     save_panel <- FALSE
   }
-  
+
   # Helper function for safe filename generation
   safe_filename <- function(string) {
     if (is.null(string) || is.na(string)) return("unknown")
@@ -166,7 +169,7 @@ batch_save_all_drc_plots <- function(batch_drc_results,
     if (nchar(s) == 0) return("unknown")
     return(s)
   }
-  
+
   # Helper: TRUE when a name is NA (R missing), the bare string "NA", or
   # "NA" with a trailing underscore+digits suffix (e.g. "NA_2", "NA_10").
   # Deliberately does NOT match names that merely contain "NA" as a substring
@@ -178,51 +181,51 @@ batch_save_all_drc_plots <- function(batch_drc_results,
     core <- sub("_\\d+$", "", trimws(x))
     toupper(core) == "NA"
   }
-  
+
   # Helper function to extract compound name properly
   extract_compound_name <- function(compound_string) {
     if (is.null(compound_string)) return("Unknown")
-    
+
     # Remove replicate suffix if present (.1, .2, etc.)
     name <- gsub("\\.\\d+$", "", compound_string)
-    
+
     # Handle "Construct | Compound" format
     if (grepl(" \\| ", name)) {
       parts <- strsplit(name, " \\| ")[[1]]
       return(trimws(parts[2]))
     }
-    
+
     # Handle "Construct:Compound" format
-    if (grepl(":", name)) {
-      parts <- strsplit(name, ":")[[1]]
+    if (grepl(.sep, name, fixed = TRUE)) {
+      parts <- strsplit(name, .sep, fixed = TRUE)[[1]]
       return(trimws(parts[2]))
     }
-    
+
     return(name)
   }
-  
+
   # Helper function to extract construct name
   extract_construct_name <- function(compound_string) {
     if (is.null(compound_string)) return("Unknown")
-    
+
     # Remove replicate suffix if present (.1, .2, etc.)
     name <- gsub("\\.\\d+$", "", compound_string)
-    
+
     # Handle "Construct | Compound" format
     if (grepl(" \\| ", name)) {
       parts <- strsplit(name, " \\| ")[[1]]
       return(trimws(parts[1]))
     }
-    
+
     # Handle "Construct:Compound" format
-    if (grepl(":", name)) {
-      parts <- strsplit(name, ":")[[1]]
+    if (grepl(.sep, name, fixed = TRUE)) {
+      parts <- strsplit(name, .sep, fixed = TRUE)[[1]]
       return(trimws(parts[1]))
     }
-    
+
     return("Unknown")
   }
-  
+
   # Extract drc_results if batch_drc_results is the wrapper object
   if (is.list(batch_drc_results)) {
     if ("drc_results" %in% names(batch_drc_results)) {
@@ -234,13 +237,13 @@ batch_save_all_drc_plots <- function(batch_drc_results,
   } else {
     stop("batch_drc_results must be a list")
   }
-  
+
   # Get plate names
   plate_names <- names(drc_results)
   if (is.null(plate_names) || length(plate_names) == 0) {
     stop("No plates found in drc_results")
   }
-  
+
   # Filter plates if specified
   if (!is.null(plates_to_plot)) {
     plate_names <- intersect(plate_names, plates_to_plot)
@@ -248,37 +251,37 @@ batch_save_all_drc_plots <- function(batch_drc_results,
       stop("No valid plates specified")
     }
   }
-  
+
   if (verbose) {
     message("Found ", length(plate_names), " plates to process")
     message("Output directory: ", output_dir)
   }
-  
+
   # Create main output directory
   if (!dir.exists(output_dir)) {
     dir.create(output_dir, recursive = TRUE)
   }
-  
+
   subplot_title <- match.arg(subplot_title, c("auto", "full", "compound", "construct"))
-  
+
   # Helper: derive a display label from a raw "Construct:Compound" string
-  # given an explicit mode (never "auto" - resolve that before calling).
+  # given an explicit mode (never "auto" — resolve that before calling).
   .label_for_mode <- function(compound_string, mode) {
-    parts <- strsplit(compound_string, ":", fixed = TRUE)[[1L]]
+    parts <- strsplit(compound_string, .sep, fixed = TRUE)[[1L]]
     switch(mode,
            full      = compound_string,
            compound  = if (length(parts) >= 2L) parts[[2L]] else compound_string,
            construct = if (length(parts) >= 2L) parts[[1L]] else compound_string
     )
   }
-  
+
   # Resolved at scan-time (after compounds_list is built):
   # single_construct_batch and effective_subplot_mode are set below.
-  
+
   # ============================================================================
   # 2. SCAN FOR VALID COMPOUNDS ACROSS ALL PLATES
   # ============================================================================
-  
+
   # Auto-detect y_axis_title from batch metadata when not supplied.
   if (is.null(y_axis_title)) {
     assay_src  <- batch_drc_results$metadata$assay_type
@@ -289,38 +292,38 @@ batch_save_all_drc_plots <- function(batch_drc_results,
       if (normalized) "Normalized BRET ratio [%]" else "BRET ratio"
     }
   }
-  
+
   if (verbose) message("\nScanning for valid compounds...")
-  
+
   compounds_list <- list()
-  
+
   for (plate_name in plate_names) {
     plate <- drc_results[[plate_name]]
-    
+
     # Check if plate has drc_result
     if (is.null(plate$drc_result)) {
       if (verbose > 1) message("  Skipping ", plate_name, ": no drc_result")
       next
     }
-    
+
     # Get detailed results
     detailed <- plate$drc_result$detailed_results
     if (is.null(detailed) || !is.list(detailed)) {
       if (verbose > 1) message("  Skipping ", plate_name, ": no detailed_results")
       next
     }
-    
+
     # For each compound in the plate
     for (i in seq_along(detailed)) {
       result <- detailed[[i]]
-      
+
       # Check if fit was successful
       if (!isTRUE(result$success)) next
-      
+
       # Get compound and construct names
       compound_name <- extract_compound_name(result$compound)
       construct_name <- extract_construct_name(result$compound)
-      
+
       # Skip entries whose compound or construct name is NA / "NA" / "NA_N"
       if (is_na_name(compound_name) || is_na_name(construct_name)) {
         if (verbose) message(sprintf(
@@ -328,10 +331,10 @@ batch_save_all_drc_plots <- function(batch_drc_results,
           result$compound, plate_name))
         next
       }
-      
+
       # Filter by compound if specified
       if (!is.null(compounds_to_plot) && !compound_name %in% compounds_to_plot) next
-      
+
       # Store compound info
       compounds_list <- append(compounds_list, list(list(
         plate = plate_name,
@@ -343,18 +346,18 @@ batch_save_all_drc_plots <- function(batch_drc_results,
       )))
     }
   }
-  
+
   if (length(compounds_list) == 0) {
     stop("No valid compounds found to plot")
   }
-  
+
   if (verbose) {
     message("Found ", length(compounds_list), " valid compounds")
     message("  - Plates: ", paste(unique(sapply(compounds_list, function(x) x$plate)), collapse = ", "))
     message("  - Compounds: ", length(unique(sapply(compounds_list, function(x) x$compound))))
   }
-  
-  # -- Auto-detect: resolve the best title mode from batch composition ------------
+
+  # ── Auto-detect: resolve the best title mode from batch composition ─────────
   # Used by plot_title = TRUE (individual plots) and subplot_title = "auto" (panel).
   #   1 construct, N compounds  -> "compound"   (construct is constant, redundant)
   #   N constructs, 1 compound  -> "construct"  (compound is constant, redundant)
@@ -364,22 +367,22 @@ batch_save_all_drc_plots <- function(batch_drc_results,
   all_compounds       <- unique(sapply(compounds_list, function(x) x$compound))
   single_construct_batch <- length(all_constructs) == 1L
   single_compound_batch  <- length(all_compounds)  == 1L
-  
+
   auto_mode <- if (single_construct_batch) {
-    "compound"    # one construct - compound name is the distinguishing label
+    "compound"    # one construct — compound name is the distinguishing label
   } else if (single_compound_batch) {
-    "construct"   # one compound  - construct name is the distinguishing label
+    "construct"   # one compound  — construct name is the distinguishing label
   } else {
-    "full"        # many of both  - need Construct:Compound
+    "full"        # many of both  — need Construct:Compound
   }
-  
+
   # Resolve effective panel mode now that we know the batch composition.
   effective_subplot_mode <- if (subplot_title == "auto") auto_mode else subplot_title
-  
+
   # ============================================================================
   # 3. CREATE DIRECTORY STRUCTURE
   # ============================================================================
-  
+
   if (organize_by == "plate") {
     # Create subfolders for each plate
     for (plate_name in unique(sapply(compounds_list, function(x) x$plate))) {
@@ -397,15 +400,15 @@ batch_save_all_drc_plots <- function(batch_drc_results,
       }
     }
   }
-  
+
   # ============================================================================
   # 4. GENERATE ALL PLOTS
   # ============================================================================
-  
+
   if (verbose) message("\nGenerating plots...")
-  
+
   total <- length(compounds_list)
-  
+
   # Use a local environment for mutable state inside tryCatch handlers.
   # This avoids <<- leaking variables into the caller's global environment.
   state <- new.env(parent = emptyenv())
@@ -414,19 +417,19 @@ batch_save_all_drc_plots <- function(batch_drc_results,
   state$failed_list   <- character()
   state$error_messages <- list()
   state$plate_plots   <- list()   # plate_name -> list of ggplot objects for panel
-  
+
   # Progress bar
   if (verbose) {
     pb <- txtProgressBar(min = 0, max = total, style = 3)
   }
-  
+
   for (i in seq_along(compounds_list)) {
     info <- compounds_list[[i]]
-    
+
     # Filenames always use the full Construct_Compound name to guarantee
     # uniqueness when the same compound is tested against multiple constructs.
     base_name <- safe_filename(info$compound_full)
-    
+
     if (organize_by == "plate") {
       output_path <- file.path(output_dir, safe_filename(info$plate),
                                paste0(base_name, ".", format))
@@ -437,18 +440,18 @@ batch_save_all_drc_plots <- function(batch_drc_results,
       output_path <- file.path(output_dir,
                                paste0(safe_filename(info$plate), "_", base_name, ".", format))
     }
-    
+
     # Create directory if it doesn't exist
     dir.create(dirname(output_path), showWarnings = FALSE, recursive = TRUE)
-    
+
     tryCatch({
-      # Individual plot - respects the user's plot_title setting.
+      # Individual plot — respects the user's plot_title setting.
       # When plot_title = TRUE, auto-detect: use compound-only if the whole
       # batch has a single construct, otherwise use the full Construct:Compound.
       indiv_title <- if (isTRUE(plot_title)) {
         .label_for_mode(info$compound_full, auto_mode)
       } else {
-        plot_title   # FALSE or a custom character string - pass through as-is
+        plot_title   # FALSE or a custom character string — pass through as-is
       }
       p_single <- plot_dose_response(
         results = info$results_obj,
@@ -466,21 +469,21 @@ batch_save_all_drc_plots <- function(batch_drc_results,
         y_axis_title = y_axis_title,
         ...
       )
-      
+
       # Save individual file
       if (file.exists(output_path)) unlink(output_path)
       ggplot2::ggsave(output_path, plot = p_single,
                       width = width, height = height,
                       dpi = dpi, bg = "white")
-      
+
       state$successes <- state$successes + 1L
-      
+
       # Panel version always shows a title using effective_subplot_mode,
       # regardless of what the user chose for the individual files.
       if (save_panel) {
         panel_label <- .label_for_mode(info$compound_full, effective_subplot_mode)
         p_panel <- if (isTRUE(plot_title) && identical(indiv_title, panel_label)) {
-          p_single   # already has the right title - reuse without a second call
+          p_single   # already has the right title — reuse without a second call
         } else {
           plot_dose_response(
             results = info$results_obj,
@@ -507,44 +510,44 @@ batch_save_all_drc_plots <- function(batch_drc_results,
       state$error_messages <- c(state$error_messages,
                                 list(paste(info$plate, info$compound, ":", e$message)))
     })
-    
+
     if (verbose) setTxtProgressBar(pb, i)
   }
-  
+
   # Extract state back to plain variables for the rest of the function
   successes     <- state$successes
   failures      <- state$failures
   failed_list   <- state$failed_list
   error_messages <- state$error_messages
   plate_plots   <- state$plate_plots
-  
+
   if (verbose) close(pb)
-  
+
   # ============================================================================
   # 5. PANEL ASSEMBLY (one combined image per plate)
   # ============================================================================
-  
+
   panel_files <- character()
-  
+
   if (save_panel && length(plate_plots) > 0L) {
     if (verbose) message("\nAssembling panels...")
-    
+
     for (plate_name in names(plate_plots)) {
       plot_list <- plate_plots[[plate_name]]
       n_plots   <- length(plot_list)
       if (n_plots == 0L) next
-      
+
       n_cols_panel <- min(panel_ncol, n_plots)
       n_rows_panel <- ceiling(n_plots / n_cols_panel)
       panel_w      <- n_cols_panel * panel_width_per_col
       panel_h      <- n_rows_panel * panel_height_per_row + 0.6  # +0.6 for title
-      
+
       combined <- patchwork::wrap_plots(plot_list, ncol = n_cols_panel) &
         ggplot2::theme(plot.margin = ggplot2::margin(
           t = panel_spacing * 0.5, r = panel_spacing * 0.5,
           b = panel_spacing * 0.5, l = panel_spacing * 0.5,
           unit = "cm"))
-      
+
       # Save panel next to the individual plots
       panel_filename <- paste0(safe_filename(plate_name), "_panel.", format)
       panel_path <- switch(organize_by,
@@ -552,7 +555,7 @@ batch_save_all_drc_plots <- function(batch_drc_results,
                            compound = file.path(output_dir, panel_filename),
                            flat     = file.path(output_dir, panel_filename)
       )
-      
+
       tryCatch({
         if (file.exists(panel_path)) unlink(panel_path)
         ggplot2::ggsave(panel_path, combined,
@@ -568,11 +571,11 @@ batch_save_all_drc_plots <- function(batch_drc_results,
       })
     }
   }
-  
+
   # ============================================================================
   # 6. SUMMARY AND RETURN
   # ============================================================================
-  
+
   if (verbose) {
     message("\n")
     message("========================================")
@@ -583,19 +586,19 @@ batch_save_all_drc_plots <- function(batch_drc_results,
     message("Failed: ", failures)
     message("Point color: ", point_color)
     message("Output directory: ", normalizePath(output_dir))
-    
+
     if (failures > 0) {
       message("\nFailed compounds:")
       for (f in failed_list) {
         message("  - ", f)
       }
-      
+
       message("\nError details:")
       for (err in error_messages) {
         message("  - ", err)
       }
     }
-    
+
     # Show directory structure
     message("\nDirectory structure:")
     if (organize_by == "plate") {
@@ -613,11 +616,11 @@ batch_save_all_drc_plots <- function(batch_drc_results,
       message("  Flat structure: ", length(all_files), " files in root")
     }
   }
-  
+
   # ============================================================================
   # 7. RETURN INVISIBLE SUMMARY
   # ============================================================================
-  
+
   invisible(list(
     total = total,
     successes = successes,
@@ -631,4 +634,3 @@ batch_save_all_drc_plots <- function(batch_drc_results,
     timestamp = Sys.time()
   ))
 }
-

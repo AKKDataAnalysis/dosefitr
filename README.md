@@ -328,6 +328,26 @@ results <- batch_ratio_analysis(
 
 Both versions produce the same output structure and feed identically into all downstream functions (`rout_outliers_batch()`, `batch_drc_analysis()`, etc.).
 
+#### `label_sep`: configurable construct/compound separator
+
+By default, construct and compound names are joined with `":"` (e.g. `EPHA1:KK135`). If your construct or compound names already contain colons, choose a different separator:
+
+```r
+results <- batch_ratio_analysis(
+  control_0perc   = 24,
+  control_100perc = 12,
+  label_sep       = "/"   # columns will be named e.g. "EPHA1/KK135"
+)
+```
+
+The separator is stored as an attribute on the returned list and propagated automatically through the entire pipeline — `rout_outliers_batch()`, `batch_drc_analysis()`, `plot_multiple_compounds()`, `scarab_table()`, etc. You only need to set it once. The same parameter is available in `batch_viability_analysis()`.
+
+| Value | Column label example | When to use |
+|---|---|---|
+| `":"` (default) | `EPHA1:KK135` | Standard — use unless names contain colons |
+| `"/"` | `EPHA1/KK135` | Construct or compound names contain `:` |
+| `"\|"` | `EPHA1\|KK135` | Either name contains `/` |
+
 ---
 
 ### Step 2 -- Remove outliers (optional)

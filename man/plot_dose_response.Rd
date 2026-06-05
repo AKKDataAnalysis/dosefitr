@@ -28,6 +28,14 @@ plot_dose_response(
   plot_title = TRUE,
   enforce_bottom_threshold = NULL,
   bottom_threshold = 60,
+  axis_line_width = 0.8,
+  axis_vjust = NULL,
+  tick_length = NULL,
+  error_linewidth = 0.8,
+  point_alpha = 1,
+  legend_spacing = NULL,
+  aspect_ratio = NULL,
+  byrow = FALSE,
   verbose = FALSE
 )
 }
@@ -83,6 +91,32 @@ character = custom title text.}
 was used in analysis (default: NULL, auto-detected from results).}
 
 \item{bottom_threshold}{Numeric value for bottom threshold (default: 60).}
+
+\item{axis_line_width}{Numeric. Line width of the manually drawn x/y axis
+lines (default: 0.8).}
+
+\item{axis_vjust}{Numeric or NULL. Vertical justification (\code{vjust}) of
+the axis titles. \code{NULL} (default) leaves the ggplot2 default unchanged.}
+
+\item{tick_length}{Numeric or NULL. Axis tick length in centimetres. \code{NULL}
+(default) keeps the inherited \code{theme_minimal()} tick length.}
+
+\item{error_linewidth}{Numeric. Line width of the error bars (default: 0.8).}
+
+\item{point_alpha}{Numeric between 0 and 1. Opacity of the data points
+(default: 1, fully opaque).}
+
+\item{legend_spacing}{Numeric or NULL. Spacing (in points) between legend
+items, applied via \code{legend.spacing}. \code{NULL} (default) leaves the
+theme default unchanged. (No visible effect here, as the parameter legend is
+drawn as text annotations rather than a ggplot2 guide.)}
+
+\item{aspect_ratio}{Numeric or NULL. Panel aspect ratio (\code{aspect.ratio}
+in \code{theme()}). \code{NULL} (default) leaves it unset.}
+
+\item{byrow}{Logical. Whether legend keys are filled by row (\code{TRUE}) or by
+column (\code{FALSE}, default). Accepted for interface consistency; has no
+effect here, as this function has no colour/shape legend guide.}
 
 \item{verbose}{Logical indicating whether to show verbose messages (default: FALSE).}
 }

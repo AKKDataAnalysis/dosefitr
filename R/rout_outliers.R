@@ -25,7 +25,7 @@
 #' @param ntry_retry Number of retry attempts for model fitting using random starts.
 #'
 #' @param verbose Logical; if TRUE, prints detailed progress and diagnostics.
-#' 
+#'
 #' @param seed Integer or \code{NULL}.  Random seed set once before the
 #'   compound-processing loop to make results fully reproducible across runs
 #'   (default \code{42L}).  The seed is passed to \code{\link{set.seed}}
@@ -92,11 +92,11 @@ rout_outliers <- function(data,
                           ntry_retry         = 3L,
                           verbose            = TRUE,
                           seed               = 42L) {
-  
-  
+
+
   # Internal helpers (not exported)
   # ---------------------------------------------------------------------------
-  
+
   # .robust_starts: compute robust starting values for the Hill model.
   # Uses the OptimModel hill_model start function, then maps the four
   # parameters (emin, emax, lec50, m) to the (b0, t0, lec50, hill) names
@@ -124,7 +124,7 @@ rout_outliers <- function(data,
       hill  = hill_fixed
     )
   }
-  
+
   # .fit_model: fit a 3PL or 4PL Hill model via rout_fitter().
   # Handles the sign/magnitude guard for 4PL and the retry logic.
   #
@@ -151,15 +151,15 @@ rout_outliers <- function(data,
     } else {
       f_model <- OptimModel::hill_model
     }
-    
+
     fit <- tryCatch(
       OptimModel::rout_fitter(theta0 = NULL, f.model = f_model,
                               x = x, y = y, Q = Q, ntry = 0L),
       error = function(e) NULL
     )
-    
+
     retried <- FALSE
-    
+
     # Retry logic: attempt random restarts if initial fit did not converge
     if (!is.null(fit) && !fit$Converge && ntry_retry > 0L) {
       fit_retry <- tryCatch(
@@ -174,7 +174,7 @@ rout_outliers <- function(data,
         retried <- TRUE
       }
     }
-    
+
     # 4PL guard: reject if Hill slope has wrong sign or extreme magnitude
     if (n_param == 4L && !is.null(fit)) {
       hill_est <- fit$par[4L]
@@ -183,17 +183,17 @@ rout_outliers <- function(data,
       if (!sign_ok || !mag_ok) return(list(fit=NULL, n_param=n_param,
                                            f_model=f_model, retried=FALSE))
     }
-    
+
     list(fit = fit, n_param = n_param, f_model = f_model, retried = retried)
   }
-  
+
   # .clean_flags: ensure outlier.adj is a plain logical vector.
   .clean_flags <- function(fit) {
     fit$outlier.adj <- as.logical(unname(fit$outlier.adj))
     fit$outlier     <- as.logical(unname(fit$outlier))
     fit
   }
-  
+
   # .detect_systematic_flags: post-hoc check for model-misfit false positives.
   #
   # After ROUT flags points, checks whether the flags form a SYSTEMATIC pattern
@@ -221,18 +221,18 @@ rout_outliers <- function(data,
   #   $reason   -- character string describing why flags were cleared (or "")
   .detect_systematic_flags <- function(outlier_flags, std_residuals, x_log_fit) {
     flagged_idx <- which(outlier_flags)
-    
+
     # Need at least 2 flagged points AND at least 2 unique concentrations.
     # (Two replicates flagged at the same concentration is a true outlier pair,
     # not a systematic model-misfit pattern.)
     if (length(flagged_idx) < 2L)
       return(list(flags = outlier_flags, cleared = FALSE, reason = ""))
-    
+
     # Condition 1: all flagged residuals have the same sign
     flag_signs <- sign(std_residuals[flagged_idx])
     if (!all(flag_signs == flag_signs[1L]))
       return(list(flags = outlier_flags, cleared = FALSE, reason = ""))
-    
+
     # Condition 2: flagged points span >= 2 consecutive concentrations.
     # "Consecutive" = adjacent in the sorted unique concentration vector,
     # allowing a gap of 1 (one missing step between two flagged steps).
@@ -241,19 +241,19 @@ rout_outliers <- function(data,
       return(list(flags = outlier_flags, cleared = FALSE, reason = ""))
     all_concs      <- sort(unique(x_log_fit))
     conc_positions <- match(flagged_concs, all_concs)  # positions in full conc ladder
-    
+
     # Check that the flagged positions form a contiguous run (max gap = 1 step)
     pos_diffs <- diff(conc_positions)
     if (any(pos_diffs > 2L))
       return(list(flags = outlier_flags, cleared = FALSE, reason = ""))
-    
+
     # Both conditions met: clear all flags
     sign_word <- if (flag_signs[1L] > 0) "positive" else "negative"
     reason <- sprintf(
       "systematic %s residuals at %d consecutive concentration(s) [%.2f to %.2f] -- possible model misfit",
       sign_word, length(flagged_concs),
       min(flagged_concs), max(flagged_concs))
-    
+
     outlier_flags[flagged_idx] <- FALSE
     list(flags         = outlier_flags,
          cleared       = TRUE,
@@ -261,8 +261,8 @@ rout_outliers <- function(data,
          residual_sign = sign_word,
          reason        = reason)
   }
-  
-  
+
+
   # ---- Input validation ----
   if (!n_param %in% c(3L, 4L))
     stop("n_param must be 3 or 4")
@@ -275,7 +275,7 @@ rout_outliers <- function(data,
   ntry_retry <- as.integer(ntry_retry)
   if (!is.numeric(Q) || length(Q) != 1 || Q <= 0 || Q >= 1)
     stop("Q must be a single number between 0 and 1 (exclusive)")
-  
+
   conc_raw      <- data[[conc_col]]
   ctrl_rows     <- which(is.na(conc_raw))
   dose_rows     <- which(!is.na(conc_raw))
@@ -284,7 +284,7 @@ rout_outliers <- function(data,
   hill_fixed    <- if (direction == "inhibition") 1L else -1L
   # Column name for the log-concentration output column  --  reflects actual log base used
   conc_col_name <- if (log_base == "log10") "log10_conc" else "ln_conc"
-  
+
   if (verbose) {
     model_desc <- if (n_param == 4L) "4PL (Hill free, sign-constrained)" else "3PL (Hill fixed)"
     cat(sprintf("Control rows     : %s (excluded from outlier detection)\n",
@@ -293,7 +293,7 @@ rout_outliers <- function(data,
     cat(sprintf("Default model    : %s\n", model_desc))
     cat(sprintf("ROUT Q           : %.3f\n\n", Q))
   }
-  
+
   value_cols <- setdiff(seq_len(ncol(data)), conc_col)
   col_names  <- colnames(data)[value_cols]
   valid_mask <- !grepl("^NA", col_names)
@@ -304,23 +304,23 @@ rout_outliers <- function(data,
   # incorrectly merged with "Compound". Avoid such names in the input data.
   base_names       <- sub("\\.(\\d+)$", "", col_names)
   unique_compounds <- unique(base_names)
-  
+
   if (verbose) cat(sprintf("Compounds found  : %d\n\n", length(unique_compounds)))
-  
+
   # DESIGN_1 fix: collect skipped entries via the lapply return value instead of
   # <<- superassignment. Each element is either a results data.frame (normal),
   # NULL (fit failed  --  already handled below), or a list(skipped=<df>) sentinel.
   # This is safe under parallelisation and avoids shared mutable state.
-  
+
   # ---- Seed RNG for reproducibility ----
   if (!is.null(seed)) {
     if (!is.numeric(seed) || length(seed) != 1)
       stop("seed must be a single integer or NULL")
     set.seed(as.integer(seed))
   }
-  
+
   results_list <- lapply(unique_compounds, function(cmpd) {
-    
+
     rep_cols   <- value_cols[base_names == cmpd]
     # Use [[col]][rows] not [rows, col]  --  the latter returns a tibble when data is
     # a tibble (e.g. from readxl), which cannot be coerced to numeric directly.
@@ -331,12 +331,12 @@ rout_outliers <- function(data,
     rep_labels <- rep(seq_along(rep_cols), each = length(dose_rows))
     row_idx    <- rep(dose_rows, length(rep_cols))
     col_idx    <- rep(rep_cols,  each = length(dose_rows))
-    
+
     valid     <- !is.na(x_rep) & !is.na(y_rep)
     x_fit     <- x_rep[valid];     x_log_fit <- x_log_rep[valid]
     y_fit     <- y_rep[valid];     rep_fit   <- rep_labels[valid]
     row_fit   <- row_idx[valid];   col_fit   <- col_idx[valid]
-    
+
     # Minimum 8 points: ensures ~2 observations per parameter for 4PL
     if (length(x_fit) < 8L) {
       return(list(skipped = data.frame(
@@ -346,30 +346,30 @@ rout_outliers <- function(data,
         dynamic_range_pct = NA_real_,
         stringsAsFactors = FALSE)))
     }
-    
+
     # ---- Dynamic range (robust, always non-negative) ----
     sv        <- .robust_starts(y_fit, x_fit, hill_fixed)
     # BUG_8 fix: guard against division by zero when b0 ~= 0 (near-zero BRET
     # baseline), which would produce Inf or NaN and propagate into the results.
     dyn_range <- if (abs(sv$b0) < 1e-9) NA_real_
     else abs(100 * (sv$b0 - sv$t0) / sv$b0)
-    
+
     if (!is.na(dyn_range) && dyn_range < min_dynamic_range && verbose)
       message(sprintf(
         "Warning: %s: low dynamic range (%.1f%% < %.0f%%)  --  curve may be flat or non-responsive",
         cmpd, dyn_range, min_dynamic_range))
-    
+
     # ---- Fit 3PL (always) and 4PL (when n_param=4) in a single pass ----
     #
     # Both models are fitted upfront so the rsdr comparison requires no extra
     # optimizer call. The decision logic then selects the winner cleanly.
     res3 <- .fit_model(x_fit, y_fit, n_param = 3L, hill_fixed = hill_fixed, Q = Q,
                        ntry_retry = ntry_retry)
-    
+
     if (n_param == 4L) {
       res4 <- .fit_model(x_fit, y_fit, n_param = 4L, hill_fixed = hill_fixed, Q = Q,
                          ntry_retry = ntry_retry)
-      
+
       # rsdr guard: prefer 4PL only if it provides a meaningfully better fit.
       # Threshold: rsdr(4PL) <= rsdr(3PL) * 1.10.
       #
@@ -387,7 +387,7 @@ rout_outliers <- function(data,
       use_4pl <- !is.null(res4$fit) &&
         !is.null(res3$fit) &&
         res4$fit$rsdr <= res3$fit$rsdr * 1.10
-      
+
       if (use_4pl) {
         res_chosen <- res4
         if (verbose) message(sprintf(
@@ -409,7 +409,7 @@ rout_outliers <- function(data,
     } else {
       res_chosen <- res3
     }
-    
+
     if (is.null(res_chosen$fit)) {
       return(list(skipped = data.frame(
         compound = cmpd, reason = "fit failed (rout_fitter error)",
@@ -417,11 +417,11 @@ rout_outliers <- function(data,
         dynamic_range_pct = if (is.na(dyn_range)) NA_real_ else round(dyn_range, 1),
         stringsAsFactors = FALSE)))
     }
-    
+
     fit        <- .clean_flags(res_chosen$fit)
     used_model <- if (res_chosen$n_param == 4L) "4PL" else "3PL"
     was_retried <- isTRUE(res_chosen$retried)
-    
+
     # Verbose retry notification  --  distinct from the final convergence summary
     if (was_retried && verbose) {
       if (fit$Converge) {
@@ -430,7 +430,7 @@ rout_outliers <- function(data,
         message(sprintf("%s: did not converge even after retry  --  outlier calls may be unreliable", cmpd))
       }
     }
-    
+
     # ---- Replicate-agreement filter ----
     # Clears a flag if the paired replicate at the same concentration is NOT
     # flagged AND |flagged - paired| < 2 * rsdr (both reps agree within noise).
@@ -453,7 +453,7 @@ rout_outliers <- function(data,
       }
       fit$outlier.adj <- outlier_flags
     }
-    
+
     # ---- Systematic-residual filter ----
     # Runs AFTER the replicate-agreement filter on the surviving flags.
     # Clears flags that form a systematic same-sign consecutive pattern,
@@ -468,11 +468,11 @@ rout_outliers <- function(data,
         message(sprintf("%s: systematic residual filter cleared %d flag(s) -- %s",
                         cmpd, sys_result$n_cleared, sys_result$reason))
     }
-    
+
     # ---- Extract curve parameters ----
     n_used  <- res_chosen$n_param
     f_model <- res_chosen$f_model
-    
+
     df_out <- data.frame(
       compound          = cmpd,
       replicate         = rep_fit,
@@ -501,7 +501,7 @@ rout_outliers <- function(data,
     df_out <- cbind(df_out[, 1:2, drop = FALSE],
                     setNames(data.frame(x_log_fit), conc_col_name),
                     df_out[, 3:ncol(df_out), drop = FALSE])
-    
+
     # Return a list carrying both the results data.frame and any systematic-
     # filter record. The post-processing block below separates these.
     list(results = df_out,
@@ -513,7 +513,7 @@ rout_outliers <- function(data,
                       stringsAsFactors = FALSE)
          else NULL)
   })
-  
+
   # DESIGN_1 fix (continued): separate skipped sentinels from real results.
   skipped_list <- Filter(Negate(is.null),
                          lapply(results_list, function(x)
@@ -524,7 +524,7 @@ rout_outliers <- function(data,
   cleared_raw  <- Filter(Negate(is.null),
                          lapply(results_list, function(x)
                            if (is.list(x) && !is.null(x$cleared)) x$cleared else NULL))
-  
+
   # Guard: if every compound was skipped, return an empty results data.frame
   # rather than NULL (which would crash nrow() and subsetting downstream).
   if (length(results_raw) == 0L) {
@@ -540,11 +540,11 @@ rout_outliers <- function(data,
   } else {
     results <- do.call(rbind, results_raw)
   }
-  
+
   # ---- Build cleaned table (outliers replaced with NA) ----
   cleaned_table <- data
   outlier_rows  <- if (nrow(results) > 0L) results[results$outlier_fdr, ] else results[0L, ]
-  
+
   replaced_log <- if (nrow(outlier_rows) > 0L) {
     rl <- data.frame(
       compound       = outlier_rows$compound,
@@ -565,13 +565,13 @@ rout_outliers <- function(data,
     rl[[conc_col_name]] <- numeric(0)
     rl
   }
-  
+
   for (i in seq_len(nrow(outlier_rows)))
     cleaned_table[outlier_rows$.row_idx[i], outlier_rows$.col_idx[i]] <- NA
-  
+
   # Attach replacement log as an attribute for self-documentation
   attr(cleaned_table, "outliers_replaced") <- replaced_log
-  
+
   # ---- Outlier summary table ----
   outlier_table <- if (nrow(outlier_rows) > 0L) {
     ot <- data.frame(
@@ -607,7 +607,7 @@ rout_outliers <- function(data,
     empty_ot$dynamic_range_pct <- numeric(0)
     empty_ot
   }
-  
+
   # ---- Skipped compounds table ----
   skipped_table <- if (length(skipped_list) > 0L) {
     do.call(rbind, skipped_list)
@@ -615,7 +615,7 @@ rout_outliers <- function(data,
     data.frame(compound=character(), reason=character(),
                n_valid=integer(), dynamic_range_pct=numeric())
   }
-  
+
   # ---- Cleared-systematic table ----
   # Audit trail of flags cleared by the systematic-residual filter.
   # Always present (empty data frame when nothing was cleared).
@@ -629,10 +629,10 @@ rout_outliers <- function(data,
                stringsAsFactors = FALSE)
   }
   rownames(cleared_systematic) <- NULL
-  
+
   results$.row_idx <- NULL
   results$.col_idx <- NULL
-  
+
   # ---- Verbose summary ----
   if (verbose) {
     # Convergence summary  --  distinguish three outcomes:
@@ -649,31 +649,31 @@ rout_outliers <- function(data,
           paste(non_conv, collapse = ", ")))
       }
     }
-    
+
     if (nrow(skipped_table) > 0L) {
       cat("Skipped compounds:\n")
       print(skipped_table, row.names = FALSE)
       cat("\n")
     }
-    
+
     if (nrow(cleared_systematic) > 0L) {
       cat("Systematic-residual filter (possible model misfit  --  flags cleared):\n")
       print(cleared_systematic[, c("compound", "n_flags_cleared", "residual_sign", "reason")],
             row.names = FALSE)
       cat("\n")
     }
-    
+
     n_out   <- nrow(outlier_table)
     n_total <- nrow(results)
     cat(sprintf("Total dose points assessed : %d\n", n_total))
     cat(sprintf("Control rows excluded      : %d (never tested)\n", length(ctrl_rows)))
     pct_str <- if (n_total > 0L) sprintf("%.1f%%", 100 * n_out / n_total) else "N/A"
     cat(sprintf("Outliers (FDR Q=%.3f)      : %d (%s)\n", Q, n_out, pct_str))
-    
+
     if (nrow(cleared_systematic) > 0L)
       cat(sprintf("Systematic flags cleared   : %d (see $cleared_systematic)\n",
                   sum(cleared_systematic$n_flags_cleared)))
-    
+
     if (n_out > 0L) {
       cat("\nFlagged outliers:\n")
       print(outlier_table[, c("compound", "column", conc_col_name, "bret_ratio",
@@ -683,7 +683,7 @@ rout_outliers <- function(data,
       cat("No outliers detected.\n")
     }
   }
-  
+
   return(invisible(list(results            = results,
                         cleaned_table      = cleaned_table,
                         outlier_table      = outlier_table,
@@ -695,4 +695,291 @@ rout_outliers <- function(data,
                                                   log_base    = log_base,
                                                   ntry_retry  = ntry_retry,
                                                   seed        = seed))))
+}
+
+
+
+# ---------------------------------------------------------------------------
+#' Plot Dose-Response Curves from \code{rout_outliers()} Output
+#'
+#' Generates a multi-panel figure showing fitted 3PL/4PL curves, replicate
+#' data points, and ROUT outliers for every compound in a
+#' \code{rout_outliers()} result.
+#'
+#' @param rout_output Return value of \code{\link{rout_outliers}}.
+#'
+#' @param title Optional character string for the overall plot title.
+#'   \code{NULL} (default) omits the title.
+#'
+#' @param subplot_title Character. Controls what text is used as the title of
+#'   each compound sub-plot. One of \code{"full"} (default, e.g.
+#'   \code{"KinaseA:Cpd1"}), \code{"compound"} (e.g. \code{"Cpd1"}), or
+#'   \code{"construct"} (e.g. \code{"KinaseA"}).
+#' @param panel_spacing Numeric. Spacing between sub-plots in the panel, in
+#'   centimetres (default \code{0.5}). Increase for more breathing room between
+#'   plots.
+#'
+#' @param ncol Integer.  Number of columns in the compound panel grid
+#'   (default \code{4}).
+#'
+#' @param file Character string giving the output file path
+#'   (e.g. \code{"curves.png"}).  If \code{NULL} (default), the combined
+#'   \pkg{patchwork} object is returned invisibly without saving.
+#'
+#' @param width Plot width in inches.  Default: \code{ncol * 3.2}.
+#'
+#' @param height Plot height in inches.  Default:
+#'   \code{ceiling(n_compounds / ncol) * 3.0 + 0.6}.
+#' @param label_sep Single character separating construct from compound in
+#'   column names (e.g. \code{"EPHA1:KK135"}).  Defaults to \code{":"}.
+#'   Must match the separator used when the data were originally processed.
+#'
+#' @return Invisibly returns the combined \pkg{patchwork} ggplot object.
+#'   Each panel shows:
+#'   \itemize{
+#'     \item Smooth fitted 3PL/4PL curve (grey line, 200 points).
+#'     \item Rep 1 (blue circles) and Rep 2 (orange triangles).
+#'     \item ROUT outliers as red \eqn{\times} with standardised residual
+#'       label (via \pkg{ggrepel}).
+#'     \item Subtitle: model used, dynamic range \%, convergence warning
+#'       if applicable.
+#'   }
+#'
+#' @details
+#' Requires \pkg{ggplot2}, \pkg{ggprism}, \pkg{ggrepel}, and
+#' \pkg{patchwork}.  The function checks for these packages at call time
+#' and stops with an informative message if any are missing.
+#'
+#' The x-axis uses \eqn{10^x} notation (e.g. \eqn{10^{-9}}) regardless
+#' of whether \code{log_base = "log10"} or \code{"ln"} was used during
+#' fitting.
+#'
+#' @examples
+#' \dontrun{
+#' out <- rout_outliers(dat, Q = 0.01)
+#'
+#' # Display in RStudio viewer
+#' plot_outliers_curves(out, title = "Plate 01")
+#'
+#' # Save to PNG
+#' plot_outliers_curves(out, title = "Plate 01", file = "plate_01_curves.png")
+#' }
+#'
+#' @seealso \code{\link{rout_outliers}},
+#'   \code{\link{plot_outliers_batch_curves}}
+#'
+#' @export
+
+plot_outliers_curves <- function(rout_output,
+                                 title         = NULL,
+                                 subplot_title = "full",
+                                 panel_spacing = 0.5,
+                                 ncol          = 4L,
+                                 file   = NULL,
+                                 width  = NULL,
+                                 height = NULL,
+                                 label_sep     = ":") {
+
+  subplot_title <- match.arg(subplot_title, c("full", "compound", "construct"))
+
+  # Derive the sub-plot title from a raw compound string ("Construct:Compound").
+  .make_subplot_label <- function(compound_string) {
+    parts <- strsplit(compound_string, label_sep, fixed = TRUE)[[1L]]
+    switch(subplot_title,
+           full      = compound_string,
+           compound  = if (length(parts) >= 2L) parts[[2L]] else compound_string,
+           construct = if (length(parts) >= 2L) parts[[1L]] else compound_string
+    )
+  }
+
+  .check_plot_packages <- function() {
+    missing_pkgs <- character(0)
+    for (pkg in c("ggplot2", "ggrepel", "patchwork", "ggprism")) {
+      if (!requireNamespace(pkg, quietly = TRUE))
+        missing_pkgs <- c(missing_pkgs, pkg)
+    }
+    if (length(missing_pkgs) > 0L)
+      stop("The following packages are required for plotting but are not installed: ",
+           paste(missing_pkgs, collapse = ", "),
+           "\nInstall with: install.packages(c(",
+           paste0('"', missing_pkgs, '"', collapse = ", "), "))",
+           call. = FALSE)
+    invisible(TRUE)
+  }
+
+  # Returns a 3PL model function with hill slope fixed to hill_fixed.
+  # Signature matches OptimModel::hill_model but with only 3 free parameters.
+  .make_hill_3p <- function(hill_fixed) {
+    function(theta, x)
+      OptimModel::hill_model(c(theta[1L], theta[2L], theta[3L], hill_fixed), x)
+  }
+
+  .check_plot_packages()
+
+  res   <- rout_output$results
+  Q_val <- rout_output$params$Q
+  caption_txt <- sprintf("Red \u2717 = ROUT outlier%s. Label = standardised residual.",
+                         if (!is.null(Q_val)) sprintf(" (Q=%.3f)", Q_val) else "")
+
+  # Colour-blind friendly: rep1 = blue, rep2 = orange
+  rep_colours <- c("1" = "#0279EE", "2" = "#FF9400")
+
+  # Filter out compounds whose name is NA / "NA" / "NA_N" (exact match only;
+  # names that merely contain "NA" as a substring are kept).
+  .is_na_name_oc <- function(x) {
+    if (is.null(x) || length(x) == 0L || is.na(x)) return(TRUE)
+    toupper(sub("_\\d+$", "", trimws(x))) == "NA"
+  }
+  .cmpd_part <- function(s) {
+    p <- strsplit(s, label_sep, fixed = TRUE)[[1L]]
+    if (length(p) >= 2L) trimws(p[[2L]]) else trimws(s)
+  }
+  .cons_part <- function(s) {
+    p <- strsplit(s, label_sep, fixed = TRUE)[[1L]]
+    if (length(p) >= 2L) trimws(p[[1L]]) else NA_character_
+  }
+
+  all_compounds <- unique(res$compound)
+  compounds <- all_compounds[!vapply(all_compounds, function(cmpd) {
+    .is_na_name_oc(.cmpd_part(cmpd)) || .is_na_name_oc(.cons_part(cmpd))
+  }, logical(1L))]
+
+  nrow_grid  <- ceiling(length(compounds) / ncol)
+
+  plot_list <- lapply(compounds, function(cmpd) {
+
+    df <- res[res$compound == cmpd, ]
+
+    # Smooth fitted curve (200 points).
+    # Use the correct model function per compound:
+    #   - 4PL: hill_model(c(bottom, top, log10_EC50, hill), x)
+    #   - 3PL: .make_hill_3p(hill_slope)(c(bottom, top, log10_EC50), x)
+    # par[3] is log10(EC50) directly  --  no log(10^x) round-trip needed.
+    # Detect concentration column name from results ("log10_conc" or "ln_conc").
+    conc_col_name <- intersect(c("log10_conc", "ln_conc"), names(df))[1L]
+    x_smooth <- seq(min(df[[conc_col_name]]), max(df[[conc_col_name]]), length.out = 200L)
+    # hill_model expects ln(EC50) for par[3]; $log10_EC50 is in log10 scale.
+    # Convert: ln(EC50) = log10_EC50 * log(10)
+    ln_ec50 <- df$log10_EC50[1L] * log(10)
+    # x_smooth is in log10 or ln units; hill_model expects linear concentration.
+    # Use the correct inverse transform based on log_base stored in params.
+    log_base_used <- rout_output$params$log_base
+    x_linear <- if (log_base_used == "log10") 10^x_smooth else exp(x_smooth)
+    if (df$model_used[1L] == "4PL") {
+      y_smooth <- OptimModel::hill_model(
+        c(df$bottom[1L], df$top[1L], ln_ec50, df$hill_slope[1L]),
+        x_linear)
+    } else {
+      f3 <- .make_hill_3p(df$hill_slope[1L])
+      y_smooth <- f3(c(df$bottom[1L], df$top[1L], ln_ec50), x_linear)
+    }
+    curve_df <- data.frame(x_smooth = x_smooth, y = y_smooth)
+
+    conv_label  <- if (!all(df$converged)) " \u26a0 no conv." else ""
+    subtitle    <- sprintf("%s | DR: %.0f%%%s",
+                           df$model_used[1L], df$dynamic_range_pct[1L], conv_label)
+
+    y_all  <- c(df$bret_ratio, y_smooth)
+    y_pad  <- diff(range(y_all, na.rm = TRUE)) * 0.12
+    y_lims <- c(min(y_all, na.rm = TRUE) - y_pad, max(y_all, na.rm = TRUE) + y_pad)
+
+    # Rename curve_df x column to match the concentration column name in df
+    # so aes() references are consistent regardless of log_base setting.
+    names(curve_df)[1L] <- conc_col_name
+
+    p <- ggplot2::ggplot() +
+      ggplot2::geom_line(
+        data = curve_df,
+        ggplot2::aes(x = .data[[conc_col_name]], y = y),
+        colour = "grey40", linewidth = 0.7) +
+      ggplot2::geom_point(
+        data = df[!df$outlier_fdr, ],
+        ggplot2::aes(x = .data[[conc_col_name]], y = bret_ratio,
+                     colour = as.character(replicate),
+                     shape  = as.character(replicate)),
+        size = 2.2, stroke = 0.6) +
+      ggplot2::geom_point(
+        data = df[df$outlier_fdr, ],
+        ggplot2::aes(x = .data[[conc_col_name]], y = bret_ratio),
+        colour = "#D62728", shape = 4, size = 3.5, stroke = 1.4) +
+      {if (any(df$outlier_fdr))
+        ggrepel::geom_text_repel(
+          data = df[df$outlier_fdr, ],
+          ggplot2::aes(x = .data[[conc_col_name]], y = bret_ratio,
+                       label = sprintf("%.1f SD", abs(std_residual))),
+          colour = "#D62728", size = 2.6, fontface = "bold",
+          box.padding = 0.4, point.padding = 0.3,
+          min.segment.length = 0.2, max.overlaps = 20)
+      } +
+      ggplot2::scale_colour_manual(
+        values = rep_colours,
+        labels = c("1" = "Rep 1", "2" = "Rep 2"), name = NULL) +
+      ggplot2::scale_shape_manual(
+        values = c("1" = 16, "2" = 17),
+        labels = c("1" = "Rep 1", "2" = "Rep 2"), name = NULL) +
+      ggplot2::scale_x_continuous(
+        breaks = pretty(range(df[[conc_col_name]]), n = 5),
+        labels = function(x) parse(text = paste0("10^{", x, "}")),
+        expand = c(0, 0)) +
+      ggplot2::scale_y_continuous(expand = c(0, 0)) +
+      ggplot2::coord_cartesian(ylim = y_lims, clip = "on") +
+      ggplot2::labs(
+        title    = .make_subplot_label(cmpd),
+        subtitle = subtitle,
+        x        = "Concentration (M)",
+        y        = "BRET ratio") +
+      ggprism::theme_prism(base_size = 9) +
+      ggplot2::theme(
+        plot.title      = ggplot2::element_text(size = 9,  face = "bold",  hjust = 0.5),
+        plot.subtitle   = ggplot2::element_text(size = 7,  colour = "grey50", hjust = 0.5),
+        legend.position = "bottom",
+        legend.key.size = ggplot2::unit(0.35, "cm"),
+        legend.text     = ggplot2::element_text(size = 7),
+        axis.title      = ggplot2::element_text(size = 8),
+        axis.text       = ggplot2::element_text(size = 7),
+        axis.line       = ggplot2::element_blank(),
+        panel.border    = ggplot2::element_blank(),
+        plot.margin     = ggplot2::margin(t = 10, r = 8, b = 4, l = 6, unit = "pt"))
+
+    # Draw axis lines manually so they stop exactly at the data limits.
+    # geom_segment with explicit data is more robust than annotate() under
+    # coord_cartesian.
+    x_range_oc <- range(df[[conc_col_name]], na.rm = TRUE)
+    axis_segs_oc <- data.frame(
+      x    = c(x_range_oc[1],  x_range_oc[1]),
+      xend = c(x_range_oc[2],  x_range_oc[1]),
+      y    = c(y_lims[1],      y_lims[1]),
+      yend = c(y_lims[1],      y_lims[2])
+    )
+    p <- p +
+      ggplot2::geom_segment(
+        data = axis_segs_oc,
+        ggplot2::aes(x = .data$x, xend = .data$xend, y = .data$y, yend = .data$yend),
+        colour = "black", linewidth = 0.8,
+        inherit.aes = FALSE)
+    p
+  })
+
+  combined <- (patchwork::wrap_plots(plot_list, ncol = ncol) &
+                 ggplot2::theme(plot.margin = ggplot2::margin(
+                   t = panel_spacing * 0.5, r = panel_spacing * 0.5,
+                   b = panel_spacing * 0.5, l = panel_spacing * 0.5,
+                   unit = "cm"))) +
+    patchwork::plot_annotation(
+      title   = title,
+      caption = caption_txt,
+      theme   = ggplot2::theme(
+        plot.title   = ggplot2::element_text(size = 13, face = "bold", hjust = 0.5),
+        plot.caption = ggplot2::element_text(size = 8,  colour = "grey50", hjust = 0)))
+
+  if (is.null(width))  width  <- ncol * 3.2
+  if (is.null(height)) height <- nrow_grid * 3.0 + 0.6
+
+  if (!is.null(file)) {
+    ggplot2::ggsave(file, combined, width = width, height = height,
+                    dpi = 150, bg = "white")
+    message(sprintf("Saved: %s", file))
+  }
+
+  invisible(combined)
 }

@@ -54,6 +54,11 @@
 #'   separate \code{.2} columns (default \code{TRUE}).  Passed to the
 #'   ratio function.
 #'
+#' @param label_sep Single character used to separate the construct name from
+#'   the compound name in column labels (e.g. \code{"EPHA1:KK135"}).
+#'   Defaults to \code{":"}.  Change to e.g. \code{"/"} if your construct
+#'   or compound names contain colons.
+#'
 #' @param low_value_threshold Numeric.  Donor-channel values below this
 #'   threshold are replaced with \code{NA} before ratio calculation
 #'   (default \code{1000}).  Passed to the ratio function.
@@ -168,17 +173,22 @@ batch_ratio_analysis <- function(directory = getwd(),
                                  function_version = "v1",
                                  verbose = TRUE,
                                  selected_columns = NULL,
-                                 plate_format = NULL) {
-  
-  # -- Validate function_version ----------------------------------------------
+                                 plate_format = NULL,
+                                 label_sep = ":") {
+
+  # -- Validate function_version --------------------------------------------
   valid_versions <- c("v1", "v2")
   if (!function_version %in% valid_versions)
     stop("function_version must be either 'v1' or 'v2'")
-  
-  # -- Validate plate_format --------------------------------------------------
+
+  # -- Validate label_sep --------------------------------------------
+  if (!is.character(label_sep) || length(label_sep) != 1L || nchar(label_sep) == 0L)
+    stop("label_sep must be a single non-empty character string (e.g. ':', '/', '|').")
+
+  # -- Validate plate_format --------------------------------------------
   if (!is.null(plate_format) && !plate_format %in% c("96", "384"))
     stop("plate_format must be '96', '384', or NULL (auto-detect).")
-  
+
   # -- Internal helper: parse a raw plate-reader Excel file -------------------
   #
   # Reads the file and returns a clean data frame starting from the
@@ -196,31 +206,31 @@ batch_ratio_analysis <- function(directory = getwd(),
   # When validate = TRUE, the detected A-H/A-P blocks are checked for correct
   # row labels using the same content-based logic as .locate_plate_tables().
   .read_nanobret_raw <- function(path, plate_format = NULL, validate = TRUE, verbose = FALSE) {
-    
+
     if (!file.exists(path))
       stop("File not found: ", path)
-    
+
     # 1. Read entire sheet with no layout assumptions
     raw <- openxlsx::read.xlsx(path, sheet = 1L,
                                colNames      = FALSE,
                                skipEmptyRows = FALSE,
                                skipEmptyCols = FALSE)
-    
+
     n_raw <- nrow(raw)
-    
+
     # 2. Try primary path: BMG PHERAstar title-row detection
     col2       <- as.character(raw[, 2L])
     title_rows <- grep("^\\d+\\.\\s*Raw Data", col2)
     phera_ok   <- length(title_rows) > 0L
     col_hdr_row_raw <- NA_integer_
-    
+
     if (phera_ok) {
       col_hdr_row_raw <- title_rows[1L] + 1L   # col-number header immediately follows title
-      
+
       if (verbose)
         message("  [read] found ", length(title_rows), " emission table(s) in '",
                 basename(path), "'")
-      
+
     } else {
       # 3. Fallback path: scan for a row whose integers form a consecutive
       #    sequence starting at 1 (e.g. 1,2,...,8 or 1,2,...,24).
@@ -229,21 +239,21 @@ batch_ratio_analysis <- function(directory = getwd(),
       if (verbose)
         message("  [read fallback] no 'Raw Data' title found in '",
                 basename(path), "' - trying generic plate-layout detection.")
-      
+
       .is_col_header <- function(row_vec) {
         vals <- suppressWarnings(as.integer(as.character(row_vec)))
         vals <- sort(vals[!is.na(vals)])
         if (length(vals) < 2L) return(FALSE)
         vals[1L] == 1L && identical(vals, seq_len(length(vals)))
       }
-      
+
       for (i in seq_len(min(n_raw, 30L))) {
         if (.is_col_header(raw[i, ])) {
           col_hdr_row_raw <- i
           break
         }
       }
-      
+
       if (is.na(col_hdr_row_raw))
         stop(
           "Could not locate the plate column-number header in '",
@@ -253,22 +263,22 @@ batch_ratio_analysis <- function(directory = getwd(),
           "(e.g. 1-12 or 1-24) found in the first 30 rows.\n",
           "Please check that the file is a valid plate-reader export."
         )
-      
+
       if (verbose)
         message(sprintf(
           "  [read fallback] column-number header found at raw row %d in '%s'",
           col_hdr_row_raw, basename(path)))
     }
-    
+
     # 4. Slice from the column-number header row onward; strip all-NA rows
     result <- raw[col_hdr_row_raw:n_raw, , drop = FALSE]
     all_na <- apply(result, 1L, function(r) all(is.na(r)))
     result <- result[!all_na, , drop = FALSE]
     rownames(result) <- NULL
-    
+
     # 5. Content-based validation of the two A-H/A-P data blocks
     if (validate) {
-      
+
       # Determine plate format: honour plate_format override if supplied,
       # otherwise infer from the number of column-header integers.
       hdr_vals    <- suppressWarnings(as.integer(as.character(result[1L, ])))
@@ -280,7 +290,7 @@ batch_ratio_analysis <- function(directory = getwd(),
       } else {
         if (n_data_cols <= 12L) LETTERS[1:8] else LETTERS[1:16]
       }
-      
+
       # Locate the two contiguous label blocks (mirrors .locate_plate_tables)
       find_block <- function(start_row) {
         if (start_row > nrow(result)) return(NULL)   # guard: nothing left to scan
@@ -295,13 +305,13 @@ batch_ratio_analysis <- function(directory = getwd(),
         if (is.na(bs)) return(NULL)
         seq(bs, be)
       }
-      
+
       blk1 <- find_block(2L)
       blk2 <- if (!is.null(blk1)) find_block(max(blk1) + 1L) else NULL
-      
+
       val_ok <- TRUE
       msgs   <- character(0L)
-      
+
       check_block <- function(blk, blk_name) {
         if (is.null(blk)) {
           msgs <<- c(msgs, paste(blk_name, ": block not found"))
@@ -321,10 +331,10 @@ batch_ratio_analysis <- function(directory = getwd(),
           val_ok <<- FALSE
         }
       }
-      
+
       check_block(blk1, "Table 1 (donor)")
       check_block(blk2, "Table 2 (acceptor)")
-      
+
       if (!val_ok)
         stop(
           "Row label validation failed in '", basename(path), "'.\n",
@@ -332,20 +342,20 @@ batch_ratio_analysis <- function(directory = getwd(),
           " in both emission tables.\n",
           paste(msgs, collapse = "\n")
         )
-      
-      
+
+
     }
-    
+
     result
   }   # end .read_nanobret_raw
-  
+
   # -- Internal helper: generate consolidated Excel report --------------------
   .generate_batch_report <- function(results, directory, verbose = TRUE) {
-    
+
     report_path <- file.path(directory, "batch_analysis_report.xlsx")
     wb <- openxlsx::createWorkbook()
     openxlsx::addWorksheet(wb, "Summary")
-    
+
     summary_data <- data.frame(
       Sheet_Name = character(), Sheet_Number = character(),
       Data_File = character(), Function_Version = character(),
@@ -353,14 +363,14 @@ batch_ratio_analysis <- function(directory = getwd(),
       N_Constructs = integer(), Overall_Quality = character(),
       Control_Structure = character(), stringsAsFactors = FALSE
     )
-    
+
     for (plate_sheet in names(results)) {
       plate_result      <- results[[plate_sheet]]$result
       n_constructs      <- 0L
       overall_quality   <- "Not assessed"
       control_structure <- "Unknown"
       selected_cols_info <- "All"
-      
+
       if (!is.null(plate_result$control_info)) {
         if ("new_columns_created" %in% names(plate_result$control_info) &&
             !is.null(plate_result$control_info$new_columns_created))
@@ -368,10 +378,10 @@ batch_ratio_analysis <- function(directory = getwd(),
         else
           control_structure <- "Original columns"
       }
-      
+
       if (!is.null(plate_result$selected_columns_info))
         selected_cols_info <- plate_result$selected_columns_info$description
-      
+
       if (!is.null(plate_result$interval_means)) {
         n_constructs <- ncol(plate_result$interval_means)
         if ("Overall_Quality" %in% rownames(plate_result$interval_means)) {
@@ -379,7 +389,7 @@ batch_ratio_analysis <- function(directory = getwd(),
           overall_quality <- paste(unique(qualities), collapse = ", ")
         }
       }
-      
+
       summary_data <- rbind(summary_data, data.frame(
         Sheet_Name = plate_sheet,
         Sheet_Number = results[[plate_sheet]]$sheet_number,
@@ -393,14 +403,14 @@ batch_ratio_analysis <- function(directory = getwd(),
         stringsAsFactors = FALSE
       ))
     }
-    
+
     openxlsx::writeData(wb, "Summary", summary_data)
     header_style <- openxlsx::createStyle(
       fontColour = "#FFFFFF", fgFill = "#4F81BD", halign = "center",
       textDecoration = "Bold", border = "TopBottom", borderColour = "#4F81BD"
     )
     openxlsx::addStyle(wb, "Summary", header_style, rows = 1, cols = 1:ncol(summary_data))
-    
+
     for (plate_sheet in names(results)) {
       plate_result <- results[[plate_sheet]]$result
       if (!is.null(plate_result$interval_means)) {
@@ -429,9 +439,9 @@ batch_ratio_analysis <- function(directory = getwd(),
                            rows = length(info_text) + 1, cols = 1:ncol(quality_data))
       }
     }
-    
+
     openxlsx::saveWorkbook(wb, report_path, overwrite = TRUE)
-    
+
     if (verbose) {
       message("\n=== BATCH COMPLETE ===")
       message("Plates processed: ", length(results))
@@ -439,67 +449,67 @@ batch_ratio_analysis <- function(directory = getwd(),
       message("======================\n")
     }
   }   # end .generate_batch_report
-  
+
   # ========== MAIN FUNCTION BODY ==========
-  
-  
-  
+
+
+
   if (is.null(output_dir)) {
     output_dir <- directory
   } else if (!dir.exists(output_dir)) {
     dir.create(output_dir, recursive = TRUE)
     if (verbose) message("Created output directory: ", output_dir)
   }
-  
+
   if (!dir.exists(directory))
     stop("Directory not found: ", directory)
-  
+
   info_path <- file.path(directory, info_file)
   if (!file.exists(info_path))
     stop("Info file not found: ", info_path)
-  
+
   if (!requireNamespace("openxlsx", quietly = TRUE))
     stop("Package 'openxlsx' is required. Please install it.")
-  
+
   info_sheets   <- openxlsx::getSheetNames(info_path)
   number_sheets <- info_sheets[grepl("\\d+$", info_sheets)]
-  
+
   if (length(number_sheets) == 0L)
     stop("No valid number sheets found in info file.")
-  
+
   if (verbose) {
     message("Found ", length(number_sheets), " plate sheet(s): ",
             paste(number_sheets, collapse = ", "))
   }
-  
+
   data_files <- list.files(directory, pattern = data_pattern, full.names = FALSE)
   data_files <- data_files[!grepl("^~\\$", data_files)]
-  
+
   results <- list()
-  
+
   for (info_sheet in number_sheets) {
-    
+
     sheet_number    <- gsub("^.*?(\\d+)$", "\\1", info_sheet)
     pattern         <- paste0("_", sheet_number, "\\.xlsx$")
     matching_files  <- data_files[grepl(pattern, data_files)]
-    
+
     if (length(matching_files) == 0L) {
       if (verbose) message("No data file found for sheet ", info_sheet,
                            " (number ", sheet_number, "), skipping")
       next
     }
-    
+
     data_filename <- matching_files[1L]
     if (length(matching_files) > 1L)
       warning("Multiple files match sheet ", info_sheet, ". Using: ", data_filename)
-    
+
     data_path <- file.path(directory, data_filename)
     if (verbose) message("\nProcessing ", info_sheet, " - ", data_filename)
-    
+
     tryCatch({
-      
+
       info_table <- openxlsx::read.xlsx(info_path, sheet = info_sheet)
-      
+
       # Parse raw data - primary PHERAstar path with generic fallback;
       # validates row labels using content-based detection before passing
       # to the ratio function.
@@ -507,7 +517,7 @@ batch_ratio_analysis <- function(directory = getwd(),
                                  plate_format = plate_format,
                                  validate     = TRUE,
                                  verbose      = verbose)
-      
+
       if (function_version == "v1") {
         result <- ratio_dose_response(
           data                = data,
@@ -519,7 +529,8 @@ batch_ratio_analysis <- function(directory = getwd(),
           verbose             = verbose,
           save_to_excel       = NULL,
           selected_columns    = selected_columns,
-          plate_format        = plate_format
+          plate_format        = plate_format,
+          label_sep           = label_sep
         )
       } else {
         result <- ratio_dose_response_v2(
@@ -532,22 +543,23 @@ batch_ratio_analysis <- function(directory = getwd(),
           verbose             = verbose,
           save_to_excel       = NULL,
           selected_columns    = selected_columns,
-          plate_format        = plate_format
+          plate_format        = plate_format,
+          label_sep           = label_sep
         )
       }
-      
+
       # Save individual plate results to Excel
       if (generate_reports) {
         excel_path <- file.path(output_dir, paste0("results_", sheet_number, ".xlsx"))
         wb <- openxlsx::createWorkbook()
-        
+
         # BUG_7 fix: define header_style once here so it is always in scope,
         # regardless of whether result$interval_means is NULL.
         header_style <- openxlsx::createStyle(
           fontColour = "#FFFFFF", fgFill = "#4F81BD", halign = "center",
           textDecoration = "Bold", border = "TopBottom", borderColour = "#4F81BD"
         )
-        
+
         # Quality_Metrics is added first so it opens as the active sheet
         if (!is.null(result$interval_means)) {
           openxlsx::addWorksheet(wb, "Quality_Metrics")
@@ -555,10 +567,10 @@ batch_ratio_analysis <- function(directory = getwd(),
           interval_with_rownames <- cbind(Metric = rownames(interval_df), interval_df)
           rownames(interval_with_rownames) <- NULL
           openxlsx::writeData(wb, "Quality_Metrics", interval_with_rownames, rowNames = FALSE)
-          
+
           openxlsx::addStyle(wb, "Quality_Metrics", header_style,
                              rows = 1, cols = 1:ncol(interval_with_rownames))
-          
+
           alt_row_style <- openxlsx::createStyle(fgFill = "#F2F2F2")
           n_rows <- nrow(interval_with_rownames)
           if (n_rows > 1L)
@@ -566,24 +578,24 @@ batch_ratio_analysis <- function(directory = getwd(),
               openxlsx::addStyle(wb, "Quality_Metrics", alt_row_style,
                                  rows = row, cols = 1:ncol(interval_with_rownames))
         }
-        
+
         openxlsx::addWorksheet(wb, "Modified_Ratio_Table")
         openxlsx::writeData(wb, "Modified_Ratio_Table",
                             cbind(RowNames = rownames(result$modified_ratio_table),
                                   result$modified_ratio_table),
                             rowNames = FALSE)
-        
+
         openxlsx::addWorksheet(wb, "Original_Ratio_Table")
         openxlsx::writeData(wb, "Original_Ratio_Table",
                             cbind(RowNames = rownames(result$original_ratio_table),
                                   result$original_ratio_table),
                             rowNames = FALSE)
-        
+
         if (!is.null(result$general_means)) {
           openxlsx::addWorksheet(wb, "General_Means")
           openxlsx::writeData(wb, "General_Means", result$general_means)
         }
-        
+
         if (!is.null(result$control_info)) {
           openxlsx::addWorksheet(wb, "Control_Info")
           control_df <- data.frame(
@@ -601,7 +613,7 @@ batch_ratio_analysis <- function(directory = getwd(),
           openxlsx::writeData(wb, "Control_Info", control_df)
           openxlsx::addStyle(wb, "Control_Info", header_style, rows = 1, cols = 1:2)
         }
-        
+
         if (!is.null(result$selected_columns_info)) {
           openxlsx::addWorksheet(wb, "Selected_Columns_Info")
           selected_cols_df <- data.frame(
@@ -618,7 +630,7 @@ batch_ratio_analysis <- function(directory = getwd(),
           openxlsx::writeData(wb, "Selected_Columns_Info", selected_cols_df)
           openxlsx::addStyle(wb, "Selected_Columns_Info", header_style, rows = 1, cols = 1:2)
         }
-        
+
         openxlsx::addWorksheet(wb, "Processing_Info")
         processing_info <- data.frame(
           Parameter = c("Data File", "Info Sheet", "Function Version",
@@ -643,11 +655,11 @@ batch_ratio_analysis <- function(directory = getwd(),
         )
         openxlsx::writeData(wb, "Processing_Info", processing_info)
         openxlsx::addStyle(wb, "Processing_Info", header_style, rows = 1, cols = 1:2)
-        
+
         openxlsx::saveWorkbook(wb, excel_path, overwrite = TRUE)
         if (verbose) message("  Saved: ", basename(excel_path))
       }
-      
+
       results[[info_sheet]] <- list(
         data_file        = data_filename,
         info_sheet       = info_sheet,
@@ -658,16 +670,16 @@ batch_ratio_analysis <- function(directory = getwd(),
         selected_columns = selected_columns,
         result           = result
       )
-      
+
       if (verbose) message("OK - ", info_sheet, " done")
-      
+
     }, error = function(e) {
       warning("Failed to process sheet ", info_sheet, " (", data_filename,
               ") with ", function_version, ": ", e$message)
       if (verbose) message("X Failed to process sheet ", info_sheet)
     })
   }
-  
+
   if (length(results) > 0L && generate_reports) {
     .generate_batch_report(results, output_dir, verbose)
   } else if (length(results) > 0L) {
@@ -675,7 +687,8 @@ batch_ratio_analysis <- function(directory = getwd(),
   } else {
     warning("No plates were successfully processed")
   }
-  
+
   attr(results, "assay_source") <- "nanobret"
+  attr(results, "label_sep")    <- label_sep
   return(results)
 }
