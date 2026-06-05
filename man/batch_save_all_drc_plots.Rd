@@ -25,7 +25,7 @@ batch_save_all_drc_plots(
   panel_ncol = 4L,
   panel_width_per_col = 6,
   panel_height_per_row = 6,
-  panel_spacing = 1,
+  panel_spacing = 1.5,
   subplot_title = "auto",
   ...
 )

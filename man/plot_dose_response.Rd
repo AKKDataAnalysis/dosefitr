@@ -21,16 +21,16 @@ plot_dose_response(
   plot_width = 10,
   plot_height = 10,
   plot_dpi = 600,
-  axis_label_size = 20,
-  axis_text_size = 18,
+  axis_label_size = 24,
+  axis_text_size = 22,
   x_axis_title = NULL,
   y_axis_title = NULL,
   plot_title = TRUE,
   enforce_bottom_threshold = NULL,
   bottom_threshold = 60,
-  axis_line_width = 0.8,
+  axis_line_width = 1,
   axis_vjust = NULL,
-  tick_length = NULL,
+  tick_length = 0.3,
   error_linewidth = 0.8,
   point_alpha = 1,
   legend_spacing = NULL,
@@ -75,9 +75,9 @@ dose-response analysis results.}
 
 \item{plot_dpi}{Resolution for saved raster images (default: 600).}
 
-\item{axis_label_size}{Font size for axis labels (default: 20).}
+\item{axis_label_size}{Font size for axis labels (default: 24).}
 
-\item{axis_text_size}{Font size for axis numbers (default: 18).}
+\item{axis_text_size}{Font size for axis numbers (default: 22).}
 
 \item{x_axis_title}{Custom x-axis title. If NULL, uses default expression.}
 
@@ -93,13 +93,12 @@ was used in analysis (default: NULL, auto-detected from results).}
 \item{bottom_threshold}{Numeric value for bottom threshold (default: 60).}
 
 \item{axis_line_width}{Numeric. Line width of the manually drawn x/y axis
-lines (default: 0.8).}
+lines (default: 1).}
 
 \item{axis_vjust}{Numeric or NULL. Vertical justification (\code{vjust}) of
-the axis titles. \code{NULL} (default) leaves the ggplot2 default unchanged.}
+the axis titles.}
 
-\item{tick_length}{Numeric or NULL. Axis tick length in centimetres. \code{NULL}
-(default) keeps the inherited \code{theme_minimal()} tick length.}
+\item{tick_length}{Numeric or NULL. Axis tick length in centimetres.}
 
 \item{error_linewidth}{Numeric. Line width of the error bars (default: 0.8).}
 

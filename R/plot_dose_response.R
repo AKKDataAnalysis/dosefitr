@@ -23,19 +23,18 @@
 #' @param plot_width Plot width in inches for saved plots (default: 10).
 #' @param plot_height Plot height in inches for saved plots (default: 10).
 #' @param plot_dpi Resolution for saved raster images (default: 600).
-#' @param axis_label_size Font size for axis labels (default: 20).
-#' @param axis_text_size Font size for axis numbers (default: 18).
+#' @param axis_label_size Font size for axis labels (default: 24).
+#' @param axis_text_size Font size for axis numbers (default: 22).
 #' @param x_axis_title Custom x-axis title. If NULL, uses default expression.
 #' @param y_axis_title Custom y-axis title. If NULL, uses default based on normalization.
 #' @param enforce_bottom_threshold Logical indicating whether bottom threshold enforcement
 #'   was used in analysis (default: NULL, auto-detected from results).
 #' @param bottom_threshold Numeric value for bottom threshold (default: 60).
 #' @param axis_line_width Numeric. Line width of the manually drawn x/y axis
-#'   lines (default: 0.8).
+#'   lines (default: 1).
 #' @param axis_vjust Numeric or NULL. Vertical justification (\code{vjust}) of
-#'   the axis titles. \code{NULL} (default) leaves the ggplot2 default unchanged.
-#' @param tick_length Numeric or NULL. Axis tick length in centimetres. \code{NULL}
-#'   (default) keeps the inherited \code{theme_minimal()} tick length.
+#'   the axis titles. 
+#' @param tick_length Numeric or NULL. Axis tick length in centimetres.
 #' @param error_linewidth Numeric. Line width of the error bars (default: 0.8).
 #' @param point_alpha Numeric between 0 and 1. Opacity of the data points
 #'   (default: 1, fully opaque).
@@ -195,12 +194,12 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
                                show_ic50_line = TRUE, show_legend = FALSE,
                                show_grid = FALSE, save_plot = NULL,
                                plot_width = 10, plot_height = 10, plot_dpi = 600,
-                               axis_label_size = 20, axis_text_size = 18,
+                               axis_label_size = 24, axis_text_size = 22,
                                x_axis_title = NULL, y_axis_title = NULL,
                                plot_title = TRUE,
                                enforce_bottom_threshold = NULL, bottom_threshold = 60,
-                               axis_line_width = 0.8, axis_vjust = NULL,
-                               tick_length = NULL, error_linewidth = 0.8,
+                               axis_line_width = 1, axis_vjust = NULL,
+                               tick_length = 0.3, error_linewidth = 0.8,
                                point_alpha = 1, legend_spacing = NULL,
                                aspect_ratio = NULL, byrow = FALSE,
                                verbose = FALSE) {
