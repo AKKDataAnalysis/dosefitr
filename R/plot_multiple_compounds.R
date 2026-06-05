@@ -1679,7 +1679,7 @@ plot_multiple_compounds <- function(results,
     guide_args$override.aes$shape <- point_shapes[1:n_valid_compounds]
   }
   
-  p <- p + ggplot2::guides(color = do.call(ggplot2::guide_legend, guide_args))
+  p <- p + ggplot2::guides(color = do.call(ggplot2::guide_legend, c(guide_args, list(byrow = TRUE))))
   
   # ============================================================================
   # 12. CONFIGURE PLOT THEME
@@ -1711,9 +1711,7 @@ plot_multiple_compounds <- function(results,
       panel.border = ggplot2::element_blank(),
       plot.margin  = ggplot2::margin(t = 12, r = 8, b = 8, l = 8, unit = "pt"),
       aspect.ratio = 1
-    ) +
-      guides(color = guide_legend(byrow = TRUE))
-      
+    )       
   
   if (transparent_background) {
     base_theme <- base_theme + ggplot2::theme(
