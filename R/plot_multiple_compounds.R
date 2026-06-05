@@ -335,6 +335,7 @@ plot_multiple_compounds <- function(results,
                                     axis_vjust = NULL,
                                     axis_label_size = NULL,
                                     tick_length = NULL,
+                                    point_alpha = 0.7,
                                     plate = NULL) {
   
   # ============================================================================
