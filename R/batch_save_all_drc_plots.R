@@ -264,7 +264,7 @@ batch_save_all_drc_plots <- function(batch_drc_results,
   # Helper: derive a display label from a raw "Construct:Compound" string
   # given an explicit mode (never "auto" - resolve that before calling).
   .label_for_mode <- function(compound_string, mode) {
-    parts <- strsplit(compound_string, "/", fixed = TRUE)[[1L]]
+    parts <- strsplit(compound_string, ":", fixed = TRUE)[[1L]]
     switch(mode,
            full      = compound_string,
            compound  = if (length(parts) >= 2L) parts[[2L]] else compound_string,
