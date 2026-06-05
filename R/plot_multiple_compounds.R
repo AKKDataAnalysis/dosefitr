@@ -336,6 +336,7 @@ plot_multiple_compounds <- function(results,
                                     axis_label_size = NULL,
                                     tick_length = NULL,
                                     point_alpha = 0.7,
+                                    legend_spacing = 1,
                                     plate = NULL) {
   
   # ============================================================================
@@ -1079,7 +1080,7 @@ plot_multiple_compounds <- function(results,
         full_name = compound_name,
         target = target_clean,
         compound = compound_clean,
-        target_compound = paste(target_clean, compound_clean, sep = "/"),
+        target_compound = paste(target_clean, compound_clean, sep = " / "),
         result = result,
         success = TRUE
       )
@@ -1690,12 +1691,12 @@ plot_multiple_compounds <- function(results,
       plot.title = ggplot2::element_text(hjust = 0.5, face = "bold",
                                          size = if (!is.null(plot_title_size)) plot_title_size else axis_title_size + 2),
       axis.text = ggplot2::element_text(color = axis_text_color, size = axis_text_size),
-      axis.title = ggplot2::element_text(color = axis_title_color, size = axis_title_size, face = "bold"),
-      axis.line = ggplot2::element_line(linewidth = axis_line_width),                                  
+      axis.title = ggplot2::element_text(color = axis_title_color, size = axis_title_size, face = "bold"),                               
       axis.line.x.bottom = ggplot2::element_blank(),
       axis.line.y.left   = ggplot2::element_blank(),
       axis.line.x.top    = ggplot2::element_blank(),
       axis.line.y.right  = ggplot2::element_blank(),
+      axis.line = ggplot2::element_line(linewidth = axis_line_width), 
       axis.title.x = element_text(margin = margin(t = axis_vjust)),
       axis.title.y = element_text(margin = margin(r = axis_vjust)),
       axis.ticks = ggplot2::element_line(color = axis_line_color, linewidth = axis_line_width),
@@ -1704,11 +1705,15 @@ plot_multiple_compounds <- function(results,
       legend.title = ggplot2::element_text(size = legend_title_size, face = "bold"),
       legend.key = ggplot2::element_rect(fill = "white", color = NA),
       legend.background = ggplot2::element_rect(fill = "white", color = NA),
+      legend.spacing.y = unit(legend_spacing, "pt"),
       panel.background = ggplot2::element_rect(fill = "white", color = NA),
       plot.background = ggplot2::element_rect(fill = "white", color = NA),
       panel.border = ggplot2::element_blank(),
-      plot.margin  = ggplot2::margin(t = 12, r = 8, b = 8, l = 8, unit = "pt")
-    )
+      plot.margin  = ggplot2::margin(t = 12, r = 8, b = 8, l = 8, unit = "pt"),
+      aspect.ratio = 1
+    ) +
+      guides(color = guide_legend(byrow = TRUE))
+      
   
   if (transparent_background) {
     base_theme <- base_theme + ggplot2::theme(
