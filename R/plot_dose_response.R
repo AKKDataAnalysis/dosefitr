@@ -181,6 +181,8 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
                                x_axis_title = NULL, y_axis_title = NULL,
                                plot_title = TRUE,
                                enforce_bottom_threshold = NULL, bottom_threshold = 60,
+                               axis_line_width = NULL,
+                               axis_vjust = NULL,
                                verbose = FALSE) {
   
   # Check if required packages are installed
@@ -409,8 +411,8 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
     ggplot2::theme_minimal() +
     ggplot2::theme(
       axis.title = ggplot2::element_text(size = axis_label_size, face = "bold", color = "black"),
-      axis.text = ggplot2::element_text(size = axis_text_size, color = "black", vjust = 5),
-      axis.line = ggplot2::element_line(linewidth = 3),
+      axis.text = ggplot2::element_text(size = axis_text_size, color = "black", vjust = axis_vjust),
+      axis.line = ggplot2::element_line(linewidth = axis_line_width),
       axis.ticks = ggplot2::element_line(color = "black"),
       plot.title = ggplot2::element_text(size = axis_label_size + 2, face = "bold", hjust = 0.5, color = "black"),
       legend.position = "none",
@@ -479,7 +481,7 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
         ),
         width = error_bar_width * 10,
         color = point_color,
-        linewidth = 0.8
+        linewidth = 1
       )
   }
   
