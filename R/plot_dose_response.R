@@ -410,7 +410,9 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
       clip = "on") +
     ggplot2::theme_minimal() +
     ggplot2::theme(
-      axis.title = ggplot2::element_text(size = axis_label_size, face = "bold", color = "black", vjust = axis_vjust),
+      axis.title = ggplot2::element_text(size = axis_label_size, face = "bold", color = "black"),
+      axis.title.x = element_text(margin = margin(t = vjust)),
+      axis.title.y = element_text(margin = margin(r = vjust)),
       axis.text = ggplot2::element_text(size = axis_text_size, color = "black"),
       axis.line = ggplot2::element_line(linewidth = axis_line_width),
       axis.ticks = ggplot2::element_line(color = "black"),
