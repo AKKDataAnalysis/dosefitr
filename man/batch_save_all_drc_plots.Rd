@@ -27,6 +27,7 @@ batch_save_all_drc_plots(
   panel_height_per_row = 6,
   panel_spacing = 1,
   subplot_title = "auto",
+  label_sep = NULL,
   ...
 )
 }
@@ -102,6 +103,16 @@ each compound sub-plot inside the panel. One of \code{"auto"} (default),
 \code{"auto"} mirrors the same logic used for individual plots: shows only
 the compound name when all compounds in the batch share a single construct,
 and the full \code{Construct:Compound} string otherwise.}
+
+\item{label_sep}{Character string. Separator used for DISPLAY purposes in
+titles, filenames, and subplot labels. When \code{NULL} (default),
+auto-detected from \code{attr(batch_drc_results, "label_sep")}; falls back
+to \code{":"} if the attribute is absent. This only affects what the user
+sees — the internal data separator used for parsing compound names is
+always read from the attribute. For example, \code{label_sep = "/"} renders
+\code{"EPHA1/KK135"} in titles while the data stores \code{"EPHA1:KK135"}.
+Also forwarded to \code{plot_dose_response()} via \code{...} when not
+explicitly set there.}
 
 \item{...}{Additional arguments passed to \code{plot_dose_response()}.}
 }

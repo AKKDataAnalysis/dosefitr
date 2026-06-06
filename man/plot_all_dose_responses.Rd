@@ -10,6 +10,7 @@ plot_all_dose_responses(
   output_dir = "dose_response_plots",
   file_prefix = "dose_response",
   file_extension = "png",
+  label_sep = NULL,
   ...
 )
 }
@@ -28,6 +29,11 @@ Use "all" for all compounds or provide specific numeric indices (default: "all")
 
 \item{file_extension}{Character string specifying the image file format
 ("png", "jpg", "tiff", "pdf", "svg") (default: "png").}
+
+\item{label_sep}{Character string. Separator used for DISPLAY purposes in
+titles and filenames. When \code{NULL} (default), auto-detected from
+\code{attr(results, "label_sep")}; falls back to \code{":"}. Forwarded to
+\code{\link{plot_dose_response}}.}
 
 \item{...}{Additional arguments passed to \code{\link{plot_dose_response}} for
 customizing individual plots (colors, sizes, limits, etc.).}

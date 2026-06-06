@@ -45,8 +45,16 @@ plot_multiple_compounds(
   legend_label_wrap = 25,
   legend_ncol = NULL,
   point_size = NULL,
-  plate = NULL,
-  label_sep = ":"
+  axis_line_width = 0.8,
+  axis_vjust = NULL,
+  tick_length = 0.15,
+  error_linewidth = 0.5,
+  point_alpha = 1,
+  legend_spacing = NULL,
+  aspect_ratio = NULL,
+  byrow = FALSE,
+  label_sep = NULL,
+  plate = NULL
 )
 }
 \arguments{
@@ -168,6 +176,39 @@ automatically wrap to new lines. Default: \code{25}.}
 
 \item{point_size}{Numeric value for the point size}
 
+\item{axis_line_width}{Numeric. Line width of the manually drawn x/y axis
+lines (default: 0.8).}
+
+\item{axis_vjust}{Numeric or NULL. Vertical justification (\code{vjust}) of
+the axis titles. \code{NULL} (default) leaves the ggplot2 default unchanged.}
+
+\item{tick_length}{Numeric. Axis tick length in centimetres (default: 0.15).}
+
+\item{error_linewidth}{Numeric. Line width of the error bars (default: 0.5).}
+
+\item{point_alpha}{Numeric between 0 and 1. Opacity of the data points
+(default: 1, fully opaque). Does not affect error-bar opacity.}
+
+\item{legend_spacing}{Numeric or NULL. Spacing (in points) between legend
+items, applied via \code{legend.spacing}. \code{NULL} (default) leaves the
+theme default unchanged.}
+
+\item{aspect_ratio}{Numeric or NULL. Panel aspect ratio (\code{aspect.ratio}
+in \code{theme()}). \code{NULL} (default) leaves it unset.}
+
+\item{byrow}{Logical. Whether legend keys are filled by row (\code{TRUE}) or
+by column (\code{FALSE}, default). Applied via \code{theme(legend.byrow=)}
+(the modern ggplot2 mechanism; the old \code{guide_legend(byrow=)} argument
+was removed in ggplot2 4.0).}
+
+\item{label_sep}{Character string. Separator used for DISPLAY purposes in
+titles, legends, and filenames. When \code{NULL} (default), auto-detected
+from \code{attr(results, "label_sep")}; falls back to \code{":"}.
+The data separator (used for parsing compound names) is always read from
+the attribute and is never overridden by this argument. This separation
+ensures that changing the display separator does not break title or legend
+logic, which was a bug in the previous single-separator design.}
+
 \item{plate}{Character. Plate name to plot. When \code{results} is the
 output of \code{batch_drc_analysis()}, the function detects this
 automatically and extracts the correct \code{drc_result}. If
@@ -176,12 +217,6 @@ first plate is used and a message lists all available plates. Pass an
 explicit plate name (e.g. \code{plate = "plate_01"}) to select a
 specific plate. Has no effect when \code{results} is already a plain
 \code{drc_result} object.}
-
-\item{label_sep}{Character separator used in display labels between
-construct and compound names.  Defaults to \code{":"}.  Change to
-e.g. \code{"/"} to show \code{"EPHA1/KK135"} instead of
-\code{"EPHA1:KK135"} in plot titles and legends.  The internal data
-always uses \code{":"}; this parameter only affects display.}
 }
 \value{
 A ggplot2 object with the generated plot, containing metadata attributes:

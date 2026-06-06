@@ -57,6 +57,15 @@
 #' @param panel_spacing Numeric. Spacing between sub-plots in the panel, in
 #'   centimetres (default \code{1}). Increase for more breathing room between
 #'   plots.
+#' @param label_sep Character string. Separator used for DISPLAY purposes in
+#'   titles, filenames, and subplot labels. When \code{NULL} (default),
+#'   auto-detected from \code{attr(batch_drc_results, "label_sep")}; falls back
+#'   to \code{":"} if the attribute is absent. This only affects what the user
+#'   sees — the internal data separator used for parsing compound names is
+#'   always read from the attribute. For example, \code{label_sep = "/"} renders
+#'   \code{"EPHA1/KK135"} in titles while the data stores \code{"EPHA1:KK135"}.
+#'   Also forwarded to \code{plot_dose_response()} via \code{...} when not
+#'   explicitly set there.
 #' @param ... Additional arguments passed to \code{plot_dose_response()}.
 #'
 #' @details
@@ -139,12 +148,32 @@ batch_save_all_drc_plots <- function(batch_drc_results,
                                      panel_height_per_row = 6,
                                      panel_spacing        = 1,
                                      subplot_title = "auto",
+                                     label_sep = NULL,
                                      ...) {
   
   # ============================================================================
   # 1. VALIDATION AND SETUP
   # ============================================================================
   
+# Null-coalescing operator
+  `%||%` <- function(a, b) if (is.null(a) || length(a) == 0 || all(is.na(a))) b else a
+
+# Resolve label_sep: the separator used for DISPLAY purposes (titles, labels,
+  # filenames). The internal data separator (used for parsing compound names)
+  # is auto-detected from attr(batch_drc_results, "label_sep").
+  # Priority: explicit argument > attribute on batch_drc_results > default ":"
+  if (is.null(label_sep)) {
+    label_sep <- attr(batch_drc_results, "label_sep")
+    if (is.null(label_sep) || !is.character(label_sep) ||
+        length(label_sep) != 1L || is.na(label_sep) || nchar(label_sep) == 0L) {
+      label_sep <- ":"
+    }
+  }
+
+  # Data separator: used for PARSING compound names from the internal data.
+  # This is whatever batch_ratio_analysis stamped on the results.
+  data_sep <- attr(batch_drc_results, "label_sep") %||% ":"
+
   # Check if required packages are installed
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
     stop("Package 'ggplot2' is required. Please install it.")
@@ -192,9 +221,9 @@ batch_save_all_drc_plots <- function(batch_drc_results,
       return(trimws(parts[2]))
     }
     
-    # Handle "Construct:Compound" format
-    if (grepl(":", name)) {
-      parts <- strsplit(name, ":")[[1]]
+    # Handle "Construct<sep>Compound" format (data_sep from batch attribute)
+    if (grepl(data_sep, name, fixed = TRUE)) {
+      parts <- strsplit(name, data_sep, fixed = TRUE)[[1]]
       return(trimws(parts[2]))
     }
     
@@ -214,9 +243,9 @@ batch_save_all_drc_plots <- function(batch_drc_results,
       return(trimws(parts[1]))
     }
     
-    # Handle "Construct:Compound" format
-    if (grepl(":", name)) {
-      parts <- strsplit(name, ":")[[1]]
+    # Handle "Construct<sep>Compound" format (data_sep from batch attribute)
+    if (grepl(data_sep, name, fixed = TRUE)) {
+      parts <- strsplit(name, data_sep, fixed = TRUE)[[1]]
       return(trimws(parts[1]))
     }
     
@@ -261,14 +290,26 @@ batch_save_all_drc_plots <- function(batch_drc_results,
   
   subplot_title <- match.arg(subplot_title, c("auto", "full", "compound", "construct"))
   
-  # Helper: derive a display label from a raw "Construct:Compound" string
-  # given an explicit mode (never "auto" - resolve that before calling).
+  # Helper: derive a display label from a raw compound string.
+  # Parses using data_sep, then re-joins with label_sep for display.
+  # mode: "full" = Construct<label_sep>Compound, "compound" = Compound only,
+  #       "construct" = Construct only.
   .label_for_mode <- function(compound_string, mode) {
-    parts <- strsplit(compound_string, ":", fixed = TRUE)[[1L]]
+    # Strip plate-info suffix first
+    clean <- strsplit(compound_string, " \\| ")[[1L]][1L]
+    if (grepl(data_sep, clean, fixed = TRUE)) {
+      parts <- strsplit(clean, data_sep, fixed = TRUE)[[1L]]
+      construct_part <- parts[[1L]]
+      compound_part  <- if (length(parts) >= 2L) paste(parts[-1L], collapse = data_sep) else parts[[1L]]
+    } else {
+      construct_part <- clean
+      compound_part  <- clean
+    }
     switch(mode,
-           full      = compound_string,
-           compound  = if (length(parts) >= 2L) parts[[2L]] else compound_string,
-           construct = if (length(parts) >= 2L) parts[[1L]] else compound_string
+           full      = if (construct_part == compound_part) construct_part
+                       else paste(construct_part, compound_part, sep = label_sep),
+           compound  = compound_part,
+           construct = construct_part
     )
   }
   
@@ -496,6 +537,7 @@ batch_save_all_drc_plots <- function(batch_drc_results,
             point_size = point_size,
             y_limits     = y_limits,
             y_axis_title = y_axis_title,
+            label_sep    = label_sep,
             ...
           )
         }

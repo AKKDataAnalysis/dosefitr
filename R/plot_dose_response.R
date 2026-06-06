@@ -30,6 +30,14 @@
 #' @param enforce_bottom_threshold Logical indicating whether bottom threshold enforcement
 #'   was used in analysis (default: NULL, auto-detected from results).
 #' @param bottom_threshold Numeric value for bottom threshold (default: 60).
+#' @param label_sep Character string. Separator used for DISPLAY purposes in
+#'   titles, filenames, and metadata. When \code{NULL} (default), auto-detected
+#'   from \code{attr(results, "label_sep")}; falls back to \code{":"} if the
+#'   attribute is absent. This only affects what the user sees — the internal
+#'   data separator used for parsing compound names is always read from the
+#'   attribute and is never changed. For example, \code{label_sep = "/"} renders
+#'   \code{"EPHA1/KK135"} in the title while the data still stores
+#'   \code{"EPHA1:KK135"} internally.
 #' @param verbose Logical indicating whether to show verbose messages (default: FALSE).
 #' @param plot_title Controls the plot title. \code{FALSE} (default) = no title;
 #'   \code{TRUE} = automatic title (construct + compound name);
@@ -181,8 +189,12 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
                                x_axis_title = NULL, y_axis_title = NULL,
                                plot_title = TRUE,
                                enforce_bottom_threshold = NULL, bottom_threshold = 60,
+                               label_sep = NULL,
                                verbose = FALSE) {
   
+  # Null-coalescing operator
+  `%||%` <- function(a, b) if (is.null(a) || length(a) == 0 || all(is.na(a))) b else a
+
   # Check if required packages are installed
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
     stop("ggplot2 package is required. Please install it with: install.packages('ggplot2')")
@@ -210,6 +222,19 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
   
   validate_inputs(results, compound_index)
   
+# Resolve label_sep: the separator used for DISPLAY purposes (titles, labels,
+# filenames). The internal data separator (used for parsing compound names)
+# is always ":" or whatever attr(results, "label_sep") reports; label_sep
+# here controls only what the user SEES.
+# Priority: explicit argument > attribute on results > default ":"
+if (is.null(label_sep)) {
+  label_sep <- attr(results, "label_sep")
+  if (is.null(label_sep) || !is.character(label_sep) ||
+      length(label_sep) != 1L || is.na(label_sep) || nchar(label_sep) == 0L) {
+    label_sep <- ":"
+  }
+}
+
   # Extract compound data
   result <- results$detailed_results[[compound_index]]
   
@@ -265,6 +290,35 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
   
   # Extract compound name (remove plate info if present)
   compound_name_display <- strsplit(result$compound, " \\| ")[[1]][1]
+
+  # Create a display version of the compound name where the internal
+  # separator is replaced with the user-facing label_sep. We don't rely on
+  # attr(results, "label_sep") here because plot_dose_response is often
+  # called with a single plate's drc_result (which lacks the attribute).
+  # Instead, we split on the first occurrence of a known separator and
+  # re-join with label_sep — robust regardless of the data separator.
+  .find_data_sep <- function(name) {
+    # Try the attribute first (most reliable when available)
+    attr_sep <- attr(results, "label_sep")
+    if (!is.null(attr_sep) && nchar(attr_sep) == 1L &&
+        grepl(attr_sep, name, fixed = TRUE)) return(attr_sep)
+    # Fall back to common separators in priority order
+    for (s in c(":", "/", " | ")) {
+      if (grepl(s, name, fixed = TRUE)) return(s)
+    }
+    return(NULL)  # no separator found
+  }
+  data_sep_found <- .find_data_sep(compound_name_display)
+  compound_name_label <- if (!is.null(data_sep_found) && data_sep_found != label_sep) {
+    parts <- strsplit(compound_name_display, data_sep_found, fixed = TRUE)[[1]]
+    if (length(parts) >= 2) {
+      paste(parts[1], paste(parts[-1], collapse = data_sep_found), sep = label_sep)
+    } else {
+      compound_name_display
+    }
+  } else {
+    compound_name_display
+  }
   
   # Check if IC50 was excluded due to threshold
   ic50_excluded <- FALSE
@@ -388,9 +442,9 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
     final_title <- plot_title
   } else if (isTRUE(plot_title)) {
     if (model_success) {
-      final_title <- compound_name_display
+      final_title <- compound_name_label
     } else {
-      final_title <- paste(compound_name_display, "(Model failed)")
+      final_title <- paste(compound_name_label, "(Model failed)")
     }
   }
   
@@ -534,7 +588,7 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
     if (is.character(save_plot)) {
       filename <- save_plot
     } else if (is.logical(save_plot) && save_plot) {
-      safe_name <- gsub("[^a-zA-Z0-9._-]", "_", compound_name_display)
+      safe_name <- gsub("[^a-zA-Z0-9._-]", "_", compound_name_label)
       filename <- paste0("dose_response_", safe_name, ".png")
     } else {
       stop("save_plot must be either a file path or TRUE for auto-naming")
@@ -561,7 +615,7 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
   
   # Return plot with comprehensive metadata
   metadata <- list(
-    compound_name = compound_name_display,
+    compound_name = compound_name_label,
     compound_index = compound_index,
     model_success = model_success,
     summary_data = summary_data,

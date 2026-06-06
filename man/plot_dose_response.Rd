@@ -28,6 +28,7 @@ plot_dose_response(
   plot_title = TRUE,
   enforce_bottom_threshold = NULL,
   bottom_threshold = 60,
+  label_sep = NULL,
   verbose = FALSE
 )
 }
@@ -83,6 +84,15 @@ character = custom title text.}
 was used in analysis (default: NULL, auto-detected from results).}
 
 \item{bottom_threshold}{Numeric value for bottom threshold (default: 60).}
+
+\item{label_sep}{Character string. Separator used for DISPLAY purposes in
+titles, filenames, and metadata. When \code{NULL} (default), auto-detected
+from \code{attr(results, "label_sep")}; falls back to \code{":"} if the
+attribute is absent. This only affects what the user sees — the internal
+data separator used for parsing compound names is always read from the
+attribute and is never changed. For example, \code{label_sep = "/"} renders
+\code{"EPHA1/KK135"} in the title while the data still stores
+\code{"EPHA1:KK135"} internally.}
 
 \item{verbose}{Logical indicating whether to show verbose messages (default: FALSE).}
 }
