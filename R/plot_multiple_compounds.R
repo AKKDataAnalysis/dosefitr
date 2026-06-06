@@ -112,6 +112,36 @@
 #'   \code{theme(plot.margin = )}. Accepts a \code{ggplot2::margin()} object.
 #'   \code{NULL} (default) uses the built-in margin
 #'   (t = 12, r = 8, b = 8, l = 8 pt).
+#' @param ic50_linetype Character or integer. Line type for the IC50 vertical
+#'   reference lines (default: \code{"dashed"}). See \code{?par} for valid values.
+#' @param ic50_linewidth Numeric. Line width of the IC50 vertical reference lines
+#'   (default: 0.5).
+#' @param ic50_line_alpha Numeric between 0 and 1. Opacity of the IC50 vertical
+#'   reference lines (default: 0.8).
+#' @param error_alpha Numeric between 0 and 1. Opacity of the error bars
+#'   (default: 0.6).
+#' @param point_shape Integer or character. Default shape of data points when
+#'   shape mapping is not active (default: 16, filled circle). See \code{?points}
+#'   for valid values. Ignored when \code{point_shapes} is provided.
+#' @param grid_color Character string. Colour of the major grid lines when
+#'   \code{show_grid = TRUE} (default: \code{"grey90"}).
+#' @param grid_minor_color Character string. Colour of the minor grid lines when
+#'   \code{show_grid = TRUE} (default: \code{"grey95"}).
+#' @param grid_linewidth Numeric. Line width of the major grid lines
+#'   (default: 0.5).
+#' @param axis_expand Numeric vector of length 2. Expansion constants for the
+#'   continuous axis scales, passed to \code{scale_*_continuous(expand = )}.
+#'   Default \code{c(0, 0)} removes all padding between data and axis edge.
+#' @param legend_key_fill Character string. Fill colour of the legend key
+#'   backgrounds (default: \code{"white"}).
+#' @param legend_bg_fill Character string. Fill colour of the legend background
+#'   (default: \code{"white"}).
+#' @param title_hjust Numeric. Horizontal justification of the plot title
+#'   (default: 0.5, centred). Use 0 for left-aligned, 1 for right-aligned.
+#' @param legend_key_linewidth Numeric. Line width of the fitted curve shown
+#'   in legend keys via \code{guide_legend(override.aes)} (default: 0.8).
+#' @param legend_lineheight Numeric. Line height multiplier for legend text
+#'   (default: 0.8). Controls spacing between wrapped lines.
 #' @param plate Character. Plate name to plot. When \code{results} is the
 #'   output of \code{batch_drc_analysis()}, the function detects this
 #'   automatically and extracts the correct \code{drc_result}. If
@@ -367,6 +397,20 @@ plot_multiple_compounds <- function(results,
                                     aspect_ratio = NULL,
                                     byrow = FALSE,
                                     label_sep = NULL,
+                                    ic50_linetype = "dashed",
+                                    ic50_linewidth = 0.5,
+                                    ic50_line_alpha = 0.8,
+                                    error_alpha = 0.6,
+                                    point_shape = 16,
+                                    grid_color = "grey90",
+                                    grid_minor_color = "grey95",
+                                    grid_linewidth = 0.5,
+                                    axis_expand = c(0, 0),
+                                    legend_key_fill = "white",
+                                    legend_bg_fill = "white",
+                                    title_hjust = 0.5,
+                                    legend_key_linewidth = 0.8,
+                                    legend_lineheight = 0.8,
                                     plot_margin = NULL,
                                     plate = NULL) {
 
@@ -1645,8 +1689,8 @@ plot_multiple_compounds <- function(results,
       title = plot_title_final,
       color = legend_title_final
     ) +
-    ggplot2::scale_y_continuous(expand = c(0, 0)) +
-    ggplot2::scale_x_continuous(expand = c(0, 0)) +
+    ggplot2::scale_y_continuous(expand = axis_expand) +
+    ggplot2::scale_x_continuous(expand = axis_expand) +
     ggplot2::coord_cartesian(xlim = x_limits_final, ylim = y_limits_final, clip = "on")
 
   p <- p +
@@ -1672,7 +1716,7 @@ plot_multiple_compounds <- function(results,
         ggplot2::geom_point(data = plot_data$points,
                             ggplot2::aes(x = log_inhibitor, y = mean_response,
                                          color = compound),
-                            size = point_size, shape = 16, alpha = point_alpha)
+                            size = point_size, shape = point_shape, alpha = point_alpha)
     }
 
     if (show_error_bars && "sd_response" %in% colnames(plot_data$points)) {
@@ -1683,7 +1727,7 @@ plot_multiple_compounds <- function(results,
                                             ymax = mean_response + sd_response,
                                             color = compound),
                                width = error_bar_width,
-                               linewidth = error_linewidth, alpha = 0.6)
+                               linewidth = error_linewidth, alpha = error_alpha)
     }
   }
 
@@ -1704,7 +1748,7 @@ plot_multiple_compounds <- function(results,
       p <- p + ggplot2::geom_vline(
         data = ic50_data,
         ggplot2::aes(xintercept = .data$log_ic50, color = .data$compound),
-        linetype = "dashed", linewidth = 0.5, alpha = 0.8
+        linetype = ic50_linetype, linewidth = ic50_linewidth, alpha = ic50_line_alpha
       )
     }
   }
@@ -1724,7 +1768,7 @@ plot_multiple_compounds <- function(results,
     override.aes = list(
       size = point_size,
       linetype = 1,
-      linewidth = 0.8,
+      linewidth = legend_key_linewidth,
       fill = NA
     ),
     title = legend_title_final
@@ -1744,7 +1788,7 @@ plot_multiple_compounds <- function(results,
   base_theme <- ggplot2::theme_minimal() +
     ggplot2::theme(
       legend.position = ifelse(show_legend, legend_position, "none"),
-      plot.title = ggplot2::element_text(hjust = 0.5, face = "bold",
+      plot.title = ggplot2::element_text(hjust = title_hjust, face = "bold",
                                          size = if (!is.null(plot_title_size)) plot_title_size else axis_title_size + 2),
       axis.text = ggplot2::element_text(color = axis_text_color, size = axis_text_size),
       axis.title = ggplot2::element_text(color = axis_title_color, size = axis_title_size, face = "bold",
@@ -1755,11 +1799,11 @@ plot_multiple_compounds <- function(results,
       axis.line.y.right  = ggplot2::element_blank(),
       axis.ticks = ggplot2::element_line(color = axis_line_color),
       axis.ticks.length = ggplot2::unit(tick_length, "cm"),
-      legend.text = ggplot2::element_text(size = legend_text_size, lineheight = 0.8),
+      legend.text = ggplot2::element_text(size = legend_text_size, lineheight = legend_lineheight),
       legend.title = ggplot2::element_text(size = legend_title_size, face = "bold"),
       legend.byrow = byrow,
-      legend.key = ggplot2::element_rect(fill = "white", color = NA),
-      legend.background = ggplot2::element_rect(fill = "white", color = NA),
+      legend.key = ggplot2::element_rect(fill = legend_key_fill, color = NA),
+      legend.background = ggplot2::element_rect(fill = legend_bg_fill, color = NA),
       panel.background = ggplot2::element_rect(fill = "white", color = NA),
       plot.background = ggplot2::element_rect(fill = "white", color = NA),
       panel.border = ggplot2::element_blank(),
@@ -1788,8 +1832,8 @@ plot_multiple_compounds <- function(results,
     )
   } else {
     base_theme <- base_theme + ggplot2::theme(
-      panel.grid.major = ggplot2::element_line(color = "grey90", linewidth = 0.5),
-      panel.grid.minor = ggplot2::element_line(color = "grey95", linewidth = 0.25)
+      panel.grid.major = ggplot2::element_line(color = grid_color, linewidth = grid_linewidth),
+      panel.grid.minor = ggplot2::element_line(color = grid_minor_color, linewidth = grid_linewidth * 0.5)
     )
   }
 

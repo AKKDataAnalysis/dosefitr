@@ -75,6 +75,38 @@
 #'   \code{theme(plot.margin = )}. Accepts a \code{ggplot2::margin()} object.
 #'   \code{NULL} (default) uses the built-in margin
 #'   (t = 12, r = 8, b = 8, l = 8 pt).
+#' @param axis_title_color Character string. Colour of the axis titles
+#'   (default: \code{"black"}).
+#' @param axis_text_color Character string. Colour of the axis text (tick labels)
+#'   (default: \code{"black"}).
+#' @param ic50_linetype Character or integer. Line type for the IC50 vertical
+#'   reference line (default: \code{"dashed"}). See \code{?par} for valid values.
+#' @param ic50_linewidth Numeric. Line width of the IC50 vertical reference line
+#'   (default: 0.8).
+#' @param ic50_line_alpha Numeric between 0 and 1. Opacity of the IC50 vertical
+#'   reference line (default: 1, fully opaque).
+#' @param error_alpha Numeric between 0 and 1. Opacity of the error bars
+#'   (default: 1, fully opaque).
+#' @param point_shape Integer or character. Shape of the data points
+#'   (default: 16, filled circle). See \code{?points} for valid values.
+#' @param grid_color Character string. Colour of the major grid lines when
+#'   \code{show_grid = TRUE} (default: \code{"grey90"}).
+#' @param grid_minor_color Character string. Colour of the minor grid lines when
+#'   \code{show_grid = TRUE} (default: \code{"grey95"}).
+#' @param grid_linewidth Numeric. Line width of the major grid lines
+#'   (default: 0.5).
+#' @param axis_expand Numeric vector of length 2. Expansion constants for the
+#'   continuous axis scales, passed to \code{scale_*_continuous(expand = )}.
+#'   Default \code{c(0, 0)} removes all padding between data and axis edge.
+#' @param title_hjust Numeric. Horizontal justification of the plot title
+#'   (default: 0.5, centred). Use 0 for left-aligned, 1 for right-aligned.
+#' @param point_size_scale Numeric. Multiplier applied to \code{point_size} for
+#'   the actual \code{geom_point} size (default: 2). The effective point size is
+#'   \code{point_size * point_size_scale}.
+#' @param legend_annotation_scale Numeric. Scale factor applied to
+#'   \code{axis_text_size} for the in-plot legend text annotations
+#'   (default: 0.3). The effective annotation size is
+#'   \code{axis_text_size * legend_annotation_scale}.
 #' @param verbose Logical indicating whether to show verbose messages (default: FALSE).
 #' @param plot_title Controls the plot title. \code{FALSE} (default) = no title;
 #'   \code{TRUE} = automatic title (construct + compound name);
@@ -243,6 +275,20 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
                                legend_title_size = NULL,
                                curve_alpha = 1,
                                plot_margin = NULL,
+                               axis_title_color = "black",
+                               axis_text_color = "black",
+                               ic50_linetype = "dashed",
+                               ic50_linewidth = 0.8,
+                               ic50_line_alpha = 1,
+                               error_alpha = 1,
+                               point_shape = 16,
+                               grid_color = "grey90",
+                               grid_minor_color = "grey95",
+                               grid_linewidth = 0.5,
+                               axis_expand = c(0, 0),
+                               title_hjust = 0.5,
+                               point_size_scale = 2,
+                               legend_annotation_scale = 0.3,
                                verbose = FALSE) {
   
   # Null-coalescing operator
@@ -508,26 +554,26 @@ if (is.null(label_sep)) {
       y = plot_config$y_lab,
       title = final_title
     ) +
-    ggplot2::scale_y_continuous(expand = c(0, 0)) +
-    ggplot2::scale_x_continuous(expand = c(0, 0)) +
+    ggplot2::scale_y_continuous(expand = axis_expand) +
+    ggplot2::scale_x_continuous(expand = axis_expand) +
     ggplot2::coord_cartesian(
       ylim = if (!is.null(y_limits) && length(y_limits) == 2L) y_limits else NULL,
       clip = "on") +
     ggplot2::theme_minimal() +
     ggplot2::theme(
       axis.title = ggplot2::element_text(size = axis_label_size, face = "bold",
-                                           color = "black", vjust = axis_vjust),
-      axis.text = ggplot2::element_text(size = axis_text_size, color = "black"),
+                                           color = axis_title_color, vjust = axis_vjust),
+      axis.text = ggplot2::element_text(size = axis_text_size, color = axis_text_color),
       axis.line = ggplot2::element_blank(),
       axis.ticks = ggplot2::element_line(color = axis_line_color),
       plot.title = ggplot2::element_text(size = if (!is.null(plot_title_size)) plot_title_size else axis_label_size + 2,
-                                         face = "bold", hjust = 0.5, color = "black"),
+                                         face = "bold", hjust = title_hjust, color = axis_title_color),
       legend.position = ifelse(show_legend, "right", "none"),
       legend.byrow = byrow,
       legend.text = ggplot2::element_text(size = legend_text_size),
       legend.title = ggplot2::element_text(size = legend_title_size, face = "bold"),
-      panel.grid.major = ggplot2::element_line(color = ifelse(show_grid, "grey90", "white")),
-      panel.grid.minor = ggplot2::element_line(color = ifelse(show_grid, "grey95", "white")),
+      panel.grid.major = ggplot2::element_line(color = ifelse(show_grid, grid_color, "white"), linewidth = grid_linewidth),
+      panel.grid.minor = ggplot2::element_line(color = ifelse(show_grid, grid_minor_color, "white")),
       panel.background = ggplot2::element_rect(fill = "white", color = NA),
       plot.background = ggplot2::element_rect(fill = "white", color = NA),
       panel.border = ggplot2::element_blank(),
@@ -596,7 +642,8 @@ if (is.null(label_sep)) {
       data = summary_data,
       ggplot2::aes(x = log_inhibitor, y = mean_response),
       color = point_color,
-      size = point_size * 2,
+      size = point_size * point_size_scale,
+      shape = point_shape,
       alpha = point_alpha
     )
   
@@ -624,7 +671,8 @@ if (is.null(label_sep)) {
         ),
         width = error_bar_width * 10,
         color = point_color,
-        linewidth = error_linewidth
+        linewidth = error_linewidth,
+        alpha = error_alpha
       )
   }
   
@@ -646,9 +694,10 @@ if (is.null(label_sep)) {
     p <- p +
       ggplot2::geom_vline(
         xintercept = log_ic50,
-        linetype = "dashed",
+        linetype = ic50_linetype,
         color = ic50_line_color,
-        linewidth = 0.8
+        linewidth = ic50_linewidth,
+        alpha = ic50_line_alpha
       )
   }
   
@@ -669,8 +718,8 @@ if (is.null(label_sep)) {
           label = legend_content[i],
           hjust = 0,  # Left alignment
           vjust = 0,
-          size = axis_text_size * 0.3,
-          color = "black"
+          size = axis_text_size * legend_annotation_scale,
+          color = axis_text_color
         )
     }
   }

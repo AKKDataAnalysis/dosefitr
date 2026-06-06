@@ -54,6 +54,20 @@ plot_multiple_compounds(
   aspect_ratio = NULL,
   byrow = FALSE,
   label_sep = NULL,
+  ic50_linetype = "dashed",
+  ic50_linewidth = 0.5,
+  ic50_line_alpha = 0.8,
+  error_alpha = 0.6,
+  point_shape = 16,
+  grid_color = "grey90",
+  grid_minor_color = "grey95",
+  grid_linewidth = 0.5,
+  axis_expand = c(0, 0),
+  legend_key_fill = "white",
+  legend_bg_fill = "white",
+  title_hjust = 0.5,
+  legend_key_linewidth = 0.8,
+  legend_lineheight = 0.8,
   plot_margin = NULL,
   plate = NULL
 )
@@ -209,6 +223,50 @@ The data separator (used for parsing compound names) is always read from
 the attribute and is never overridden by this argument. This separation
 ensures that changing the display separator does not break title or legend
 logic, which was a bug in the previous single-separator design.}
+
+\item{ic50_linetype}{Character or integer. Line type for the IC50 vertical
+reference lines (default: \code{"dashed"}). See \code{?par} for valid values.}
+
+\item{ic50_linewidth}{Numeric. Line width of the IC50 vertical reference lines
+(default: 0.5).}
+
+\item{ic50_line_alpha}{Numeric between 0 and 1. Opacity of the IC50 vertical
+reference lines (default: 0.8).}
+
+\item{error_alpha}{Numeric between 0 and 1. Opacity of the error bars
+(default: 0.6).}
+
+\item{point_shape}{Integer or character. Default shape of data points when
+shape mapping is not active (default: 16, filled circle). See \code{?points}
+for valid values. Ignored when \code{point_shapes} is provided.}
+
+\item{grid_color}{Character string. Colour of the major grid lines when
+\code{show_grid = TRUE} (default: \code{"grey90"}).}
+
+\item{grid_minor_color}{Character string. Colour of the minor grid lines when
+\code{show_grid = TRUE} (default: \code{"grey95"}).}
+
+\item{grid_linewidth}{Numeric. Line width of the major grid lines
+(default: 0.5).}
+
+\item{axis_expand}{Numeric vector of length 2. Expansion constants for the
+continuous axis scales, passed to \code{scale_*_continuous(expand = )}.
+Default \code{c(0, 0)} removes all padding between data and axis edge.}
+
+\item{legend_key_fill}{Character string. Fill colour of the legend key
+backgrounds (default: \code{"white"}).}
+
+\item{legend_bg_fill}{Character string. Fill colour of the legend background
+(default: \code{"white"}).}
+
+\item{title_hjust}{Numeric. Horizontal justification of the plot title
+(default: 0.5, centred). Use 0 for left-aligned, 1 for right-aligned.}
+
+\item{legend_key_linewidth}{Numeric. Line width of the fitted curve shown
+in legend keys via \code{guide_legend(override.aes)} (default: 0.8).}
+
+\item{legend_lineheight}{Numeric. Line height multiplier for legend text
+(default: 0.8). Controls spacing between wrapped lines.}
 
 \item{plot_margin}{Margin or NULL. Plot margin applied via
 \code{theme(plot.margin = )}. Accepts a \code{ggplot2::margin()} object.
