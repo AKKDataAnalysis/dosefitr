@@ -28,6 +28,11 @@
 #'
 #' @param height Plot height in inches.  Default:
 #'   \code{ceiling(n_compounds / ncol) * 3.0 + 0.6}.
+#' @param label_sep Character separator used in display labels between
+#'   construct and compound names.  Defaults to \code{":"}.  Change to
+#'   e.g. \code{"/"} to show \code{"EPHA1/KK135"} instead of
+#'   \code{"EPHA1:KK135"} in plot titles and legends.  The internal data
+#'   always uses \code{":"}; this parameter only affects display.
 #'
 #' @return Invisibly returns the combined \pkg{patchwork} ggplot object.
 #'   Each panel shows:
@@ -72,7 +77,8 @@ plot_outliers_curves <- function(rout_output,
                                  ncol          = 4L,
                                  file   = NULL,
                                  width  = NULL,
-                                 height = NULL) {
+                                 height = NULL,
+                                 label_sep     = ":") {
   
   subplot_title <- match.arg(subplot_title, c("full", "compound", "construct"))
   
@@ -80,7 +86,7 @@ plot_outliers_curves <- function(rout_output,
   .make_subplot_label <- function(compound_string) {
     parts <- strsplit(compound_string, ":", fixed = TRUE)[[1L]]
     switch(subplot_title,
-           full      = compound_string,
+           full      = gsub(":", label_sep, compound_string, fixed = TRUE),
            compound  = if (length(parts) >= 2L) parts[[2L]] else compound_string,
            construct = if (length(parts) >= 2L) parts[[1L]] else compound_string
     )

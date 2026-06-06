@@ -43,6 +43,7 @@ compare_plates_drc(
   axis_line_color = "black",
   show_border = FALSE,
   transparent_background = FALSE,
+  label_sep = ":",
   verbose = TRUE
 )
 }
@@ -171,6 +172,12 @@ panel.  Default: \code{FALSE}.}
 \item{transparent_background}{Logical.  If \code{TRUE}, the plot and panel
 backgrounds are set to transparent.  Passed directly to
 \code{\link[=plot_multiple_compounds]{plot_multiple_compounds()}}.  Default: \code{FALSE}.}
+
+\item{label_sep}{Character separator used in display labels between
+construct and compound names.  Defaults to \code{":"}.  Change to
+e.g. \code{"/"} to show \code{"EPHA1/KK135"} instead of
+\code{"EPHA1:KK135"} in plot titles and legends.  The internal data
+always uses \code{":"}; this parameter only affects display.}
 
 \item{verbose}{Logical.  Print progress messages.  Default: \code{TRUE}.}
 }

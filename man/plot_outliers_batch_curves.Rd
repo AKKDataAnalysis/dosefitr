@@ -14,7 +14,8 @@ plot_outliers_batch_curves(
   dpi = 150,
   verbose = TRUE,
   panel_spacing = 0.5,
-  subplot_title = "auto"
+  subplot_title = "auto",
+  label_sep = ":"
 )
 }
 \arguments{
@@ -59,6 +60,12 @@ each compound sub-plot. One of \code{"auto"} (default), \code{"full"}
 or \code{"construct"} (e.g. \code{"KinaseA"}). \code{"auto"} shows only
 the compound name when all compounds share one construct, only the construct
 name when all share one compound, and the full string otherwise.}
+
+\item{label_sep}{Character separator used in display labels between
+construct and compound names.  Defaults to \code{":"}.  Change to
+e.g. \code{"/"} to show \code{"EPHA1/KK135"} instead of
+\code{"EPHA1:KK135"} in plot titles and legends.  The internal data
+always uses \code{":"}; this parameter only affects display.}
 }
 \value{
 Invisibly returns a character vector of the PNG file paths

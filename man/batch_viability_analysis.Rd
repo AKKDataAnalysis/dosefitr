@@ -17,8 +17,7 @@ batch_viability_analysis(
   output_dir = NULL,
   generate_reports = TRUE,
   selected_columns = NULL,
-  verbose = TRUE,
-  label_sep = ":"
+  verbose = TRUE
 )
 }
 \arguments{
@@ -70,11 +69,6 @@ are used.}
 
 \item{verbose}{Logical. If TRUE, prints progress messages and processing details.
 Useful for debugging and tracking batch execution. Default is TRUE.}
-
-\item{label_sep}{Single character used to separate the construct name from
-the compound name in column labels (e.g. \code{"EPHA1:KK135"}).
-Defaults to \code{":"}.  Change to e.g. \code{"/"} if your construct
-or compound names contain colons.}
 }
 \value{
 A named list where each element corresponds to a processed plate.

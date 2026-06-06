@@ -14,8 +14,7 @@ ratio_dose_response(
   verbose = TRUE,
   low_value_threshold = 1000,
   selected_columns = NULL,
-  plate_format = NULL,
-  label_sep = ":"
+  plate_format = NULL
 )
 }
 \arguments{
@@ -53,11 +52,6 @@ A-H) or \code{"384"} (rows A-P).  \code{NULL} (default) auto-detects from
 the number of column-header integers found.  Use this only when
 auto-detection fails, e.g. a 384-well plate read with only 12 columns
 selected (half-plate experiment).}
-
-\item{label_sep}{Single character used to separate the construct name from
-the compound name in column labels (e.g. \code{"EPHA1:KK135"}).
-Defaults to \code{":"}.  Must match the separator used when the data
-were originally processed.}
 }
 \value{
 A list containing the following components:

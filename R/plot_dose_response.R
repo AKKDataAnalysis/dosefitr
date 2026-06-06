@@ -23,30 +23,13 @@
 #' @param plot_width Plot width in inches for saved plots (default: 10).
 #' @param plot_height Plot height in inches for saved plots (default: 10).
 #' @param plot_dpi Resolution for saved raster images (default: 600).
-#' @param axis_label_size Font size for axis labels (default: 24).
-#' @param axis_text_size Font size for axis numbers (default: 22).
+#' @param axis_label_size Font size for axis labels (default: 20).
+#' @param axis_text_size Font size for axis numbers (default: 18).
 #' @param x_axis_title Custom x-axis title. If NULL, uses default expression.
 #' @param y_axis_title Custom y-axis title. If NULL, uses default based on normalization.
 #' @param enforce_bottom_threshold Logical indicating whether bottom threshold enforcement
 #'   was used in analysis (default: NULL, auto-detected from results).
 #' @param bottom_threshold Numeric value for bottom threshold (default: 60).
-#' @param axis_line_width Numeric. Line width of the manually drawn x/y axis
-#'   lines (default: 1).
-#' @param axis_vjust Numeric or NULL. Vertical justification (\code{vjust}) of
-#'   the axis titles. 
-#' @param tick_length Numeric or NULL. Axis tick length in centimetres.
-#' @param error_linewidth Numeric. Line width of the error bars (default: 0.8).
-#' @param point_alpha Numeric between 0 and 1. Opacity of the data points
-#'   (default: 1, fully opaque).
-#' @param legend_spacing Numeric or NULL. Spacing (in points) between legend
-#'   items, applied via \code{legend.spacing}. \code{NULL} (default) leaves the
-#'   theme default unchanged. (No visible effect here, as the parameter legend is
-#'   drawn as text annotations rather than a ggplot2 guide.)
-#' @param aspect_ratio Numeric or NULL. Panel aspect ratio (\code{aspect.ratio}
-#'   in \code{theme()}). \code{NULL} (default) leaves it unset.
-#' @param byrow Logical. Whether legend keys are filled by row (\code{TRUE}) or by
-#'   column (\code{FALSE}, default). Accepted for interface consistency; has no
-#'   effect here, as this function has no colour/shape legend guide.
 #' @param verbose Logical indicating whether to show verbose messages (default: FALSE).
 #' @param plot_title Controls the plot title. \code{FALSE} (default) = no title;
 #'   \code{TRUE} = automatic title (construct + compound name);
@@ -194,14 +177,10 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
                                show_ic50_line = TRUE, show_legend = FALSE,
                                show_grid = FALSE, save_plot = NULL,
                                plot_width = 10, plot_height = 10, plot_dpi = 600,
-                               axis_label_size = 24, axis_text_size = 22,
+                               axis_label_size = 20, axis_text_size = 18,
                                x_axis_title = NULL, y_axis_title = NULL,
                                plot_title = TRUE,
                                enforce_bottom_threshold = NULL, bottom_threshold = 60,
-                               axis_line_width = 1, axis_vjust = NULL,
-                               tick_length = 0.3, error_linewidth = 0.8,
-                               point_alpha = 1, legend_spacing = NULL,
-                               aspect_ratio = NULL, byrow = FALSE,
                                verbose = FALSE) {
   
   # Check if required packages are installed
@@ -429,8 +408,7 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
       clip = "on") +
     ggplot2::theme_minimal() +
     ggplot2::theme(
-      axis.title = ggplot2::element_text(size = axis_label_size, face = "bold", color = "black",
-                                         vjust = axis_vjust),
+      axis.title = ggplot2::element_text(size = axis_label_size, face = "bold", color = "black"),
       axis.text = ggplot2::element_text(size = axis_text_size, color = "black"),
       axis.line = ggplot2::element_blank(),
       axis.ticks = ggplot2::element_line(color = "black"),
@@ -443,18 +421,6 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
       panel.border = ggplot2::element_blank(),
       plot.margin = ggplot2::margin(t = 12, r = 8, b = 8, l = 8, unit = "pt")
     )
-
-  # Optional theme tweaks (only applied when explicitly set, so defaults leave
-  # the appearance unchanged).
-  if (!is.null(tick_length)) {
-    p <- p + ggplot2::theme(axis.ticks.length = ggplot2::unit(tick_length, "cm"))
-  }
-  if (!is.null(aspect_ratio)) {
-    p <- p + ggplot2::theme(aspect.ratio = aspect_ratio)
-  }
-  if (!is.null(legend_spacing)) {
-    p <- p + ggplot2::theme(legend.spacing = ggplot2::unit(legend_spacing, "pt"))
-  }
   
   # Draw axis lines manually so they stop exactly at the data limits.
   # ggplot2's axis.line element always spans the full panel edge regardless of
@@ -483,7 +449,7 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
     ggplot2::geom_segment(
       data = axis_segs,
       ggplot2::aes(x = .data$x, xend = .data$xend, y = .data$y, yend = .data$yend),
-      colour = "black", linewidth = axis_line_width,
+      colour = "black", linewidth = 0.8,
       inherit.aes = FALSE)
   
   # Add experimental data points
@@ -492,8 +458,7 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
       data = summary_data,
       ggplot2::aes(x = log_inhibitor, y = mean_response),
       color = point_color,
-      size = point_size * 2,
-      alpha = point_alpha
+      size = point_size * 2
     )
   
   # Add error bars for replicates
@@ -504,27 +469,17 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
   
   if (any(valid_mask)) {
     valid_data <- summary_data[valid_mask, ]
-    # Clip error-bar whiskers to the y-axis limits so they never extend past
-    # (and visually cross) the drawn x-axis baseline. y_seg_limits holds the
-    # resolved lower/upper bounds (explicit y_limits, or the auto-derived range
-    # used for the manual axis segment above). Whiskers that would fall below
-    # y_seg_limits[1] are cut off exactly at the baseline; symmetric clamp at
-    # the top guards the rare point sitting above the upper limit.
-    y_lo_clip <- y_seg_limits[1]
-    y_hi_clip <- y_seg_limits[2]
-    valid_data$ymin_clipped <- pmax(valid_data$mean_response - valid_data$sd_response, y_lo_clip)
-    valid_data$ymax_clipped <- pmin(valid_data$mean_response + valid_data$sd_response, y_hi_clip)
     p <- p +
       ggplot2::geom_errorbar(
         data = valid_data,
         ggplot2::aes(
           x = log_inhibitor,
-          ymin = ymin_clipped,
-          ymax = ymax_clipped
+          ymin = mean_response - sd_response,
+          ymax = mean_response + sd_response
         ),
         width = error_bar_width * 10,
         color = point_color,
-        linewidth = error_linewidth
+        linewidth = 0.8
       )
   }
   

@@ -243,9 +243,6 @@ scarab_table <- function(results_list, drc_results_list,
                          file_name = NULL,
                          decimal_separator = ".") {
 
-  # Read label_sep from the results_list attribute
-  .sep <- attr(results_list, "label_sep") %||% ":"
-
   # Validate decimal separator
   if(!decimal_separator %in% c(".", ",")) {
     stop("decimal_separator must be either '.' or ','")
@@ -380,7 +377,7 @@ scarab_table <- function(results_list, drc_results_list,
   compound_cols <- names(modified_table)[!names(modified_table) %in% c("log(inhibitor).[M]", "NA:NA", "NA:NA.2", "NA_2:NA", "NA_2:NA.2")]
 
   # Extract kinase name from each column (everything before ":")
-  kinase_names <- sapply(strsplit(compound_cols, .sep, fixed = TRUE), function(x) x[1])
+  kinase_names <- sapply(strsplit(compound_cols, ":"), function(x) x[1])
 
   # Create unique column names (removing .2 duplicates)
   col_names <- character(length(compound_cols))
@@ -473,7 +470,7 @@ scarab_table <- function(results_list, drc_results_list,
     col_data[2] <- current_orientation
 
     # Row 3: Compound name (without kinase prefix)
-    compound_name <- gsub(paste0("^", kinase, .sep), "", compound)
+    compound_name <- gsub(paste0("^", kinase, ":"), "", compound)
     col_data[3] <- compound_name
 
     # Row 4: Experiment Type
@@ -600,7 +597,7 @@ scarab_table <- function(results_list, drc_results_list,
     col_data[74] <- eln_id
     col_data[75] <- comments
 
-    # Row 76: Is EUbScarab Ready? — resolved per-compound (same three-way logic)
+    # Row 76: Is EUbScarab Ready? - resolved per-compound (same three-way logic)
     # Accepts a single value, a named vector keyed by compound name, or an
     # unnamed vector applied in compound order.
     eubscarab_val <- if (length(eubscarab_ready) == 1 && is.null(names(eubscarab_ready))) {
@@ -669,7 +666,7 @@ scarab_table <- function(results_list, drc_results_list,
       }
     }
 
-    # ── Build transposed version ──────────────────────────────────────────────
+    # -- Build transposed version ------------------------------------------
     # Rows become columns: compound names as the first row (header),
     # Field names as the first column of each subsequent row.
     # The transposed table has one row per original column (compound) and
@@ -690,12 +687,12 @@ scarab_table <- function(results_list, drc_results_list,
     kinase_row   <- unname(unlist(table[1, data_cols]))
     compound_row <- unname(unlist(table[3, data_cols]))
     transposed   <- cbind(
-      Compound = paste(kinase_row, compound_row, sep = .sep),
+      Compound = paste(kinase_row, compound_row, sep = ":"),
       transposed,
       stringsAsFactors = FALSE
     )
 
-    # ── Write workbook with two sheets ───────────────────────────────────────
+    # -- Write workbook with two sheets ---------------------------------------
     wb <- openxlsx::createWorkbook()
 
     # Sheet 1: original layout (fields as rows, compounds as columns)

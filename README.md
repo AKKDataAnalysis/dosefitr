@@ -328,24 +328,24 @@ results <- batch_ratio_analysis(
 
 Both versions produce the same output structure and feed identically into all downstream functions (`rout_outliers_batch()`, `batch_drc_analysis()`, etc.).
 
-#### `label_sep`: configurable construct/compound separator
+#### `label_sep`: display separator in plots
 
-By default, construct and compound names are joined with `":"` (e.g. `EPHA1:KK135`). If your construct or compound names already contain colons, choose a different separator:
+By default, construct and compound names are shown joined with `":"` in plot titles and legends (e.g. `EPHA1:KK135`). To display them with a different separator, pass `label_sep` to any plotting function:
 
 ```r
-results <- batch_ratio_analysis(
-  control_0perc   = 24,
-  control_100perc = 12,
-  label_sep       = "/"   # columns will be named e.g. "EPHA1/KK135"
-)
+# Show "EPHA1/KK135" instead of "EPHA1:KK135" in legends and titles
+plot_multiple_compounds(drc_results, label_sep = "/")
+batch_save_all_drc_plots(drc_results, label_sep = "/")
+compare_plates_drc(drc_results, label_sep = "/")
+plot_outliers_batch_curves(results_clean, label_sep = "/")
 ```
 
-The separator is stored as an attribute on the returned list and propagated automatically through the entire pipeline — `rout_outliers_batch()`, `batch_drc_analysis()`, `plot_multiple_compounds()`, `scarab_table()`, etc. You only need to set it once. The same parameter is available in `batch_viability_analysis()`.
+The internal data always uses `":"` — this parameter only affects how labels appear in plots. No data processing or column names are changed.
 
-| Value | Column label example | When to use |
+| `label_sep` value | Legend shows | When to use |
 |---|---|---|
-| `":"` (default) | `EPHA1:KK135` | Standard — use unless names contain colons |
-| `"/"` | `EPHA1/KK135` | Construct or compound names contain `:` |
+| `":"` (default) | `EPHA1:KK135` | Standard |
+| `"/"` | `EPHA1/KK135` | Personal preference or journal style |
 | `"\|"` | `EPHA1\|KK135` | Either name contains `/` |
 
 ---

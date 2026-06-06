@@ -17,8 +17,7 @@ batch_ratio_analysis(
   function_version = "v1",
   verbose = TRUE,
   selected_columns = NULL,
-  plate_format = NULL,
-  label_sep = ":"
+  plate_format = NULL
 )
 }
 \arguments{
@@ -72,11 +71,6 @@ pass to the ratio function (\code{NULL} uses all 24 columns).}
 A-H) or \code{"384"} (rows A-P).  \code{NULL} (default) auto-detects from
 the number of column-header integers.  Use this only when auto-detection
 fails, e.g. a 384-well plate read with only 12 columns selected.}
-
-\item{label_sep}{Single character used to separate the construct name from
-the compound name in column labels (e.g. \code{"EPHA1:KK135"}).
-Defaults to \code{":"}.  Change to e.g. \code{"/"} if your construct
-or compound names contain colons.}
 }
 \value{
 A named list with one element per successfully processed plate.
