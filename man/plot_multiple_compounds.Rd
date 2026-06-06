@@ -54,6 +54,7 @@ plot_multiple_compounds(
   aspect_ratio = NULL,
   byrow = FALSE,
   label_sep = NULL,
+  plot_margin = NULL,
   plate = NULL
 )
 }
@@ -208,6 +209,11 @@ The data separator (used for parsing compound names) is always read from
 the attribute and is never overridden by this argument. This separation
 ensures that changing the display separator does not break title or legend
 logic, which was a bug in the previous single-separator design.}
+
+\item{plot_margin}{Margin or NULL. Plot margin applied via
+\code{theme(plot.margin = )}. Accepts a \code{ggplot2::margin()} object.
+\code{NULL} (default) uses the built-in margin
+(t = 12, r = 8, b = 8, l = 8 pt).}
 
 \item{plate}{Character. Plate name to plot. When \code{results} is the
 output of \code{batch_drc_analysis()}, the function detects this

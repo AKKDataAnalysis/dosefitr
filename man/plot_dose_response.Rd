@@ -29,6 +29,22 @@ plot_dose_response(
   enforce_bottom_threshold = NULL,
   bottom_threshold = 60,
   label_sep = NULL,
+  axis_line_width = 0.8,
+  axis_vjust = NULL,
+  tick_length = NULL,
+  error_linewidth = 0.8,
+  point_alpha = 1,
+  legend_spacing = NULL,
+  aspect_ratio = NULL,
+  byrow = FALSE,
+  axis_line_color = "black",
+  transparent_background = FALSE,
+  panel_border = FALSE,
+  plot_title_size = NULL,
+  legend_text_size = NULL,
+  legend_title_size = NULL,
+  curve_alpha = 1,
+  plot_margin = NULL,
   verbose = FALSE
 )
 }
@@ -93,6 +109,59 @@ data separator used for parsing compound names is always read from the
 attribute and is never changed. For example, \code{label_sep = "/"} renders
 \code{"EPHA1/KK135"} in the title while the data still stores
 \code{"EPHA1:KK135"} internally.}
+
+\item{axis_line_width}{Numeric. Line width of the manually drawn x/y axis
+lines (default: 0.8).}
+
+\item{axis_vjust}{Numeric or NULL. Vertical justification (\code{vjust}) of
+the axis titles. \code{NULL} (default) leaves the ggplot2 default unchanged.}
+
+\item{tick_length}{Numeric or NULL. Axis tick length in centimetres.
+\code{NULL} (default) preserves the \code{theme_minimal()} default.}
+
+\item{error_linewidth}{Numeric. Line width of the error bars (default: 0.8).}
+
+\item{point_alpha}{Numeric between 0 and 1. Opacity of the data points
+(default: 1, fully opaque). Does not affect error-bar opacity.}
+
+\item{legend_spacing}{Numeric or NULL. Spacing (in points) between legend
+items, applied via \code{legend.spacing}. \code{NULL} (default) leaves the
+theme default unchanged.}
+
+\item{aspect_ratio}{Numeric or NULL. Panel aspect ratio
+(\code{aspect.ratio} in \code{theme()}). \code{NULL} (default) leaves it unset.}
+
+\item{byrow}{Logical. Whether legend keys are filled by row (\code{TRUE}) or
+by column (\code{FALSE}, default). Applied via \code{theme(legend.byrow=)}
+(the modern ggplot2 mechanism; the old \code{guide_legend(byrow=)} argument
+was removed in ggplot2 4.0).}
+
+\item{axis_line_color}{Character string. Colour of the axis lines and tick
+marks (default: \code{"black"}).}
+
+\item{transparent_background}{Logical. If \code{TRUE}, the plot and panel
+backgrounds are set to fully transparent (\code{element_rect(fill = NA)})
+instead of white. Default: \code{FALSE}.}
+
+\item{panel_border}{Logical. If \code{TRUE}, draws a full rectangular border
+around the plot panel (using \code{axis_line_color}). Default: \code{FALSE}.}
+
+\item{plot_title_size}{Numeric or NULL. Font size for the plot title.
+\code{NULL} (default) uses \code{axis_label_size + 2}.}
+
+\item{legend_text_size}{Numeric or NULL. Font size for legend text.
+\code{NULL} (default) leaves the ggplot2 default unchanged.}
+
+\item{legend_title_size}{Numeric or NULL. Font size for the legend title.
+\code{NULL} (default) leaves the ggplot2 default unchanged.}
+
+\item{curve_alpha}{Numeric between 0 and 1. Opacity of the fitted
+dose-response curve (default: 1, fully opaque).}
+
+\item{plot_margin}{Margin or NULL. Plot margin applied via
+\code{theme(plot.margin = )}. Accepts a \code{ggplot2::margin()} object.
+\code{NULL} (default) uses the built-in margin
+(t = 12, r = 8, b = 8, l = 8 pt).}
 
 \item{verbose}{Logical indicating whether to show verbose messages (default: FALSE).}
 }

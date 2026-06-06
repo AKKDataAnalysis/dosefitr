@@ -108,6 +108,10 @@
 #'   the attribute and is never overridden by this argument. This separation
 #'   ensures that changing the display separator does not break title or legend
 #'   logic, which was a bug in the previous single-separator design.
+#' @param plot_margin Margin or NULL. Plot margin applied via
+#'   \code{theme(plot.margin = )}. Accepts a \code{ggplot2::margin()} object.
+#'   \code{NULL} (default) uses the built-in margin
+#'   (t = 12, r = 8, b = 8, l = 8 pt).
 #' @param plate Character. Plate name to plot. When \code{results} is the
 #'   output of \code{batch_drc_analysis()}, the function detects this
 #'   automatically and extracts the correct \code{drc_result}. If
@@ -363,6 +367,7 @@ plot_multiple_compounds <- function(results,
                                     aspect_ratio = NULL,
                                     byrow = FALSE,
                                     label_sep = NULL,
+                                    plot_margin = NULL,
                                     plate = NULL) {
 
 
@@ -1797,6 +1802,9 @@ plot_multiple_compounds <- function(results,
   }
   if (!is.null(legend_spacing)) {
     p <- p + ggplot2::theme(legend.spacing = ggplot2::unit(legend_spacing, "pt"))
+  }
+  if (!is.null(plot_margin)) {
+    p <- p + ggplot2::theme(plot.margin = plot_margin)
   }
 
   # Draw axis lines manually so they stop exactly at the data limits.
