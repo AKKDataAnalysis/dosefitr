@@ -55,7 +55,6 @@ plot_multiple_compounds(
   byrow = FALSE,
   label_sep = NULL,
   legend_width = NULL,
-  legend_extract = FALSE,
   ic50_linetype = "dashed",
   ic50_linewidth = 0.5,
   ic50_line_alpha = 0.8,
@@ -236,16 +235,6 @@ the current legend width without padding (useful for determining the
 target width across a set of plots). Only affects right- and
 left-positioned legends. \code{NULL} (default) disables padding.}
 
-\item{legend_extract}{Logical. If \code{TRUE}, instead of returning a single
-ggplot object, returns a named list with \code{$plot} (the plot without
-legend), \code{$legend} (a gtable grob of the legend), and
-\code{$legend_width_cm} (the measured legend width in cm).
-Combine with \pkg{patchwork} like:
-\code{wrap_elements(result\$legend) + result\$plot + result\$plot2 +
-  plot_layout(widths = c(1, 3, 3))}.
-Use alongside \code{legend_width} to guarantee all panels are identically
-sized — essential for multi-panel publication figures.  Default: \code{FALSE}.}
-
 \item{ic50_linetype}{Character or integer. Line type for the IC50 vertical
 reference lines (default: \code{"dashed"}). See \code{?par} for valid values.}
 
@@ -305,10 +294,8 @@ specific plate. Has no effect when \code{results} is already a plain
 \code{drc_result} object.}
 }
 \value{
-By default, a ggplot2 object with the generated plot, containing metadata attributes.
-If \code{legend_extract = TRUE}, returns a named list with \code{$plot}
-(ggplot without legend), \code{$legend} (a gtable grob of the legend), and
-\code{$legend_width_cm} (the measured legend width in cm).
+A ggplot2 object with the generated plot, containing metadata attributes.
+Metadata includes \code{legend_width_cm} (measured legend width in cm).
 \item{selected_compounds}{Character vector of selected compound names}
 \item{smart_legend_names}{Automatically generated legend labels}
 \item{n_compounds}{Number of compounds plotted}

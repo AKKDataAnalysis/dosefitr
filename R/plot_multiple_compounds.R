@@ -89,15 +89,6 @@
 #'   the current legend width without padding (useful for determining the
 #'   target width across a set of plots). Only affects right- and
 #'   left-positioned legends. \code{NULL} (default) disables padding.
-#' @param legend_extract Logical. If \code{TRUE}, instead of returning a single
-#'   ggplot object, returns a named list with \code{$plot} (the plot without
-#'   legend), \code{$legend} (a gtable grob of the legend), and
-#'   \code{$legend_width_cm} (the measured legend width in cm).
-#'   Combine with \pkg{patchwork} like:
-#'   \code{wrap_elements(result\$legend) + result\$plot + result\$plot2 +
-#'   plot_layout(widths = c(1, 3, 3))}.
-#'   Use alongside \code{legend_width} to guarantee all panels are identically
-#'   sized — essential for multi-panel publication figures.  Default: \code{FALSE}.
 #' @param legend_title Title for the legend (displayed above symbols).
 #' @param verbose Logical; if TRUE (default), prints informative messages about processing
 #'   steps, compound matches, and color assignments.
@@ -173,10 +164,8 @@
 #'@importFrom ggplot2 aes
 #'
 #'
-#' @return By default, a ggplot2 object with the generated plot, containing metadata attributes.
-#'   If \code{legend_extract = TRUE}, returns a named list with \code{$plot}
-#'   (ggplot without legend), \code{$legend} (a gtable grob of the legend), and
-#'   \code{$legend_width_cm} (the measured legend width in cm).
+#' @return A ggplot2 object with the generated plot, containing metadata attributes.
+#'   Metadata includes \code{legend_width_cm} (measured legend width in cm).
 #'   \item{selected_compounds}{Character vector of selected compound names}
 #'   \item{smart_legend_names}{Automatically generated legend labels}
 #'   \item{n_compounds}{Number of compounds plotted}
@@ -419,7 +408,6 @@ plot_multiple_compounds <- function(results,
                                     byrow = FALSE,
                                     label_sep = NULL,
                                     legend_width = NULL,
-                                    legend_extract = FALSE,
                                     ic50_linetype = "dashed",
                                     ic50_linewidth = 0.5,
                                     ic50_line_alpha = 0.8,
@@ -2013,28 +2001,6 @@ plot_multiple_compounds <- function(results,
 
   if (verbose && !is.null(color_palette)) {
     message("\nTip: To see all available palettes, run: names(attr(p, 'metadata')$available_palettes)")
-  }
-
-  # Extract legend as a standalone grob for patchwork/cowplot layouts where
-  # all panels must be identically sized.  The legend grob can be combined
-  # with patchwork::wrap_elements().
-  if (isTRUE(legend_extract)) {
-    built_grob <- ggplot2::ggplotGrob(p)
-    legend_idx <- which(sapply(built_grob$grobs, function(g) {
-      !is.null(g$name) && grepl("guide-box", g$name)
-    }))
-    if (length(legend_idx) > 0L) {
-      legend_grob <- built_grob$grobs[[legend_idx[1L]]]
-    } else {
-      legend_grob <- NULL
-    }
-    p_no_legend <- p + ggplot2::theme(legend.position = "none")
-    attr(p_no_legend, "metadata") <- metadata
-    return(list(
-      plot            = p_no_legend,
-      legend          = legend_grob,
-      legend_width_cm = legend_width_cm
-    ))
   }
 
   return(p)
