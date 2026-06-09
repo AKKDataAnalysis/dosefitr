@@ -7,6 +7,8 @@
 #' @param results List object returned by \code{\link{fit_drc_3pl}} containing
 #'   dose-response analysis results.
 #' @param compound_index Numeric index specifying which compound to plot (default: 1).
+#' @param x_limits Numeric vector of length 2 specifying the x-axis limits
+#'   in log10 molar units.  \code{NULL} (default) uses the data range.
 #' @param y_limits Numeric vector of length 2 specifying y-axis limits (default: c(0, 150)).
 #' @param point_color Color for data points (default: "black").
 #' @param line_color Color for fitted curve (default: "black").
@@ -248,6 +250,7 @@
 
 
 plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150),
+                               x_limits = NULL,
                                point_color = "black", line_color = "black",
                                ic50_line_color = "gray", point_size = 2,
                                line_width = 2, error_bar_width = 0.01,
@@ -557,6 +560,7 @@ if (is.null(label_sep)) {
     ggplot2::scale_y_continuous(expand = axis_expand) +
     ggplot2::scale_x_continuous(expand = axis_expand) +
     ggplot2::coord_cartesian(
+      xlim = if (!is.null(x_limits) && length(x_limits) == 2L) x_limits else NULL,
       ylim = if (!is.null(y_limits) && length(y_limits) == 2L) y_limits else NULL,
       clip = "on") +
     ggplot2::theme_minimal() +
@@ -565,7 +569,7 @@ if (is.null(label_sep)) {
                                            color = axis_title_color, vjust = axis_vjust),
       axis.text = ggplot2::element_text(size = axis_text_size, color = axis_text_color),
       axis.line = ggplot2::element_blank(),
-      axis.ticks = ggplot2::element_line(color = axis_line_color),
+      axis.ticks = ggplot2::element_line(color = axis_line_color, linewidth = axis_line_width),
       plot.title = ggplot2::element_text(size = if (!is.null(plot_title_size)) plot_title_size else axis_label_size + 2,
                                          face = "bold", hjust = title_hjust, color = axis_title_color),
       legend.position = ifelse(show_legend, "right", "none"),
@@ -589,7 +593,7 @@ if (is.null(label_sep)) {
     p <- p + ggplot2::theme(aspect.ratio = aspect_ratio)
   }
   if (!is.null(legend_spacing)) {
-    p <- p + ggplot2::theme(legend.spacing = ggplot2::unit(legend_spacing, "pt"))
+    p <- p + ggplot2::theme(legend.key.spacing.y = ggplot2::unit(legend_spacing, "pt"))
   }
   if (!is.null(plot_margin)) {
     p <- p + ggplot2::theme(plot.margin = plot_margin)

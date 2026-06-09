@@ -8,6 +8,7 @@ plot_dose_response(
   results,
   compound_index = 1,
   y_limits = c(0, 150),
+  x_limits = NULL,
   point_color = "black",
   line_color = "black",
   ic50_line_color = "gray",
@@ -69,6 +70,9 @@ dose-response analysis results.}
 \item{compound_index}{Numeric index specifying which compound to plot (default: 1).}
 
 \item{y_limits}{Numeric vector of length 2 specifying y-axis limits (default: c(0, 150)).}
+
+\item{x_limits}{Numeric vector of length 2 specifying the x-axis limits
+in log10 molar units.  \code{NULL} (default) uses the data range.}
 
 \item{point_color}{Color for data points (default: "black").}
 

@@ -348,6 +348,40 @@ The internal data always uses `":"` — this parameter only affects how labels a
 | `"/"` | `EPHA1/KK135` | Personal preference or journal style |
 | `"\|"` | `EPHA1\|KK135` | Either name contains `/` |
 
+#### `legend_label_width` and `legend_extract`: consistent legend widths
+
+When generating multiple plots (e.g. one per compound group), legend widths can vary because shorter labels produce narrower legends. This breaks alignment in multi-panel figures. Two parameters in `plot_multiple_compounds()` address this:
+
+**`legend_label_width`** — pad all legend labels to a fixed character width. Shorter labels are right-padded with spaces so every label occupies the same width. Long labels are never truncated; the effective width is `max(legend_label_width, max(nchar(labels)))`.
+
+```r
+# Ensure all legend labels are at least 20 characters wide
+plot_multiple_compounds(drc_results, legend_label_width = 20)
+```
+
+**`legend_extract`** — return the legend as a separate grid grob instead of embedding it in the plot. This guarantees all panels are identically sized, which is essential for publication figures. Combine with **patchwork**:
+
+```r
+result <- plot_multiple_compounds(drc_results, legend_extract = TRUE)
+
+# result is a list:
+#   $plot   — ggplot without legend
+#   $legend — gtable grob of the shared legend
+
+library(patchwork)
+wrap_elements(result$legend) + result$plot + other_plot +
+  plot_layout(widths = c(1, 3, 3))
+```
+
+Both options can be combined for maximum control:
+
+```r
+result <- plot_multiple_compounds(drc_results,
+  legend_label_width = 20,
+  legend_extract     = TRUE
+)
+```
+
 ---
 
 ### Step 2 -- Remove outliers (optional)
@@ -920,6 +954,28 @@ Saves one PNG per compound across all plates into `output_dir`. When `save_panel
 | `y_axis_title` | `NULL` | Y-axis label. `NULL` auto-detects `"Cell Viability (%)"` for viability assays and `"Normalized BRET ratio [%]"` for NanoBRET. |
 | `y_limits` | `NULL` | Y-axis limits as `c(min, max)`. `NULL` auto-scales each plot independently. |
 | `show_ic50_line` | `FALSE` | Draw a vertical dashed line at the fitted IC50. |
+
+---
+
+### Plot a single compound
+
+```r
+# Plot compound 3 from the first plate
+plot_dose_response(drc_results, compound_index = 3)
+
+# Customise appearance
+plot_dose_response(drc_results,
+  compound_index  = 3,
+  y_limits        = c(0, 100),
+  x_limits        = c(-9, -5),     # log10 molar; NULL auto-scales
+  show_legend     = TRUE,          # show IC50/R2 as in-plot text
+  show_ic50_line  = TRUE,
+  label_sep       = "/",           # display separator in title
+  save_plot       = TRUE
+)
+```
+
+`plot_dose_response()` plots one compound at a time. It uses in-plot text annotations (not a colour legend) for IC50 and R2 values, so `legend_label_width` and `legend_extract` do not apply here — use `plot_multiple_compounds()` for multi-compound overlays with a shared legend.
 
 ---
 
