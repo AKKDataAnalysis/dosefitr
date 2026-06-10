@@ -44,6 +44,7 @@ compare_plates_drc(
   show_border = FALSE,
   transparent_background = FALSE,
   label_sep = ":",
+  legend_width = NULL,
   verbose = TRUE
 )
 }
@@ -178,6 +179,15 @@ construct and compound names.  Defaults to \code{":"}.  Change to
 e.g. \code{"/"} to show \code{"EPHA1/KK135"} instead of
 \code{"EPHA1:KK135"} in plot titles and legends.  The internal data
 always uses \code{":"}; this parameter only affects display.}
+
+\item{legend_width}{Numeric, \code{"auto"}, or \code{NULL}.  Target width
+(in cm) for the legend column in each comparison plot.  When specified,
+the legend is padded via \code{legend.box.margin} so that the data panel
+is identically sized across all comparison plots, regardless of plate-name
+length.  \code{"auto"} performs a two-pass approach: first measures all
+legend widths, then re-renders every plot padded to the maximum.  Only
+affects right- and left-positioned legends.  \code{NULL} (default)
+disables padding.}
 
 \item{verbose}{Logical.  Print progress messages.  Default: \code{TRUE}.}
 }

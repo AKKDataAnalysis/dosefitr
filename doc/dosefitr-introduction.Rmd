@@ -202,7 +202,7 @@ labels appear in plots. It is available in `plot_multiple_compounds()`,
 
 When generating multiple plots, legend widths can vary because shorter
 labels produce narrower legends. The `legend_width` parameter in
-`plot_multiple_compounds()` measures the rendered legend width in cm
+`plot_multiple_compounds()` and `compare_plates_drc()` measures the rendered legend width in cm
 and pads it to a target width via `legend.box.margin`, guaranteeing
 the data panel is identically sized across plots.
 
@@ -395,8 +395,21 @@ compare_plates_drc(
   show_ic50_lines        = FALSE,
   axis_line_color        = "black",
   show_border            = FALSE,
-  transparent_background = FALSE
+  transparent_background = FALSE,
+  # Consistent legend widths across comparison plots
+  legend_width           = NULL          # NULL = no padding; "auto" = two-pass measure + pad
 )
+```
+
+**Consistent legend widths across plate comparison plots:**
+
+When comparing plates, each plot's legend shows plate names. If plate names
+have different lengths, the data panels will differ in width. Use
+`legend_width = "auto"` to automatically measure all legends and pad to the
+maximum — `compare_plates_drc()` handles the two-pass rendering internally:
+
+```{r compare-legend-width, eval=FALSE}
+compare_plates_drc(drc_results, legend_width = "auto")
 ```
 
 ### Step 5: Export results

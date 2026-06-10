@@ -159,8 +159,13 @@ knitr::opts_chunk$set(
 #   show_ic50_lines        = FALSE,
 #   axis_line_color        = "black",
 #   show_border            = FALSE,
-#   transparent_background = FALSE
+#   transparent_background = FALSE,
+#   # Consistent legend widths across comparison plots
+#   legend_width           = NULL          # NULL = no padding; "auto" = two-pass measure + pad
 # )
+
+## ----compare-legend-width, eval=FALSE-----------------------------------------
+# compare_plates_drc(drc_results, legend_width = "auto")
 
 ## ----nanobret-step5-scarab----------------------------------------------------
 # scarab_table(

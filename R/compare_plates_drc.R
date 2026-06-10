@@ -107,6 +107,14 @@
 #'   e.g. \code{"/"} to show \code{"EPHA1/KK135"} instead of
 #'   \code{"EPHA1:KK135"} in plot titles and legends.  The internal data
 #'   always uses \code{":"}; this parameter only affects display.
+#' @param legend_width Numeric, \code{"auto"}, or \code{NULL}.  Target width
+#'   (in cm) for the legend column in each comparison plot.  When specified,
+#'   the legend is padded via \code{legend.box.margin} so that the data panel
+#'   is identically sized across all comparison plots, regardless of plate-name
+#'   length.  \code{"auto"} performs a two-pass approach: first measures all
+#'   legend widths, then re-renders every plot padded to the maximum.  Only
+#'   affects right- and left-positioned legends.  \code{NULL} (default)
+#'   disables padding.
 #' @param verbose Logical.  Print progress messages.  Default: `TRUE`.
 #'
 #' @return Invisibly returns a named list with one entry per entity plotted.
@@ -183,6 +191,7 @@ compare_plates_drc <- function(batch_drc_result,
                                show_border            = FALSE,
                                transparent_background = FALSE,
                                label_sep              = ":",
+                               legend_width           = NULL,
                                verbose                = TRUE) {
   
   # ============================================================================
@@ -380,36 +389,32 @@ compare_plates_drc <- function(batch_drc_result,
   }
   
   # ============================================================================
+  # ============================================================================
   # 6. PLOT LOOP
   # ============================================================================
-  
-  output_list <- list()
-  total <- length(entity_map)
-  
+  #
+  # legend_width handling:
+  #   NULL       -> single pass, no padding (default)
+  #   numeric    -> single pass, pad each legend to this width
+  #   "auto"     -> two-pass: first measure all legend widths, then re-render
+  #                every plot padded to the maximum measured width
+
+  # -- Pre-compute per-entity metadata (title, filename, y-axis title) ----------
+  entity_meta <- list()
   for (ei in seq_along(entity_map)) {
     entity_name <- names(entity_map)[ei]
     entries     <- entity_map[[entity_name]]
-    
-    # Parse the group key back into construct + compound parts
+
     key_parts        <- strsplit(entity_name, ":", fixed = TRUE)[[1]]
     entity_construct <- key_parts[1]
     entity_compound  <- if (length(key_parts) > 1)
       paste(key_parts[-1], collapse = ":") else key_parts[1]
-    
+
     plates_present <- unique(sapply(entries, `[[`, "plate_name"))
     n_pl           <- length(plates_present)
-    
-    if (verbose)
-      message(sprintf("\n[%d/%d] '%s - %s'  (%d plate%s: %s)",
-                      ei, total, entity_construct, entity_compound,
-                      n_pl, if (n_pl == 1) "" else "s",
-                      paste(plates_present, collapse = ", ")))
-    
-    # Build the synthetic result object
+
     synthetic <- build_synthetic_result(entries)
-    
-    # Auto y-axis title: use assay_type + normalize from batch metadata when
-    # available; fall back to normalization-only heuristic otherwise.
+
     y_title_final <- if (!is.null(y_axis_title)) {
       y_axis_title
     } else {
@@ -423,87 +428,166 @@ compare_plates_drc <- function(batch_drc_result,
         if (normalized) "Normalised BRET ratio [%]" else "BRET ratio"
       }
     }
-    
-    # Plot title: compound name when compare_by = "compound", construct otherwise
+
     plot_title_str <- if (compare_by == "compound") entity_compound else entity_construct
-    
-    # Filename: "Construct__Compound.png" (always encodes both to avoid collisions)
+
     fname <- file.path(
       output_dir,
       paste0(safe_filename(entity_construct), "__",
              safe_filename(entity_compound), ".png")
     )
-    
-    # Call plot_multiple_compounds - suppress its print() so we control output
-    p <- tryCatch({
-      suppressMessages(
-        plot_multiple_compounds(
-          results         = synthetic,
-          plot_title      = plot_title_str,
-          y_axis_title    = y_title_final,
-          y_limits        = y_limits,
-          color_palette   = color_palette,
-          show_error_bars = show_error_bars,
-          show_grid       = show_grid,
-          legend_position = legend_position,
-          legend_title      = legend_title,
-          legend_text_size  = legend_text_size,
-          legend_title_size = legend_title_size,
-          legend_ncol       = legend_ncol,
-          legend_label_wrap = legend_label_wrap,
-          show_legend       = show_legend,
-          axis_title_size   = axis_title_size,
-          axis_title_color  = axis_title_color,
-          axis_text_size    = axis_text_size,
-          axis_text_color   = axis_text_color,
-          colors            = colors,
-          point_size        = point_size,
-          point_shapes      = point_shapes,
-          error_bar_width   = error_bar_width,
-          x_limits               = x_limits,
-          x_limits_scale         = x_limits_scale,
-          x_axis_title           = x_axis_title,
-          curve_linewidth        = curve_linewidth,
-          curve_alpha            = curve_alpha,
-          show_ic50_lines        = show_ic50_lines,
-          plot_title_size        = plot_title_size,
-          axis_line_color        = axis_line_color,
-          show_border            = show_border,
-          transparent_background = transparent_background,
-          save_plot              = fname,
-          plot_width             = plot_width,
-          plot_height            = plot_height,
-          plot_dpi               = plot_dpi,
-          label_sep              = label_sep,
-          verbose                = FALSE
-        )
+
+    entity_meta[[entity_name]] <- list(
+      construct     = entity_construct,
+      compound      = entity_compound,
+      plates        = plates_present,
+      n_plates      = n_pl,
+      synthetic     = synthetic,
+      y_title       = y_title_final,
+      plot_title    = plot_title_str,
+      fname         = fname
+    )
+  }
+
+  total <- length(entity_map)
+
+  # -- Helper: call plot_multiple_compounds for one entity ----------------------
+  # capture.output() swallows the print(p) call inside plot_multiple_compounds()
+  # while still allowing the ggplot return value to be captured via side-effect.
+  plot_one_entity <- function(entity_name, lw, save_file) {
+    meta      <- entity_meta[[entity_name]]
+    synthetic <- meta$synthetic
+    p         <- NULL
+
+    tryCatch({
+      capture.output(
+        { p <- suppressMessages(
+            plot_multiple_compounds(
+              results         = synthetic,
+              plot_title      = meta$plot_title,
+              y_axis_title    = meta$y_title,
+              y_limits        = y_limits,
+              color_palette   = color_palette,
+              show_error_bars = show_error_bars,
+              show_grid       = show_grid,
+              legend_position = legend_position,
+              legend_title      = legend_title,
+              legend_text_size  = legend_text_size,
+              legend_title_size = legend_title_size,
+              legend_ncol       = legend_ncol,
+              legend_label_wrap = legend_label_wrap,
+              show_legend       = show_legend,
+              axis_title_size   = axis_title_size,
+              axis_title_color  = axis_title_color,
+              axis_text_size    = axis_text_size,
+              axis_text_color   = axis_text_color,
+              colors            = colors,
+              point_size        = point_size,
+              point_shapes      = point_shapes,
+              error_bar_width   = error_bar_width,
+              x_limits               = x_limits,
+              x_limits_scale         = x_limits_scale,
+              x_axis_title           = x_axis_title,
+              curve_linewidth        = curve_linewidth,
+              curve_alpha            = curve_alpha,
+              show_ic50_lines        = show_ic50_lines,
+              plot_title_size        = plot_title_size,
+              axis_line_color        = axis_line_color,
+              show_border            = show_border,
+              transparent_background = transparent_background,
+              save_plot              = save_file,
+              plot_width             = plot_width,
+              plot_height            = plot_height,
+              plot_dpi               = plot_dpi,
+              label_sep              = label_sep,
+              legend_width           = lw,
+              verbose                = FALSE
+            )
+          )
+        },
+        type = "output"
       )
     }, error = function(e) {
       warning(sprintf("Failed to plot '%s': %s", entity_name, e$message))
-      NULL
     })
-    
+    p
+  }
+
+  # ============================================================================
+  # 6a. PASS 1: measure legend widths (only when legend_width = "auto")
+  # ============================================================================
+  max_legend_cm <- 0
+
+  if (is.character(legend_width) && legend_width == "auto") {
+    if (verbose) message("\nMeasuring legend widths (pass 1 of 2)...")
+    for (ei in seq_along(entity_map)) {
+      entity_name <- names(entity_map)[ei]
+      meta        <- entity_meta[[entity_name]]
+
+      if (verbose)
+        message(sprintf("  [%d/%d] Measuring '%s - %s'",
+                        ei, total, meta$construct, meta$compound))
+
+      p <- plot_one_entity(entity_name, lw = "auto", save_file = NULL)
+      if (!is.null(p)) {
+        w <- attr(p, "metadata")$legend_width_cm
+        if (!is.null(w) && w > max_legend_cm) max_legend_cm <- w
+      }
+    }
+    if (verbose)
+      message(sprintf("  Maximum legend width: %.3f cm", max_legend_cm))
+  }
+
+  # ============================================================================
+  # 6b. PASS 2: render and save all plots
+  # ============================================================================
+  output_list <- list()
+
+  # Determine the effective legend_width for pass 2
+  effective_lw <- if (is.character(legend_width) && legend_width == "auto") {
+    if (max_legend_cm > 0) max_legend_cm else NULL
+  } else {
+    legend_width   # NULL or numeric — pass through unchanged
+  }
+
+  if (is.character(legend_width) && legend_width == "auto" && verbose)
+    message("\nRendering plots with legend_width = ", 
+            if (is.null(effective_lw)) "NULL" else sprintf("%.3f cm", effective_lw),
+            " (pass 2 of 2)...")
+
+  for (ei in seq_along(entity_map)) {
+    entity_name <- names(entity_map)[ei]
+    meta        <- entity_meta[[entity_name]]
+
+    if (verbose)
+      message(sprintf("\n[%d/%d] '%s - %s'  (%d plate%s: %s)",
+                      ei, total, meta$construct, meta$compound,
+                      meta$n_plates, if (meta$n_plates == 1) "" else "s",
+                      paste(meta$plates, collapse = ", ")))
+
+    p <- plot_one_entity(entity_name, lw = effective_lw, save_file = meta$fname)
+
     if (!is.null(p)) {
-      if (verbose) message("  Saved: ", fname)
+      if (verbose) message("  Saved: ", meta$fname)
       output_list[[entity_name]] <- list(
         entity    = entity_name,
-        construct = entity_construct,
-        compound  = entity_compound,
-        plates    = plates_present,
-        n_plates  = n_pl,
+        construct = meta$construct,
+        compound  = meta$compound,
+        plates    = meta$plates,
+        n_plates  = meta$n_plates,
         plot      = p,
-        file      = fname
+        file      = meta$fname
       )
     }
   }
-  
+
   # ============================================================================
   # 7. SUMMARY
   # ============================================================================
-  
+
   n_ok   <- length(output_list)
   n_fail <- total - n_ok
-  
+
   if (verbose) {
     message("\n", paste(rep("=", 55), collapse = ""))
     message(sprintf("PLATE COMPARISON COMPLETE - %d plot%s saved to: %s",
@@ -514,6 +598,7 @@ compare_plates_drc <- function(batch_drc_result,
                       n_fail, if (n_fail == 1) "" else "s"))
     message(paste(rep("=", 55), collapse = ""))
   }
-  
+
   invisible(output_list)
+
 }

@@ -350,7 +350,7 @@ The internal data always uses `":"` — this parameter only affects how labels a
 
 #### `legend_width`: consistent legend widths across plots
 
-When generating multiple plots (e.g. one per compound group), legend widths can vary because shorter labels produce narrower legends. This breaks alignment in multi-panel figures. The `legend_width` parameter in `plot_multiple_compounds()` addresses this by measuring the rendered legend width in cm and padding it to a target width via `legend.box.margin`, guaranteeing the data panel is identically sized across plots.
+When generating multiple plots (e.g. one per compound group), legend widths can vary because shorter labels produce narrower legends. This breaks alignment in multi-panel figures. The `legend_width` parameter in `plot_multiple_compounds()` and `compare_plates_drc()` addresses this by measuring the rendered legend width in cm and padding it to a target width via `legend.box.margin`, guaranteeing the data panel is identically sized across plots.
 
 **Numeric target** — pad the legend column to exactly this width (in cm):
 
@@ -1124,9 +1124,25 @@ compare_plates_drc(
   axis_line_color        = "black",
   show_border            = FALSE,
   # Background
-  transparent_background = FALSE
+  transparent_background = FALSE,
+  # Legend width alignment
+  legend_width           = NULL          # NULL = no padding; 4 = pad to 4 cm; "auto" = two-pass measure + pad
 )
 ```
+
+**Consistent legend widths across plate comparison plots:**
+
+When comparing plates, each plot's legend shows plate names (e.g. "plate_01", "plate_02"). If plate names have different lengths, the data panels will differ in width. Use `legend_width` to fix this:
+
+```r
+# Pad all comparison plot legends to 4 cm
+compare_plates_drc(drc_results, legend_width = 4)
+
+# "auto" mode: automatically measures all legends and pads to the maximum
+compare_plates_drc(drc_results, legend_width = "auto")
+```
+
+With `legend_width = "auto"`, `compare_plates_drc()` runs a two-pass approach: first it measures every legend's width, then it re-renders all plots padded to the maximum. This guarantees all panels are identically sized without manual measurement.
 
 ---
 
