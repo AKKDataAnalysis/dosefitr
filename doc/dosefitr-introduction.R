@@ -38,11 +38,20 @@ knitr::opts_chunk$set(
 # )
 
 ## ----nanobret-step1-sep, eval=FALSE-------------------------------------------
-# results <- batch_ratio_analysis(
-#   control_0perc   = 24,
-#   control_100perc = 12,
-#   label_sep       = "/"   # columns will be named e.g. "EPHA1/KK135"
-# )
+# # Show "EPHA1/KK135" instead of "EPHA1:KK135" in legends and titles
+# plot_multiple_compounds(drc_results, label_sep = "/")
+
+## ----legend-width, eval=FALSE-------------------------------------------------
+# plot_multiple_compounds(drc_results, legend_width = 4)
+
+## ----legend-width-auto, eval=FALSE--------------------------------------------
+# p1 <- plot_multiple_compounds(drc_results, compound_indices = 1:5,
+#                               legend_width = "auto")
+# max_w <- attr(p1, "metadata")$legend_width_cm
+# 
+# # Then pad all plots to the maximum width
+# plot_multiple_compounds(drc_results, compound_indices = 1:5,
+#                         legend_width = max_w)
 
 ## ----nanobret-step2-----------------------------------------------------------
 # results_clean <- rout_outliers_batch(
@@ -441,6 +450,7 @@ knitr::opts_chunk$set(
 #   results        = fit,
 #   compound_index = 1,
 #   y_limits       = c(0, 120),
+#   x_limits       = c(-9, -5),     # log10 molar; NULL auto-scales
 #   show_ic50_line = TRUE,
 #   save_plot      = "compound1_curve.png"
 # )

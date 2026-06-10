@@ -182,23 +182,51 @@ results <- batch_ratio_analysis(
 )
 ```
 
-**Configuring the construct/compound separator (`label_sep`):**
+**Display separator in plots (`label_sep`):**
 
-By default, construct and compound names are joined with `":"` (e.g.
-`EPHA1:KK135`). If your names already contain colons, choose a different
-separator with `label_sep`:
+By default, construct and compound names are shown joined with `":"` in
+plot titles and legends (e.g. `EPHA1:KK135`). To display them with a
+different separator, pass `label_sep` to any plotting function:
 
 ```{r nanobret-step1-sep, eval=FALSE}
-results <- batch_ratio_analysis(
-  control_0perc   = 24,
-  control_100perc = 12,
-  label_sep       = "/"   # columns will be named e.g. "EPHA1/KK135"
-)
+# Show "EPHA1/KK135" instead of "EPHA1:KK135" in legends and titles
+plot_multiple_compounds(drc_results, label_sep = "/")
 ```
 
-The separator is stored as an attribute and propagated automatically through
-the entire pipeline — you only need to set it once. The same parameter is
-available in `batch_viability_analysis()`.
+The internal data always uses `":"` — this parameter only affects how
+labels appear in plots. It is available in `plot_multiple_compounds()`,
+`batch_save_all_drc_plots()`, `compare_plates_drc()`, and
+`plot_outliers_batch_curves()`.
+
+**Consistent legend widths (`legend_width`):**
+
+When generating multiple plots, legend widths can vary because shorter
+labels produce narrower legends. The `legend_width` parameter in
+`plot_multiple_compounds()` measures the rendered legend width in cm
+and pads it to a target width via `legend.box.margin`, guaranteeing
+the data panel is identically sized across plots.
+
+- **Numeric target** pads the legend column to exactly this width (cm):
+
+```{r legend-width, eval=FALSE}
+plot_multiple_compounds(drc_results, legend_width = 4)
+```
+
+- **`"auto"` mode** measures and returns the current width without padding.
+  Useful for determining the maximum across a set of plots:
+
+```{r legend-width-auto, eval=FALSE}
+p1 <- plot_multiple_compounds(drc_results, compound_indices = 1:5,
+                              legend_width = "auto")
+max_w <- attr(p1, "metadata")$legend_width_cm
+
+# Then pad all plots to the maximum width
+plot_multiple_compounds(drc_results, compound_indices = 1:5,
+                        legend_width = max_w)
+```
+
+Only right- and left-positioned legends are affected. The measured width
+is stored in `attr(p, "metadata")$legend_width_cm`.
 
 ### Step 2: Remove outliers (optional)
 
@@ -760,6 +788,7 @@ plot_dose_response(
   results        = fit,
   compound_index = 1,
   y_limits       = c(0, 120),
+  x_limits       = c(-9, -5),     # log10 molar; NULL auto-scales
   show_ic50_line = TRUE,
   save_plot      = "compound1_curve.png"
 )
@@ -780,7 +809,9 @@ plot_dose_response(
 | `plot_outliers_batch_curves()` | Visualise outlier-flagged curves (batch) |
 | `batch_drc_analysis()` | Fit 3PL or 4PL dose-response curves across all plates |
 | `batch_save_all_drc_plots()` | Save one plot per compound across all plates |
+| `plot_all_dose_responses()` | Save individual dose-response plots from a single-plate result |
 | `plot_multiple_compounds()` | Overlay selected compounds on one plot |
+| `plot_drc_batch()` | Overlay compounds across plates with faceting support |
 | `compare_plates_drc()` | Compare the same compound across plates |
 | `scarab_table()` | Generate Scarab-format export table (NanoBRET) |
 | `scarab_viability()` | Generate Scarab-format export table (cell viability) |
@@ -797,3 +828,10 @@ plot_dose_response(
 | `plot_dose_response()` | Plot a single dose-response curve |
 | `rout_outliers()` | ROUT outlier detection for a single plate |
 | `plot_outliers_curves()` | Visualise outlier-flagged curves for a single plate |
+
+### Utility functions
+
+| Function | Description |
+|---|---|
+| `reshape_dr_table()` | Reshape dose-response results to standardised publication format |
+| `save_multiple_sheets()` | Export multiple data frames to a formatted Excel file |

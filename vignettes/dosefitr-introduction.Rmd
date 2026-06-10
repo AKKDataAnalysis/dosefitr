@@ -198,32 +198,35 @@ labels appear in plots. It is available in `plot_multiple_compounds()`,
 `batch_save_all_drc_plots()`, `compare_plates_drc()`, and
 `plot_outliers_batch_curves()`.
 
-**Consistent legend widths (`legend_label_width` and `legend_extract`):**
+**Consistent legend widths (`legend_width`):**
 
 When generating multiple plots, legend widths can vary because shorter
-labels produce narrower legends. Two parameters in
-`plot_multiple_compounds()` address this:
+labels produce narrower legends. The `legend_width` parameter in
+`plot_multiple_compounds()` measures the rendered legend width in cm
+and pads it to a target width via `legend.box.margin`, guaranteeing
+the data panel is identically sized across plots.
 
-- **`legend_label_width`** pads all legend labels to a fixed character
-  width (shorter labels are right-padded with spaces; long labels are
-  never truncated).
+- **Numeric target** pads the legend column to exactly this width (cm):
 
-```{r legend-padding, eval=FALSE}
-plot_multiple_compounds(drc_results, legend_label_width = 20)
+```{r legend-width, eval=FALSE}
+plot_multiple_compounds(drc_results, legend_width = 4)
 ```
 
-- **`legend_extract`** returns the legend as a separate grid grob,
-  guaranteeing all panels are identically sized. Combine with
-  **patchwork**:
+- **`"auto"` mode** measures and returns the current width without padding.
+  Useful for determining the maximum across a set of plots:
 
-```{r legend-extract, eval=FALSE}
-result <- plot_multiple_compounds(drc_results, legend_extract = TRUE)
-# result$list contains $plot (no legend) and $legend (gtable grob)
+```{r legend-width-auto, eval=FALSE}
+p1 <- plot_multiple_compounds(drc_results, compound_indices = 1:5,
+                              legend_width = "auto")
+max_w <- attr(p1, "metadata")$legend_width_cm
 
-library(patchwork)
-wrap_elements(result$legend) + result$plot + other_plot +
-  plot_layout(widths = c(1, 3, 3))
+# Then pad all plots to the maximum width
+plot_multiple_compounds(drc_results, compound_indices = 1:5,
+                        legend_width = max_w)
 ```
+
+Only right- and left-positioned legends are affected. The measured width
+is stored in `attr(p, "metadata")$legend_width_cm`.
 
 ### Step 2: Remove outliers (optional)
 
@@ -806,7 +809,9 @@ plot_dose_response(
 | `plot_outliers_batch_curves()` | Visualise outlier-flagged curves (batch) |
 | `batch_drc_analysis()` | Fit 3PL or 4PL dose-response curves across all plates |
 | `batch_save_all_drc_plots()` | Save one plot per compound across all plates |
+| `plot_all_dose_responses()` | Save individual dose-response plots from a single-plate result |
 | `plot_multiple_compounds()` | Overlay selected compounds on one plot |
+| `plot_drc_batch()` | Overlay compounds across plates with faceting support |
 | `compare_plates_drc()` | Compare the same compound across plates |
 | `scarab_table()` | Generate Scarab-format export table (NanoBRET) |
 | `scarab_viability()` | Generate Scarab-format export table (cell viability) |
@@ -823,3 +828,10 @@ plot_dose_response(
 | `plot_dose_response()` | Plot a single dose-response curve |
 | `rout_outliers()` | ROUT outlier detection for a single plate |
 | `plot_outliers_curves()` | Visualise outlier-flagged curves for a single plate |
+
+### Utility functions
+
+| Function | Description |
+|---|---|
+| `reshape_dr_table()` | Reshape dose-response results to standardised publication format |
+| `save_multiple_sheets()` | Export multiple data frames to a formatted Excel file |
