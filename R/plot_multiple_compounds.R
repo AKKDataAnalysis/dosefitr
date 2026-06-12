@@ -612,32 +612,34 @@ plot_multiple_compounds <- function(results,
   }
 
   smart_label_wrap <- function(labels, width = legend_label_wrap) {
+    # Wrap a single word that contains hyphens/underscores by splitting on them.
+    # Used as a fallback for individual words that are still too long after
+    # space-based wrapping. Returns the word unchanged if no good split exists.
+    wrap_hyphenated_word <- function(word, w) {
+      if (nchar(word) <= w) return(word)
+      if (!grepl("[-_]", word)) return(word)
+      parts <- strsplit(word, "[-_]")[[1]]
+      if (length(parts) < 2) return(word)
+      current_length <- 0
+      break_points <- numeric(0)
+      for (j in seq_along(parts)) {
+        current_length <- current_length + nchar(parts[j]) + 1
+        if (current_length <= w + 1) break_points <- c(break_points, j)
+      }
+      if (length(break_points) > 0 && max(break_points) < length(parts)) {
+        bp <- max(break_points)
+        line1 <- paste(parts[1:bp], collapse = "-")
+        line2 <- paste(parts[(bp + 1):length(parts)], collapse = "-")
+        return(paste(line1, line2, sep = "\n"))
+      }
+      word
+    }
+
     sapply(labels, function(label) {
       if (is.na(label) || nchar(label) <= width) return(label)
 
-      if (grepl("[-_]", label)) {
-        parts <- strsplit(label, "[-_]")[[1]]
-        if (length(parts) > 1) {
-          current_length <- 0
-          break_points <- numeric(0)
-          for (j in seq_along(parts)) {
-            current_length <- current_length + nchar(parts[j]) + 1
-            if (current_length <= width + 1) {
-              break_points <- c(break_points, j)
-            }
-          }
-
-          if (length(break_points) > 0) {
-            break_point <- max(break_points)
-            if (break_point < length(parts)) {
-              line1 <- paste(parts[1:break_point], collapse = "-")
-              line2 <- paste(parts[(break_point + 1):length(parts)], collapse = "-")
-              return(paste(line1, line2, sep = "\n"))
-            }
-          }
-        }
-      }
-
+      # Strategy 1: space-based wrapping (handles "PF-05236216 HYDROCHLORIDE"
+      # correctly by treating "PF-05236216" as one token).
       words <- strsplit(label, " ")[[1]]
       if (length(words) > 1) {
         lines <- character(0)
@@ -664,6 +666,13 @@ plot_multiple_compounds <- function(results,
         }
       }
 
+      # Strategy 2: no spaces — try hyphen/underscore split within the single token.
+      if (grepl("[-_]", label)) {
+        result <- wrap_hyphenated_word(label, width)
+        if (result != label) return(result)
+      }
+
+      # Strategy 3: hard break at midpoint (last resort for long single tokens).
       if (nchar(label) > width) {
         break_point <- ceiling(nchar(label) / 2)
         part1 <- substr(label, 1, break_point)

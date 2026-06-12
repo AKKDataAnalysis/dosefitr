@@ -285,14 +285,7 @@ rout_outliers <- function(data,
   # Column name for the log-concentration output column  --  reflects actual log base used
   conc_col_name <- if (log_base == "log10") "log10_conc" else "ln_conc"
   
-  if (verbose) {
-    model_desc <- if (n_param == 4L) "4PL (Hill free, sign-constrained)" else "3PL (Hill fixed)"
-    cat(sprintf("Control rows     : %s (excluded from outlier detection)\n",
-                if (length(ctrl_rows) > 0) paste(ctrl_rows, collapse = ", ") else "none"))
-    cat(sprintf("Dose rows used   : %d\n", length(dose_rows)))
-    cat(sprintf("Default model    : %s\n", model_desc))
-    cat(sprintf("ROUT Q           : %.3f\n\n", Q))
-  }
+  # Per-plate header removed (verbose now shows only compound-level messages)
   
   value_cols <- setdiff(seq_len(ncol(data)), conc_col)
   col_names  <- colnames(data)[value_cols]
@@ -634,55 +627,7 @@ rout_outliers <- function(data,
   results$.col_idx <- NULL
   
   # ---- Verbose summary ----
-  if (verbose) {
-    # Convergence summary  --  distinguish three outcomes:
-    #   (1) Converged on first try        --  no message (expected, silent)
-    #   (2) Converged after retry         --  already reported per-compound above
-    #   (3) Did not converge after retry  --  reported here as a batch warning
-    if (nrow(results) > 0L) {
-      non_conv <- unique(results$compound[!results$converged])
-      if (length(non_conv) > 0L) {
-        retry_attempted <- ntry_retry > 0L
-        message(sprintf(
-          "Warning: optimizer did not converge%s for: %s\n  Outlier calls for these compounds may be unreliable.",
-          if (retry_attempted) " (even after retry)" else "",
-          paste(non_conv, collapse = ", ")))
-      }
-    }
-    
-    if (nrow(skipped_table) > 0L) {
-      cat("Skipped compounds:\n")
-      print(skipped_table, row.names = FALSE)
-      cat("\n")
-    }
-    
-    if (nrow(cleared_systematic) > 0L) {
-      cat("Systematic-residual filter (possible model misfit  --  flags cleared):\n")
-      print(cleared_systematic[, c("compound", "n_flags_cleared", "residual_sign", "reason")],
-            row.names = FALSE)
-      cat("\n")
-    }
-    
-    n_out   <- nrow(outlier_table)
-    n_total <- nrow(results)
-    cat(sprintf("Total dose points assessed : %d\n", n_total))
-    cat(sprintf("Control rows excluded      : %d (never tested)\n", length(ctrl_rows)))
-    pct_str <- if (n_total > 0L) sprintf("%.1f%%", 100 * n_out / n_total) else "N/A"
-    cat(sprintf("Outliers (FDR Q=%.3f)      : %d (%s)\n", Q, n_out, pct_str))
-    
-    if (nrow(cleared_systematic) > 0L)
-      cat(sprintf("Systematic flags cleared   : %d (see $cleared_systematic)\n",
-                  sum(cleared_systematic$n_flags_cleared)))
-    
-    if (n_out > 0L) {
-      cat("\nFlagged outliers:\n")
-      print(outlier_table[, c("compound", "column", conc_col_name, "bret_ratio",
-                              "fitted", "std_residual", "dynamic_range_pct")],
-            row.names = FALSE, digits = 3)
-    } else {
-      cat("No outliers detected.\n")
-    }
-  }
+  # (Per-plate verbose output removed; compound-level messages are still printed above)
   
   return(invisible(list(results            = results,
                         cleaned_table      = cleaned_table,

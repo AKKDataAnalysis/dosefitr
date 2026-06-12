@@ -324,15 +324,9 @@ rout_outliers_batch <- function(batch_results,
   
   if (verbose) {
     cat(strrep("=", 60), "\n")
-    cat("NANOBRET BATCH ROUT OUTLIER DETECTION\n")
+    cat("BATCH ROUT OUTLIER DETECTION\n")
     cat(strrep("=", 60), "\n")
-    cat(sprintf("Plates           : %d\n", length(plate_names)))
-    cat(sprintf("ROUT Q           : %.3f\n", Q))
-    cat(sprintf("Model            : %s\n",
-                if (n_param == 4L) "4PL (Hill free)" else "3PL (Hill fixed)"))
-    cat(sprintf("Direction        : %s\n", direction))
-    cat(sprintf("ntry_retry       : %d\n", ntry_retry))
-    cat(sprintf("keep_cytotoxic   : %s\n\n", keep_cytotoxic))
+    cat("\n")
   }
   
   # --------------------------------------------------------------------------
@@ -347,7 +341,7 @@ rout_outliers_batch <- function(batch_results,
     
     plate <- batch_results[[plate_name]]
     
-    if (verbose) cat(sprintf("--- %s ---\n", plate_name))
+    # Per-plate separator removed (verbose now shows only compound-level messages)
     
     # BUG_2 fix: clear any stale _original table from a previous run so that
     # re-running on the same output object does not carry forward stale data.
@@ -494,11 +488,7 @@ rout_outliers_batch <- function(batch_results,
       rescued_rows_plate <- rescue_out$rescued_rows
       
       if (nrow(rescued_rows_plate) > 0L) {
-        if (verbose)
-          message(sprintf(
-            "  keep_cytotoxic: rescued %d point(s) for: %s",
-            nrow(rescued_rows_plate),
-            paste(unique(rescued_rows_plate$compound), collapse = ", ")))
+        # keep_cytotoxic rescue message removed (verbose now shows only compound-level messages)
         
         # Update the outliers_replaced attribute to reflect the rescue
         or_attr_updated <- attr(cleaned_mrt, "outliers_replaced")
@@ -567,18 +557,7 @@ rout_outliers_batch <- function(batch_results,
       skipped_list[[paste0(plate_name, "__rout")]] <- .prepend_plate(rout_out$skipped_table, plate_name)
     }
     
-    if (verbose) {
-      n_out     <- nrow(plate_outlier_tbl)
-      n_rescued <- nrow(rescued_rows_plate)
-      n_skip    <- nrow(rout_out$skipped_table)
-      if (keep_cytotoxic && n_rescued > 0L) {
-        cat(sprintf("  -> %d outlier(s) detected, %d rescued (cytotoxic), %d compound(s) skipped\n\n",
-                    n_out + n_rescued, n_rescued, n_skip))
-      } else {
-        cat(sprintf("  -> %d outlier(s) detected, %d compound(s) skipped\n\n",
-                    n_out, n_skip))
-      }
-    }
+    # Per-plate result line removed (verbose now shows only compound-level messages)
   }
   
   # --------------------------------------------------------------------------
@@ -632,25 +611,7 @@ rout_outliers_batch <- function(batch_results,
       cat(sprintf("Total rescued    : %d (cytotoxic, kept)\n", nrow(rescued_summary)))
     cat(sprintf("Total skipped    : %d compound(s)\n\n", nrow(skipped_summary)))
     
-    if (nrow(outlier_summary) > 0L) {
-      cat("Outlier summary:\n")
-      show_cols <- intersect(
-        c("plate", "compound", "log10_conc", "bret_ratio", "std_residual"),
-        names(outlier_summary))
-      print(outlier_summary[, show_cols, drop = FALSE],
-            row.names = FALSE, digits = 3)
-      cat("\n")
-    }
-    
-    if (keep_cytotoxic && nrow(rescued_summary) > 0L) {
-      cat("Rescued (cytotoxic) summary:\n")
-      show_cols_r <- intersect(
-        c("plate", "compound", "log10_conc", "bret_ratio", "rescue_reason"),
-        names(rescued_summary))
-      print(rescued_summary[, show_cols_r, drop = FALSE],
-            row.names = FALSE, digits = 3)
-      cat("\n")
-    }
+    # Outlier and rescued summary tables removed (verbose now shows only compound-level messages)
   }
   
   # --------------------------------------------------------------------------
