@@ -215,6 +215,7 @@ batch_drc_analysis <- function(batch_results,
     all_results_list <- list()
     quality_list <- list()
     pharm_list <- list()
+    pharm_ci_list <- list()
     
     used_sheet_names <- c("Summary", "All_Results", "Curve_Quality")
     
@@ -529,10 +530,64 @@ batch_drc_analysis <- function(batch_results,
             `IC50 (nM)` = ic50_nM_final,
             pIC50 = pic50_final,
             check.names = FALSE,
-            CI_95_Upper = round(pic50_diff_upper, 3),
-            CI_95_Lower = round(pic50_diff_lower, 3),
-            Ideal_Hill_Slope = round(ideal_hill, 3),
-            Normalized_Span = round(span_ratio, 3),
+            CI_95_Upper = as.character(round(pic50_diff_upper, 3)),
+            CI_95_Lower = as.character(round(pic50_diff_lower, 3)),
+            Ideal_Hill_Slope = as.character(round(ideal_hill, 3)),
+            Normalized_Span = as.character(round(span_ratio, 3)),
+            Outliers_Removed = n_outliers_removed,
+            Warning = final_warnings,
+            Exclusion = final_exclusions,
+            stringsAsFactors = FALSE
+          )
+
+          # --- CI95% SUMMARY ROW ---
+          # Convert LogIC50 CI bounds back to uM/nM for display
+          ci_uM_lower <- if (!is.na(ci_log_lower_bound)) round(10^ci_log_lower_bound * 1e6, 3) else NA_real_
+          ci_uM_upper <- if (!is.na(ci_log_upper_bound)) round(10^ci_log_upper_bound * 1e6, 3) else NA_real_
+          ci_nM_lower <- if (!is.na(ci_log_lower_bound)) round(10^ci_log_lower_bound * 1e9, 3) else NA_real_
+          ci_nM_upper <- if (!is.na(ci_log_upper_bound)) round(10^ci_log_upper_bound * 1e9, 3) else NA_real_
+
+          # Format IC50 (uM) with CI: "0.128 (0.080 - 0.204)"
+          # Note: lower LogIC50 -> higher IC50, so min(ci_uM_lower, ci_uM_upper) is the true lower bound
+          ic50_uM_ci_display <- if (is_nd) {
+            "N/D"
+          } else if (ic50_above_range) {
+            sprintf(">%g (>%g - >%g)", highest_conc_uM, highest_conc_uM, highest_conc_uM)
+          } else if (!is.na(ic50_uM) && !is.na(ci_uM_lower) && !is.na(ci_uM_upper)) {
+            sprintf("%s (%s - %s)",
+                    as.character(round(ic50_uM, 3)),
+                    as.character(min(ci_uM_lower, ci_uM_upper)),
+                    as.character(max(ci_uM_lower, ci_uM_upper)))
+          } else if (!is.na(ic50_uM)) {
+            sprintf("%s (NA)", as.character(round(ic50_uM, 3)))
+          } else {
+            NA_character_
+          }
+
+          # Format IC50 (nM) with CI
+          ic50_nM_ci_display <- if (is_nd) {
+            "N/D"
+          } else if (ic50_above_range) {
+            sprintf(">%g (>%g - >%g)", highest_conc_uM * 1e3, highest_conc_uM * 1e3, highest_conc_uM * 1e3)
+          } else if (!is.na(ic50_nM) && !is.na(ci_nM_lower) && !is.na(ci_nM_upper)) {
+            sprintf("%s (%s - %s)",
+                    as.character(round(ic50_nM, 3)),
+                    as.character(min(ci_nM_lower, ci_nM_upper)),
+                    as.character(max(ci_nM_lower, ci_nM_upper)))
+          } else if (!is.na(ic50_nM)) {
+            sprintf("%s (NA)", as.character(round(ic50_nM, 3)))
+          } else {
+            NA_character_
+          }
+
+          pharm_ci_list[[length(pharm_ci_list) + 1]] <- data.frame(
+            Plate = plate_name,
+            Construct = construct_name,
+            Compound = compound_name,
+            `IC50 (uM) (CI95%)` = ic50_uM_ci_display,
+            `IC50 (nM) (CI95%)` = ic50_nM_ci_display,
+            check.names = FALSE,
+            Ideal_Hill_Slope = as.character(round(ideal_hill, 3)),
             Outliers_Removed = n_outliers_removed,
             Warning = final_warnings,
             Exclusion = final_exclusions,
@@ -547,6 +602,7 @@ batch_drc_analysis <- function(batch_results,
     all_results_combined <- if (length(all_results_list) > 0) dplyr::bind_rows(all_results_list) else data.frame()
     quality_combined <- if (length(quality_list) > 0) dplyr::bind_rows(quality_list) else data.frame()
     pharm_combined <- if (length(pharm_list) > 0) dplyr::bind_rows(pharm_list) else data.frame()
+    pharm_ci_combined <- if (length(pharm_ci_list) > 0) dplyr::bind_rows(pharm_ci_list) else data.frame()
     
     # Remove placeholder rows where Construct or Compound is exactly NA, NA_2,
     # NA_3, etc. (artifacts from unnamed columns). Uses a strict regex so that
@@ -559,6 +615,13 @@ batch_drc_analysis <- function(batch_results,
         grepl(na_pattern, pharm_combined$Compound)
       pharm_combined  <- pharm_combined[!(is_na_construct | is_na_compound), , drop = FALSE]
     }
+    if (nrow(pharm_ci_combined) > 0) {
+      is_na_construct_ci <- is.na(pharm_ci_combined$Construct) |
+        grepl(na_pattern, pharm_ci_combined$Construct)
+      is_na_compound_ci  <- is.na(pharm_ci_combined$Compound)  |
+        grepl(na_pattern, pharm_ci_combined$Compound)
+      pharm_ci_combined  <- pharm_ci_combined[!(is_na_construct_ci | is_na_compound_ci), , drop = FALSE]
+    }
     
     # --- EXCEL WRITING ---
     openxlsx::addWorksheet(wb_pharma, "Pharmacology_Summary")
@@ -566,6 +629,12 @@ batch_drc_analysis <- function(batch_results,
       openxlsx::writeData(wb_pharma, "Pharmacology_Summary", pharm_combined)
     } else {
       openxlsx::writeData(wb_pharma, "Pharmacology_Summary", data.frame(Note = "No pharmacology data available"))
+    }
+    openxlsx::addWorksheet(wb_pharma, "Pharmacology_Summary_CI")
+    if (nrow(pharm_ci_combined) > 0) {
+      openxlsx::writeData(wb_pharma, "Pharmacology_Summary_CI", pharm_ci_combined)
+    } else {
+      openxlsx::writeData(wb_pharma, "Pharmacology_Summary_CI", data.frame(Note = "No pharmacology data available"))
     }
     openxlsx::saveWorkbook(wb_pharma, path_pharma, overwrite = TRUE)
     
