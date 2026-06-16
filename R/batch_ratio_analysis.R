@@ -88,6 +88,12 @@
 #'   the number of column-header integers.  Use this only when auto-detection
 #'   fails, e.g. a 384-well plate read with only 12 columns selected.
 #'
+#' @param file_map Named list or \code{NULL}.  Optional explicit mapping from
+#'   info-sheet name to data filename, bypassing the automatic
+#'   \code{_<N>.xlsx} pattern matching.  Filenames are resolved relative to
+#'   \code{directory}.  Sheets not listed here still use auto-discovery.
+#'   Default \code{NULL} uses auto-discovery for all sheets.
+#'
 #' @return A named list with one element per successfully processed plate.
 #'   The element name is the info-sheet name (e.g. \code{"Sheet1"}).
 #'   Each element is a list with:
@@ -145,6 +151,17 @@
 #'
 #' # --- Pipe into outlier detection ---
 #' results_clean <- rout_outliers_batch(results, Q = 0.01)
+#'
+#' # --- Explicit file mapping (when files cannot be renamed) ---
+#' results <- batch_ratio_analysis(
+#'   directory        = "data/experiment_01/",
+#'   control_0perc    = 16,
+#'   control_100perc  = c(12, 24),
+#'   file_map         = list(
+#'     "Sheet1" = "plate_experiment_A.xlsx",
+#'     "Sheet2" = "plate_experiment_B.xlsx"
+#'   )
+#' )
 #' }
 #'
 #' @seealso
@@ -168,7 +185,8 @@ batch_ratio_analysis <- function(directory = getwd(),
                                  function_version = "v1",
                                  verbose = TRUE,
                                  selected_columns = NULL,
-                                 plate_format = NULL) {
+                                 plate_format = NULL,
+                                 file_map = NULL) {
   
   # -- Validate function_version ----------------------------------------------
   valid_versions <- c("v1", "v2")
@@ -178,6 +196,12 @@ batch_ratio_analysis <- function(directory = getwd(),
   # -- Validate plate_format --------------------------------------------------
   if (!is.null(plate_format) && !plate_format %in% c("96", "384"))
     stop("plate_format must be '96', '384', or NULL (auto-detect).")
+
+  # -- Validate file_map ------------------------------------------------------
+  if (!is.null(file_map)) {
+    if (!is.list(file_map) || is.null(names(file_map)))
+      stop("file_map must be a named list, e.g. list('Sheet1' = 'plate_A.xlsx').")
+  }
   
   # -- Internal helper: parse a raw plate-reader Excel file -------------------
   #
@@ -472,6 +496,14 @@ batch_ratio_analysis <- function(directory = getwd(),
             paste(number_sheets, collapse = ", "))
   }
   
+
+  # -- Warn about file_map entries that don't match any info sheet ------------
+  if (!is.null(file_map)) {
+    unknown_sheets <- setdiff(names(file_map), number_sheets)
+    if (length(unknown_sheets) > 0L)
+      warning("file_map contains sheet name(s) not found in info file: ",
+              paste(unknown_sheets, collapse = ", "))
+  }
   data_files <- list.files(directory, pattern = data_pattern, full.names = FALSE)
   data_files <- data_files[!grepl("^~\\$", data_files)]
   
@@ -481,21 +513,34 @@ batch_ratio_analysis <- function(directory = getwd(),
     
     sheet_number    <- gsub("^.*?(\\d+)$", "\\1", info_sheet)
     pattern         <- paste0("_", sheet_number, "\\.xlsx$")
-    matching_files  <- data_files[grepl(pattern, data_files)]
-    
-    if (length(matching_files) == 0L) {
-      if (verbose) message("No data file found for sheet ", info_sheet,
-                           " (number ", sheet_number, "), skipping")
-      next
+
+    # -- File resolution: explicit file_map takes priority over auto-discovery --
+    if (!is.null(file_map) && info_sheet %in% names(file_map)) {
+      data_filename <- file_map[[info_sheet]]
+      if (!file.exists(file.path(directory, data_filename)))
+        stop(sprintf("file_map entry for '%s': file not found: %s",
+                     info_sheet, data_filename))
+      if (verbose) message(sprintf("\nProcessing %s - %s  [file_map]",
+                                   info_sheet, data_filename))
+    } else {
+      matching_files  <- data_files[grepl(pattern, data_files)]
+      if (length(matching_files) == 0L) {
+        if (verbose) {
+          files_in_dir <- if (length(data_files) > 0L)
+            paste(data_files, collapse = ", ") else "(no .xlsx files found)"
+          message(sprintf(
+            "[skip] Sheet '%s' -- no file matching '_%s.xlsx' found.\n       Files in directory: %s\n       Tip: rename your data file to end with '_%s.xlsx' (e.g. 'plate_experiment_%s.xlsx')",
+            info_sheet, sheet_number, files_in_dir, sheet_number, sheet_number))
+        }
+        next
+      }
+      data_filename <- matching_files[1L]
+      if (length(matching_files) > 1L)
+        warning("Multiple files match sheet ", info_sheet, ". Using: ", data_filename)
+      if (verbose) message("\nProcessing ", info_sheet, " - ", data_filename)
     }
-    
-    data_filename <- matching_files[1L]
-    if (length(matching_files) > 1L)
-      warning("Multiple files match sheet ", info_sheet, ". Using: ", data_filename)
-    
+
     data_path <- file.path(directory, data_filename)
-    if (verbose) message("\nProcessing ", info_sheet, " - ", data_filename)
-    
     tryCatch({
       
       info_table <- openxlsx::read.xlsx(info_path, sheet = info_sheet)

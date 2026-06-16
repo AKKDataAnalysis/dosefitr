@@ -17,7 +17,8 @@ batch_viability_analysis(
   output_dir = NULL,
   generate_reports = TRUE,
   selected_columns = NULL,
-  verbose = TRUE
+  verbose = TRUE,
+  file_map = NULL
 )
 }
 \arguments{
@@ -69,6 +70,12 @@ are used.}
 
 \item{verbose}{Logical. If TRUE, prints progress messages and processing details.
 Useful for debugging and tracking batch execution. Default is TRUE.}
+
+\item{file_map}{Named list or \code{NULL}.  Optional explicit mapping from
+info-sheet name to data filename, bypassing the automatic
+\code{_<N>.xlsx} pattern matching.  Filenames are resolved relative to
+\code{directory}.  Sheets not listed here still use auto-discovery.
+Default \code{NULL} uses auto-discovery for all sheets.}
 }
 \value{
 A named list where each element corresponds to a processed plate.
@@ -136,6 +143,17 @@ results <- batch_viability_analysis(
 results <- batch_viability_analysis(
   directory = "data/",
   generate_reports = FALSE
+)
+
+# --- Explicit file mapping (when files cannot be renamed) ---
+results <- batch_viability_analysis(
+  directory       = "data/",
+  control_0perc   = 13,
+  control_100perc = 12,
+  file_map        = list(
+    "Sheet1" = "viability_plate_A.xlsx",
+    "Sheet2" = "viability_plate_B.xlsx"
+  )
 )
 }
 

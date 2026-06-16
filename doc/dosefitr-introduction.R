@@ -37,6 +37,17 @@ knitr::opts_chunk$set(
 #   verbose             = TRUE
 # )
 
+## ----nanobret-step1-filemap, eval=FALSE---------------------------------------
+# results <- batch_ratio_analysis(
+#   directory       = "data/experiment_01/",
+#   control_0perc   = 16,
+#   control_100perc = c(12, 24),
+#   file_map        = list(
+#     "Sheet1" = "plate_experiment_A.xlsx",
+#     "Sheet2" = "plate_experiment_B.xlsx"
+#   )
+# )
+
 ## ----nanobret-step1-sep, eval=FALSE-------------------------------------------
 # # Show "EPHA1/KK135" instead of "EPHA1:KK135" in legends and titles
 # plot_multiple_compounds(drc_results, label_sep = "/")
@@ -210,6 +221,17 @@ knitr::opts_chunk$set(
 #   control_0perc    = 13,
 #   control_100perc  = 12,
 #   selected_columns = 2:23   # exclude columns 1 and 24
+# )
+
+## ----viability-step1-filemap, eval=FALSE--------------------------------------
+# via_results <- batch_viability_analysis(
+#   directory       = "data/viability/",
+#   control_0perc   = 13,
+#   control_100perc = 12,
+#   file_map        = list(
+#     "Sheet1" = "viability_plate_A.xlsx",
+#     "Sheet2" = "viability_plate_B.xlsx"
+#   )
 # )
 
 ## ----viability-step2----------------------------------------------------------

@@ -54,7 +54,7 @@ experiment_folder/
 `-- raw_data_3.xlsx         <- plate-reader export for plate 3
 ```
 
-The function matches each sheet in `info_tables.xlsx` to a raw data file by the trailing number in the filename (e.g. sheet `Sheet1` or `Plate_1` -> `raw_data_1.xlsx`).
+The function matches each sheet in `info_tables.xlsx` to a raw data file by the trailing number in the filename (e.g. sheet `Sheet1` or `Plate_1` -> `raw_data_1.xlsx`). If your files cannot follow this naming convention, use the `file_map` parameter to provide an explicit mapping (see [`file_map`](#file_map----explicit-file-mapping) below).
 
 ---
 
@@ -247,6 +247,7 @@ results <- batch_ratio_analysis(
 | `low_value_threshold` | Donor-channel threshold below which values are treated as NA (default `1000`) |
 | `function_version` | `"v1"` (default) or `"v2"` -- see below |
 | `generate_reports` | Save per-plate and consolidated Excel reports (default `TRUE`) |
+| `file_map` | Named list mapping info-sheet names to filenames, bypassing `_N.xlsx` auto-discovery (default `NULL`) |
 
 **Verbose output (`verbose = TRUE`):**
 
@@ -274,6 +275,37 @@ Report saved:     ./drc_quality/batch_analysis_report.xlsx
 ```
 
 The `[read fallback]` line only appears when the file is not a standard PHERAstar export and the generic column-header detection path is used. Row-label validation is silent on success and only speaks up on failure.
+
+---
+
+#### `file_map` -- explicit file mapping
+
+By default, `batch_ratio_analysis()` matches each info sheet to a raw data file by the trailing number in the filename (e.g. `Sheet1` → `raw_data_1.xlsx`). If your files cannot be renamed to follow this convention, use `file_map` to provide the mapping explicitly:
+
+```r
+results <- batch_ratio_analysis(
+  directory       = "data/experiment_01/",
+  control_0perc   = 16,
+  control_100perc = c(12, 24),
+  file_map        = list(
+    "Sheet1" = "plate_experiment_A.xlsx",
+    "Sheet2" = "plate_experiment_B.xlsx"
+  )
+)
+```
+
+- Filenames in `file_map` are resolved relative to `directory`.
+- Sheets not listed in `file_map` still use auto-discovery.
+- If a listed file does not exist, the function stops immediately with a clear error.
+- `file_map = NULL` (default) uses auto-discovery for all sheets.
+
+**Improved skip message:** When auto-discovery fails to find a matching file, the function now prints a diagnostic message showing which files are present and what naming convention is expected:
+
+```
+[skip] Sheet 'Sheet1' -- no file matching '_1.xlsx' found.
+       Files in directory: plate_experiment_A.xlsx, info_tables.xlsx
+       Tip: rename your data file to end with '_1.xlsx' (e.g. 'plate_experiment_1.xlsx')
+```
 
 ---
 
@@ -578,6 +610,7 @@ via_results <- batch_viability_analysis(
 | `generate_reports` | logical | `TRUE` | Save per-plate and consolidated Excel reports |
 | `selected_columns` | integer vector | `NULL` | 1-based column indices to include (e.g. `2:23`); `NULL` uses all 24 columns |
 | `verbose` | logical | `TRUE` | Print progress messages |
+| `file_map` | named list | `NULL` | Explicit mapping from info-sheet name to filename, bypassing `_N.xlsx` auto-discovery |
 
 ---
 
@@ -606,6 +639,26 @@ via_results <- batch_viability_analysis(
 ```
 
 > **Note:** Unlike `batch_ratio_analysis()` v2, `batch_viability_analysis()` does not support multiple 100% control columns or fixed numeric 0% values. Each control must be a single column index.
+
+---
+
+#### `file_map` -- explicit file mapping
+
+Works identically to `batch_ratio_analysis()`. Use when raw data files cannot be renamed to follow the `_N.xlsx` convention:
+
+```r
+via_results <- batch_viability_analysis(
+  directory       = "data/viability/",
+  control_0perc   = 13,
+  control_100perc = 12,
+  file_map        = list(
+    "Sheet1" = "viability_plate_A.xlsx",
+    "Sheet2" = "viability_plate_B.xlsx"
+  )
+)
+```
+
+When auto-discovery fails, the function prints a diagnostic message listing the files found and the expected naming convention. See [`file_map` in `batch_ratio_analysis()`](#file_map----explicit-file-mapping) for full details.
 
 ---
 

@@ -88,6 +88,8 @@ experiment_folder/
 
 Each sheet in `info_tables.xlsx` is matched to a raw data file by the
 trailing number in the filename (e.g. sheet `Plate_1` -> `raw_data_1.xlsx`).
+If your files cannot follow this convention, use the `file_map` parameter
+to provide an explicit mapping (see below).
 
 ### The metadata file (`info_tables.xlsx`)
 
@@ -181,6 +183,28 @@ results <- batch_ratio_analysis(
   verbose             = TRUE
 )
 ```
+
+**Explicit file mapping (`file_map`):**
+
+If your raw data files cannot be renamed to follow the `_N.xlsx` convention
+(e.g. the plate reader exports with a fixed name), pass `file_map` to bypass
+auto-discovery for those sheets:
+
+```{r nanobret-step1-filemap, eval=FALSE}
+results <- batch_ratio_analysis(
+  directory       = "data/experiment_01/",
+  control_0perc   = 16,
+  control_100perc = c(12, 24),
+  file_map        = list(
+    "Sheet1" = "plate_experiment_A.xlsx",
+    "Sheet2" = "plate_experiment_B.xlsx"
+  )
+)
+```
+
+Sheets not listed in `file_map` still use auto-discovery. When auto-discovery
+fails, the function prints a diagnostic message showing which files are present
+and the expected naming convention, making it easy to spot the mismatch.
 
 **Display separator in plots (`label_sep`):**
 
@@ -486,6 +510,23 @@ via_results <- batch_viability_analysis(
   control_0perc    = 13,
   control_100perc  = 12,
   selected_columns = 2:23   # exclude columns 1 and 24
+)
+```
+
+**Explicit file mapping (`file_map`):**
+
+Works identically to `batch_ratio_analysis()`. Use when raw data files cannot
+be renamed to follow the `_N.xlsx` convention:
+
+```{r viability-step1-filemap, eval=FALSE}
+via_results <- batch_viability_analysis(
+  directory       = "data/viability/",
+  control_0perc   = 13,
+  control_100perc = 12,
+  file_map        = list(
+    "Sheet1" = "viability_plate_A.xlsx",
+    "Sheet2" = "viability_plate_B.xlsx"
+  )
 )
 ```
 

@@ -17,7 +17,8 @@ batch_ratio_analysis(
   function_version = "v1",
   verbose = TRUE,
   selected_columns = NULL,
-  plate_format = NULL
+  plate_format = NULL,
+  file_map = NULL
 )
 }
 \arguments{
@@ -71,6 +72,12 @@ pass to the ratio function (\code{NULL} uses all 24 columns).}
 A-H) or \code{"384"} (rows A-P).  \code{NULL} (default) auto-detects from
 the number of column-header integers.  Use this only when auto-detection
 fails, e.g. a 384-well plate read with only 12 columns selected.}
+
+\item{file_map}{Named list or \code{NULL}.  Optional explicit mapping from
+info-sheet name to data filename, bypassing the automatic
+\code{_<N>.xlsx} pattern matching.  Filenames are resolved relative to
+\code{directory}.  Sheets not listed here still use auto-discovery.
+Default \code{NULL} uses auto-discovery for all sheets.}
 }
 \value{
 A named list with one element per successfully processed plate.
@@ -174,6 +181,17 @@ results_v1 <- batch_ratio_analysis(
 
 # --- Pipe into outlier detection ---
 results_clean <- rout_outliers_batch(results, Q = 0.01)
+
+# --- Explicit file mapping (when files cannot be renamed) ---
+results <- batch_ratio_analysis(
+  directory        = "data/experiment_01/",
+  control_0perc    = 16,
+  control_100perc  = c(12, 24),
+  file_map         = list(
+    "Sheet1" = "plate_experiment_A.xlsx",
+    "Sheet2" = "plate_experiment_B.xlsx"
+  )
+)
 }
 
 }

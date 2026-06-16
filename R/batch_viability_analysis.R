@@ -56,6 +56,12 @@
 #' @param verbose Logical. If TRUE, prints progress messages and processing details.
 #'   Useful for debugging and tracking batch execution. Default is TRUE.
 #'
+#' @param file_map Named list or \code{NULL}.  Optional explicit mapping from
+#'   info-sheet name to data filename, bypassing the automatic
+#'   \code{_<N>.xlsx} pattern matching.  Filenames are resolved relative to
+#'   \code{directory}.  Sheets not listed here still use auto-discovery.
+#'   Default \code{NULL} uses auto-discovery for all sheets.
+#'
 #' @return A named list where each element corresponds to a processed plate.
 #' Each entry contains:
 #' \itemize{
@@ -110,6 +116,17 @@
 #'   directory = "data/",
 #'   generate_reports = FALSE
 #' )
+#'
+#' # --- Explicit file mapping (when files cannot be renamed) ---
+#' results <- batch_viability_analysis(
+#'   directory       = "data/",
+#'   control_0perc   = 13,
+#'   control_100perc = 12,
+#'   file_map        = list(
+#'     "Sheet1" = "viability_plate_A.xlsx",
+#'     "Sheet2" = "viability_plate_B.xlsx"
+#'   )
+#' )
 #' }
 #'
 #' @seealso \code{\link{process_viability_data}}
@@ -129,7 +146,8 @@ batch_viability_analysis <- function(directory           = getwd(),
                                      output_dir          = NULL,
                                      generate_reports    = TRUE,
                                      selected_columns    = NULL,
-                                     verbose             = TRUE) {
+                                     verbose             = TRUE,
+                                     file_map            = NULL) {
   
   # -- Dependency check -------------------------------------------------------
   if (!requireNamespace("openxlsx", quietly = TRUE))
@@ -151,7 +169,13 @@ batch_viability_analysis <- function(directory           = getwd(),
       !(is.numeric(control_100perc) && length(control_100perc) == 1L &&
         control_100perc >= 1 && control_100perc <= 24))
     stop("control_100perc must be a single integer between 1 and 24.")
-  
+
+  # -- Validate file_map ------------------------------------------------------
+  if (!is.null(file_map)) {
+    if (!is.list(file_map) || is.null(names(file_map)))
+      stop("file_map must be a named list, e.g. list('Sheet1' = 'viability_plate_A.xlsx').")
+  }
+
   # -- Directory / output setup -----------------------------------------------
   if (!dir.exists(directory))
     stop("Directory not found: ", directory)
@@ -183,6 +207,14 @@ batch_viability_analysis <- function(directory           = getwd(),
     message("Found ", length(number_sheets), " plate sheet(s): ",
             paste(number_sheets, collapse = ", "))
   
+
+  # -- Warn about file_map entries that don't match any info sheet ------------
+  if (!is.null(file_map)) {
+    unknown_sheets <- setdiff(names(file_map), number_sheets)
+    if (length(unknown_sheets) > 0L)
+      warning("file_map contains sheet name(s) not found in info file: ",
+              paste(unknown_sheets, collapse = ", "))
+  }
   # -- Internal helper: compute per-construct quality metrics -----------------
   # Viability-appropriate metrics for raw (non-normalized) data.
   #
@@ -394,23 +426,35 @@ batch_viability_analysis <- function(directory           = getwd(),
     
     sheet_number   <- gsub("^.*?(\\d+)$", "\\1", info_sheet)
     pattern        <- paste0("_", sheet_number, "\\.xlsx$")
-    matching_files <- data_files[grepl(pattern, data_files)]
-    
-    if (length(matching_files) == 0L) {
-      if (verbose)
-        message(sprintf("  [skip] No data file found for sheet '%s' (number %s)",
-                        info_sheet, sheet_number))
-      next
+
+    # -- File resolution: explicit file_map takes priority over auto-discovery --
+    if (!is.null(file_map) && info_sheet %in% names(file_map)) {
+      data_filename <- file_map[[info_sheet]]
+      if (!file.exists(file.path(directory, data_filename)))
+        stop(sprintf("file_map entry for '%s': file not found: %s",
+                     info_sheet, data_filename))
+      if (verbose) message(sprintf("\nProcessing %s - %s  [file_map]",
+                                   info_sheet, data_filename))
+    } else {
+      matching_files <- data_files[grepl(pattern, data_files)]
+      if (length(matching_files) == 0L) {
+        if (verbose) {
+          files_in_dir <- if (length(data_files) > 0L)
+            paste(data_files, collapse = ", ") else "(no .xlsx files found)"
+          message(sprintf(
+            "[skip] Sheet '%s' -- no file matching '_%s.xlsx' found.\n       Files in directory: %s\n       Tip: rename your data file to end with '_%s.xlsx' (e.g. 'viability_plate_%s.xlsx')",
+            info_sheet, sheet_number, files_in_dir, sheet_number, sheet_number))
+        }
+        next
+      }
+      data_filename <- matching_files[1L]
+      if (length(matching_files) > 1L)
+        warning(sprintf("Multiple files match sheet '%s'. Using: %s",
+                        info_sheet, data_filename))
+      if (verbose) message("\nProcessing ", info_sheet, " - ", data_filename)
     }
-    
-    data_filename <- matching_files[1L]
-    if (length(matching_files) > 1L)
-      warning(sprintf("Multiple files match sheet '%s'. Using: %s",
-                      info_sheet, data_filename))
-    
+
     data_path <- file.path(directory, data_filename)
-    
-    if (verbose) message("\nProcessing ", info_sheet, " - ", data_filename)
     
     tryCatch({
       
