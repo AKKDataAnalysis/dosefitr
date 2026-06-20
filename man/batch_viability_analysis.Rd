@@ -18,7 +18,8 @@ batch_viability_analysis(
   generate_reports = TRUE,
   selected_columns = NULL,
   verbose = TRUE,
-  file_map = NULL
+  file_map = NULL,
+  version = c("v1", "v2")
 )
 }
 \arguments{
@@ -76,6 +77,17 @@ info-sheet name to data filename, bypassing the automatic
 \code{_<N>.xlsx} pattern matching.  Filenames are resolved relative to
 \code{directory}.  Sheets not listed here still use auto-discovery.
 Default \code{NULL} uses auto-discovery for all sheets.}
+
+\item{version}{Character. \code{"v1"} (default) dispatches to
+\code{\link{process_viability_data}} (two replicates per row, columns
+define the replicate). \code{"v2"} dispatches to
+\code{process_viability_data_v2()} (one replicate per row; replicate
+rows share \code{Target}+\code{Compound} in the info table; output
+column names get \code{.2}, \code{.3}, ... suffixes).
+When \code{version = "v2"} and \code{split_replicates = TRUE}, the
+wrapper sets \code{split_replicates = FALSE} and emits a one-line
+message: in v2 replicates are defined by repeated rows in the info
+table, not by row halving.}
 }
 \value{
 A named list where each element corresponds to a processed plate.

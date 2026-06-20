@@ -62,6 +62,17 @@
 #'   \code{directory}.  Sheets not listed here still use auto-discovery.
 #'   Default \code{NULL} uses auto-discovery for all sheets.
 #'
+#' @param version Character. \code{"v1"} (default) dispatches to
+#'   \code{\link{process_viability_data}} (two replicates per row, columns
+#'   define the replicate). \code{"v2"} dispatches to
+#'   \code{process_viability_data_v2()} (one replicate per row; replicate
+#'   rows share \code{Target}+\code{Compound} in the info table; output
+#'   column names get \code{.2}, \code{.3}, ... suffixes).
+#'   When \code{version = "v2"} and \code{split_replicates = TRUE}, the
+#'   wrapper sets \code{split_replicates = FALSE} and emits a one-line
+#'   message: in v2 replicates are defined by repeated rows in the info
+#'   table, not by row halving.
+#'
 #' @return A named list where each element corresponds to a processed plate.
 #' Each entry contains:
 #' \itemize{
@@ -147,17 +158,49 @@ batch_viability_analysis <- function(directory           = getwd(),
                                      generate_reports    = TRUE,
                                      selected_columns    = NULL,
                                      verbose             = TRUE,
-                                     file_map            = NULL) {
+                                     file_map            = NULL,
+                                     version             = c("v1", "v2")) {
   
   # -- Dependency check -------------------------------------------------------
   if (!requireNamespace("openxlsx", quietly = TRUE))
     stop("Package 'openxlsx' is required. Please install it.")
   
-  # -- Verify process_viability_data is available -----------------------------
-  if (!exists("process_viability_data", mode = "function"))
-    stop(paste0(
-      "process_viability_data() not found. ",
-      "Please source the script containing it before calling this function."))
+  # -- Resolve processing version --------------------------------------------
+  version <- match.arg(version)
+
+  # -- Verify the requested processor is available ---------------------------
+  if (version == "v1") {
+    if (!exists("process_viability_data", mode = "function"))
+      stop(paste0(
+        "process_viability_data() not found. ",
+        "Please source the script containing it before calling this function."))
+  } else {
+    if (!exists("process_viability_data_v2", mode = "function"))
+      stop(paste0(
+        "process_viability_data_v2() not found. ",
+        "Source process_viability_data_v2.R before calling with version = 'v2'."))
+  }
+
+  # -- v2: row-based replicates render split_replicates meaningless ----------
+  if (version == "v2" && isTRUE(split_replicates)) {
+    if (verbose)
+      message("split_replicates is ignored in v2; replicates are defined by repeated rows in info_table.")
+    split_replicates <- FALSE
+  }
+
+  # -- Helper: number of unique compounds in a result table -------------------
+  # In v1 each compound appears as a .2 pair, so dividing by 2 is correct.
+  # In v2 each replicate is its own column with .2/.3/.../ suffix, so we count
+  # unique base names instead.
+  n_unique_compounds <- function(modified_tbl) {
+    if (is.null(modified_tbl)) return(0L)
+    if (version == "v2") {
+      data_names <- colnames(modified_tbl)[-1L]
+      length(unique(sub("\\.\\d+$", "", data_names)))
+    } else {
+      (ncol(modified_tbl) - 1L) %/% 2L
+    }
+  }
   
   # -- Input validation -------------------------------------------------------
   if (!is.null(control_0perc) &&
@@ -388,9 +431,7 @@ batch_viability_analysis <- function(directory           = getwd(),
       entry  <- results[[sheet_name]]
       res    <- entry$result
       
-      n_compounds <- if (!is.null(res$modified_ratio_table))
-        (ncol(res$modified_ratio_table) - 1L) %/% 2L
-      else 0L
+      n_compounds <- n_unique_compounds(res$modified_ratio_table)
       
       data.frame(
         Sheet_Name       = sheet_name,
@@ -474,19 +515,34 @@ batch_viability_analysis <- function(directory           = getwd(),
         message("  [read] ", nrow(raw_data), " rows x ", ncol(raw_data),
                 " cols in '", data_filename, "'")
       
-      # -- Call process_viability_data ----------------------------------------
-      result <- process_viability_data(
-        data                = raw_data,
-        control_0perc       = control_0perc,
-        control_100perc     = control_100perc,
-        split_replicates    = split_replicates,
-        info_table          = info_table,
-        selected_columns    = selected_columns,
-        low_value_threshold = low_value_threshold,
-        verbose             = verbose,
-        apply_control_means = apply_control_means,
-        auto_detect         = auto_detect
-      )
+      # -- Call the version-appropriate processor -----------------------------
+      result <- if (version == "v2") {
+        process_viability_data_v2(
+          data                = raw_data,
+          control_0perc       = control_0perc,
+          control_100perc     = control_100perc,
+          split_replicates    = split_replicates,
+          info_table          = info_table,
+          selected_columns    = selected_columns,
+          low_value_threshold = low_value_threshold,
+          verbose             = verbose,
+          apply_control_means = apply_control_means,
+          auto_detect         = auto_detect
+        )
+      } else {
+        process_viability_data(
+          data                = raw_data,
+          control_0perc       = control_0perc,
+          control_100perc     = control_100perc,
+          split_replicates    = split_replicates,
+          info_table          = info_table,
+          selected_columns    = selected_columns,
+          low_value_threshold = low_value_threshold,
+          verbose             = verbose,
+          apply_control_means = apply_control_means,
+          auto_detect         = auto_detect
+        )
+      }
       
       # -- Rename $modified_table -> $modified_ratio_table --------------------
       if (!is.null(result$modified_table)) {
@@ -601,9 +657,7 @@ batch_viability_analysis <- function(directory           = getwd(),
       }
       
       # -- Store result -------------------------------------------------------
-      n_compounds <- if (!is.null(result$modified_ratio_table))
-        (ncol(result$modified_ratio_table) - 1L) %/% 2L
-      else 0L
+      n_compounds <- n_unique_compounds(result$modified_ratio_table)
       
       results[[info_sheet]] <- list(
         data_file        = data_filename,
