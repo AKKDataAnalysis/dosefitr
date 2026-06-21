@@ -3,8 +3,6 @@
 > Dose-Response Curve Fitting for NanoBRET and Cell Viability Assays
 
 <!-- badges: start -->
-[![CRAN status](https://www.r-pkg.org/badges/version/dosefitr)](https://CRAN.R-project.org/package=dosefitr)
-[![R-CMD-check](https://github.com/AKKDataAnalysis/dosefitr/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/AKKDataAnalysis/dosefitr/actions/workflows/R-CMD-check.yaml)
 [![Lifecycle:
 stable](https://img.shields.io/badge/lifecycle-stable-brightgreen.svg)](https://lifecycle.r-lib.org/articles/stages.html#stable)
 [![License:
@@ -21,23 +19,17 @@ Scarab-formatted submission tables.
 
 ## Installation
 
-You can install the stable release from CRAN with
-
-``` r
-install.packages("dosefitr")
-```
-
-To install the development version from GitHub, use
+**dosefitr** is not yet on CRAN. Install the development version from
+GitHub:
 
 ``` r
 # install.packages("remotes")
 remotes::install_github("AKKDataAnalysis/dosefitr")
 ```
 
-`dosefitr` requires R >= 4.1.0 and one non-CRAN dependency,
-`OptimModel` (used internally by the ROUT outlier test). On most
-systems `install.packages("dosefitr")` will pull `OptimModel` from
-CRAN automatically.
+`dosefitr` requires R >= 4.1.0. All package dependencies (including
+`OptimModel`, which provides the ROUT outlier test) are on CRAN and
+`remotes::install_github()` pulls them automatically.
 
 ## Quick example
 
@@ -82,10 +74,18 @@ drc_res$drc_results$plate_01$drc_result$summary_table[, c(
   "Compound", "LogIC50", "HillSlope", "R_squared", "Curve_Quality"
 )]
 
-# 4. Plot one compound
-plot_drc_batch(
-  batch_drc_results  = drc_res,
-  construct_compound = "KinaseA:Cpd1"
+# 4. Save one plot per compound + a combined panel per plate
+batch_save_all_drc_plots(
+  batch_drc_results = drc_res,
+  output_dir        = file.path(tempdir(), "dosefitr_plots"),
+  verbose           = TRUE
+)
+
+# 5. Overlay several compounds in a single figure
+plot_multiple_compounds(
+  results          = drc_res,
+  compound_indices = 1:4,
+  plate            = "plate_01"
 )
 ```
 
@@ -107,11 +107,11 @@ rout_outliers_batch()         <- detects and removes outliers (optional)
       v
 batch_drc_analysis()          <- fits dose-response curves (3PL or 4PL)
       |
-      |--> plot_drc_batch()             <- one or several compounds, faceted
-      |--> plot_multiple_compounds()    <- overlays selected compounds
-      |--> compare_plates_drc()         <- compares same compound across plates
-      |--> scarab_table()               <- Scarab-format export (NanoBRET)
-      `--> scarab_viability()           <- Scarab-format export (viability)
+      |--> batch_save_all_drc_plots() <- saves one plot per compound + panel per plate
+      |--> plot_multiple_compounds()  <- overlays selected compounds in one figure
+      |--> compare_plates_drc()       <- compares same compound across plates
+      |--> scarab_table()             <- Scarab-format export (NanoBRET)
+      `--> scarab_viability()         <- Scarab-format export (viability)
 ```
 
 ## Function reference
@@ -150,14 +150,14 @@ Each function has its own help page; below is the grouped index.
 
 | Function | Purpose |
 |----------|---------|
-| `plot_drc_batch()`            | Fitted curves for one or several construct-compound pairs |
+| `batch_save_all_drc_plots()`  | Save one plot per compound and an assembled panel per plate (primary batch plotter) |
 | `plot_multiple_compounds()`   | Overlay several compounds in a single plot |
 | `plot_dose_response()`        | Single-compound plot |
 | `plot_all_dose_responses()`   | One plot per compound (returns a list) |
 | `compare_plates_drc()`        | Compare the same compound across plates |
 | `plot_outliers_curves()`      | Highlight ROUT-flagged wells on one plate |
 | `plot_outliers_batch_curves()`| Highlight ROUT-flagged wells across plates |
-| `batch_save_all_drc_plots()`  | Save one plot per compound to a directory |
+| `plot_drc_batch()`            | Per-construct/compound fitted curve panels (legacy; superseded by `batch_save_all_drc_plots()`) |
 
 ### Export
 

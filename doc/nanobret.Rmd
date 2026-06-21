@@ -1,0 +1,392 @@
+---
+title: "NanoBRET pipeline: dose-response analysis end-to-end"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 2
+vignette: >
+  %\VignetteIndexEntry{NanoBRET pipeline: dose-response analysis end-to-end}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse  = TRUE,
+  comment   = "#>",
+  fig.width  = 7,
+  fig.height = 4.5,
+  eval      = TRUE,
+  message   = FALSE,
+  warning   = FALSE
+)
+```
+
+## Overview
+
+This vignette walks through the **NanoBRET** dose-response pipeline of
+**dosefitr**, end-to-end, on bundled example data. Every step runs at
+build time on two small plates included with the package, so you can
+copy any chunk straight into your own R session.
+
+The eight stages of the pipeline:
+
+1.  Setup and stage the bundled plates into a working directory.
+2.  Inspect the plate layout and the info table.
+3.  Compute BRET ratios from the dual-emission raw data
+    (`batch_ratio_analysis()`).
+4.  Detect outliers with the ROUT test
+    (`rout_outliers_batch()` + `plot_outliers_curves()`).
+5.  Fit 4PL dose-response curves
+    (`batch_drc_analysis()`).
+6.  Visualise individual and overlay plots
+    (`batch_save_all_drc_plots()`, `plot_multiple_compounds()`,
+    `compare_plates_drc()`).
+7.  Export Scarab-format tables and multi-sheet workbooks
+    (`scarab_table()`, `save_multiple_sheets()`).
+8.  Read the quality metrics.
+
+## 1. Setup
+
+```{r libs}
+library(dosefitr)
+```
+
+The package ships with two example PHERAstar plates and their
+accompanying info table. They are located in `inst/extdata/` and are
+loaded with `system.file()`:
+
+```{r locate-data}
+extdata_dir <- system.file("extdata", package = "dosefitr")
+
+list.files(extdata_dir, pattern = "^nanobret_")
+```
+
+`batch_ratio_analysis()` scans a directory for plate files matching a
+regular expression, so we stage the relevant files into a working
+directory under `tempdir()`. Writing to `tempdir()` keeps the vignette
+compliant with CRAN policy (no writes outside the temporary directory):
+
+```{r stage}
+work_dir <- file.path(tempdir(), "dosefitr_nanobret")
+dir.create(work_dir, showWarnings = FALSE)
+
+invisible(file.copy(
+  from      = list.files(extdata_dir, pattern = "^nanobret_",
+                         full.names = TRUE),
+  to        = work_dir,
+  overwrite = TRUE
+))
+
+list.files(work_dir)
+```
+
+## 2. Plate layout and info table
+
+Each plate is a 384-well PHERAstar export with two emission channels
+(donor 450-80 nm, acceptor 610-80 nm). The first 12 rows of the
+worksheet carry instrument metadata; the data is laid out in 16 rows
+(`A`-`P`) by 24 columns:
+
+-   **Column 1** -- DMSO (vehicle) control, the "0 % inhibition" baseline.
+-   **Columns 2-12** -- 11 inhibitor concentrations, technical replicate 1.
+-   **Columns 13-23** -- the same 11 concentrations, technical replicate 2.
+-   **Column 24** -- saturated competitor, the "100 % inhibition" floor.
+
+The mapping from row to compound is in `nanobret_info.xlsx`, one sheet
+per plate. The first column lists log10-concentrations (with `NA` for
+control rows), and the remaining columns identify each plate row:
+
+```{r show-info}
+info_path <- file.path(work_dir, "nanobret_info.xlsx")
+
+info_plate_01 <- openxlsx::read.xlsx(info_path, sheet = "plate_01")
+
+head(info_plate_01, 8)
+```
+
+The example data covers 16 compounds per plate. Plate 01 has three
+targets (`KinaseA`, `KinaseB`, `KinaseC`); plate 02 has one
+(`KinaseD`) plus four "bridging" rows that repeat compounds from
+plate 01 to demonstrate the inter-plate comparison step.
+
+## 3. BRET ratio computation
+
+`batch_ratio_analysis()` reads both plates, extracts the donor and
+acceptor matrices, computes the BRET ratio per well as
+`(acceptor / donor) * 1000`, and normalises each row by its controls.
+
+```{r ratio}
+ratio_out <- file.path(tempdir(), "dosefitr_nanobret_ratio")
+dir.create(ratio_out, showWarnings = FALSE)
+
+ratio_res <- batch_ratio_analysis(
+  directory        = work_dir,
+  info_file        = "nanobret_info.xlsx",
+  data_pattern     = "nanobret_plate_\\d+\\.xlsx$",
+  control_0perc    = "1",
+  control_100perc  = "24",
+  selected_columns = 1:24,
+  generate_reports = FALSE,
+  output_dir       = ratio_out,
+  verbose          = FALSE
+)
+
+names(ratio_res)
+```
+
+The returned object is a named list, one entry per plate. The actual
+ratio tables live under `$result`:
+
+```{r ratio-inspect}
+mrt <- ratio_res$plate_01$result$modified_ratio_table
+
+dim(mrt)
+
+head(mrt[, 1:6], 8)
+```
+
+A well-behaved inhibition curve runs from a high BRET ratio at the
+lowest concentrations (tracer bound) down to a low BRET ratio at the
+highest concentrations (tracer displaced). Looking at one compound:
+
+```{r ratio-direction}
+data.frame(
+  log_conc = mrt[, 1],
+  Cpd1_rep1 = round(mrt[, "KinaseA:Cpd1"],   1),
+  Cpd1_rep2 = round(mrt[, "KinaseA:Cpd1.2"], 1)
+)
+```
+
+The control rows (first and last, with `NA` log-concentration) carry
+the 0 % and 100 % inhibition control means.
+
+## 4. Outlier detection (ROUT)
+
+`rout_outliers_batch()` runs the ROUT test
+(Motulsky & Brown 2006, BMC Bioinformatics) on every fitted curve.
+Wells that diverge by more than the ROUT Q-threshold (default 1 %)
+**and** disagree with their replicate are flagged:
+
+```{r rout}
+rout_res <- rout_outliers_batch(
+  batch_results = ratio_res,
+  Q             = 0.01,
+  n_param       = 4L,
+  direction     = "inhibition",
+  verbose       = FALSE
+)
+
+# Summary of detection
+nrow(rout_res$outlier_summary)
+
+table(rout_res$outlier_summary$plate)
+```
+
+`outlier_summary` has one row per flagged well, with the fitted value,
+the observed value, the standardised residual, and the dynamic range:
+
+```{r rout-summary}
+head(rout_res$outlier_summary, 6)
+```
+
+`plot_outliers_curves()` overlays the flagged wells on the fitted
+curves, so you can sanity-check the call:
+
+```{r rout-plot, fig.height = 4}
+plot_outliers_curves(
+  rout_output   = rout_res$plate_01,
+  subplot_title = "compound",
+  ncol          = 4L
+)
+```
+
+For most clean plates, ROUT flags single outliers in only a handful of
+compounds; large clusters of flags usually indicate a misfit rather
+than a true outlier.
+
+## 5. Dose-response curve fitting
+
+`batch_drc_analysis()` fits each compound's BRET ratio with a 4PL
+model. By default it auto-detects the assay type from the ratio table
+shape (here, `nanobret`) and applies assay-aware plausibility limits
+on the Bottom, Top, and Hill parameters.
+
+```{r drc}
+drc_out <- file.path(tempdir(), "dosefitr_nanobret_drc")
+dir.create(drc_out, showWarnings = FALSE)
+
+drc_res <- batch_drc_analysis(
+  batch_results    = ratio_res,
+  model            = "4pl",
+  normalize        = FALSE,
+  output_dir       = drc_out,
+  generate_reports = FALSE,
+  verbose          = FALSE
+)
+
+drc_res$drc_results$plate_01$drc_result$successful_fits
+```
+
+The per-plate summary table carries the fitted parameters, 95 %
+confidence intervals, R^2, and a quality label:
+
+```{r drc-summary}
+sum_01 <- drc_res$drc_results$plate_01$drc_result$summary_table
+
+sum_01[, c("Compound", "LogIC50", "HillSlope",
+           "R_squared", "Curve_Quality")]
+```
+
+Quality labels distinguish clean fits from those with wide IC50
+confidence intervals, hill-slope problems, or other issues. For this
+clean example data set, almost every compound earns "Good curve":
+
+```{r drc-quality}
+table(sum_01$Curve_Quality)
+```
+
+## 6. Visualisation
+
+### 6.1 Save one plot per compound (and a combined panel per plate)
+
+`batch_save_all_drc_plots()` is the workhorse plotting function for a
+batch result. It calls `plot_dose_response()` on every successful fit,
+writes one PNG per compound, and assembles the per-plate compounds
+into a single panel image with **patchwork**:
+
+```{r batch-save-plots}
+plots_dir <- file.path(tempdir(), "dosefitr_nanobret_plots")
+dir.create(plots_dir, showWarnings = FALSE)
+
+results2 <- batch_save_all_drc_plots(
+  batch_drc_results = drc_res,
+  output_dir        = plots_dir,
+  verbose           = FALSE,
+  dpi               = 120,            # lighter for the vignette
+  panel_width_per_col  = 4,
+  panel_height_per_row = 4,
+  panel_spacing        = 1.2
+)
+
+results2$successes
+basename(results2$panel_files)
+```
+
+Each plate gets its own subfolder under `output_dir` with the
+individual compound PNGs and a single `<plate>_panel.png` overview.
+Here is the assembled panel for plate 01:
+
+```{r show-panel, echo = FALSE, out.width = "100%"}
+knitr::include_graphics(results2$panel_files[1])
+```
+
+### 6.2 Multiple compounds overlaid
+
+`plot_multiple_compounds()` overlays several curves to highlight
+differences in potency or shape:
+
+```{r plot-overlay}
+plot_multiple_compounds(
+  results          = drc_res,
+  compound_indices = 1:4,
+  plate            = "plate_01",
+  y_limits         = NULL,
+  show_error_bars  = TRUE,
+  verbose          = FALSE
+)
+```
+
+### 6.3 The same compound across plates
+
+`compare_plates_drc()` makes one figure per construct-compound that
+appears on more than one plate, useful for cross-plate consistency
+QC. The bundled `plate_02` repeats four of `plate_01`'s compounds
+under the same construct, so four cross-plate plots are produced:
+
+```{r compare-plates, fig.show = "hide"}
+compare_out <- file.path(tempdir(), "dosefitr_nanobret_compare")
+dir.create(compare_out, showWarnings = FALSE)
+
+cmp_res <- compare_plates_drc(
+  batch_drc_result = drc_res,
+  compare_by       = "compound",
+  output_dir       = compare_out,
+  min_plates       = 2,
+  verbose          = FALSE
+)
+
+list.files(compare_out, pattern = "\\.png$")
+```
+
+`compare_plates_drc()` returns plot objects in `$plots` and writes
+each one to disk; you can inspect them with any image viewer or load
+them inline.
+
+## 7. Export
+
+### 7.1 Scarab-format submission tables
+
+`scarab_table()` produces a wide submission table in the SGC Scarab
+format, one column per compound:
+
+```{r scarab}
+sc_01 <- scarab_table(
+  results_list      = ratio_res,
+  drc_results_list  = drc_res,
+  plate_name        = "plate_01",
+  date              = format(Sys.Date(), "%y%m%d"),
+  experimenter_abbrev = "DEMO",
+  save              = FALSE
+)
+
+dim(sc_01)
+
+head(sc_01[, 1:5], 6)
+```
+
+### 7.2 Multi-sheet Excel workbook
+
+`save_multiple_sheets()` writes any number of data frames to a single
+Excel file, one sheet per argument. Here we export both the ratio
+table and the fit summary for plate 01:
+
+```{r save-multi}
+xlsx_out <- file.path(tempdir(), "dosefitr_nanobret_export.xlsx")
+
+save_multiple_sheets(
+  file_name     = xlsx_out,
+  Ratios        = mrt,
+  Fit_Summary   = sum_01,
+  decimal_comma = FALSE
+)
+
+file.exists(xlsx_out)
+```
+
+## 8. Reading the quality metrics
+
+The result of `batch_ratio_analysis()` includes a per-plate quality
+block printed at run time. The key numbers to watch:
+
+-   **S/B (signal-to-background)** -- ratio of mean 0 % control wells
+    to mean 100 % control wells in the acceptor channel. Values
+    above 5 indicate a usable dynamic range.
+
+-   **Z-prime** -- a unitless robustness statistic combining S/B with
+    control variability. Values above 0.5 are usable, above 0.7 are
+    excellent.
+
+-   **CV %** -- coefficient of variation between technical
+    replicates. Anything under 10 % is well-behaved.
+
+For a complete description of each fit-level quality label
+(`Good curve`, `Wide logIC50 CI range`, `Top too low`, etc.) see
+the help page of `batch_drc_analysis()`.
+
+## See also
+
+-   `vignette("dosefitr-viability", package = "dosefitr")` for the
+    viability/proliferation pipeline using the same plate layout.
+-   `?batch_ratio_analysis`, `?batch_drc_analysis`,
+    `?rout_outliers_batch` for parameter-level documentation.
