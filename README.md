@@ -6,7 +6,7 @@
 [![Lifecycle:
 stable](https://img.shields.io/badge/lifecycle-stable-brightgreen.svg)](https://lifecycle.r-lib.org/articles/stages.html#stable)
 [![License:
-MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/license/mit/)
+MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/license/mit)
 <!-- badges: end -->
 
 End-to-end dose-response analysis for **NanoBRET kinase binding assays**

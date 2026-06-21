@@ -18,8 +18,9 @@ Description: End-to-end dose-response analysis pipeline for 'NanoBRET' kinase
     'Scarab'-formatted tables for 'NanoBRET' kinase profiling data submission.
 License: MIT + file LICENSE
 Encoding: UTF-8
+Language: en-US
 LazyData: true
-RoxygenNote: 7.3.3
+RoxygenNote: 7.3.2
 Imports: 
     ggplot2,
     stats,
