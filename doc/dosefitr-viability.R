@@ -94,13 +94,25 @@ sum_01[, c("Compound", "LogIC50", "HillSlope",
 ## ----drc-quality--------------------------------------------------------------
 table(sum_01$Curve_Quality)
 
-## ----plot-drc, fig.height = 4-------------------------------------------------
-plot_drc_batch(
-  batch_drc_results  = drc_res,
-  construct_compound = "KinaseA:Cpd1",
-  show_error_bars    = TRUE,
-  verbose            = FALSE
+## ----batch-save-plots---------------------------------------------------------
+plots_dir <- file.path(tempdir(), "dosefitr_viability_plots")
+dir.create(plots_dir, showWarnings = FALSE)
+
+results2 <- batch_save_all_drc_plots(
+  batch_drc_results = drc_res,
+  output_dir        = plots_dir,
+  verbose           = FALSE,
+  dpi               = 120,            # lighter for the vignette
+  panel_width_per_col  = 4,
+  panel_height_per_row = 4,
+  panel_spacing        = 1.2
 )
+
+results2$successes
+basename(results2$panel_files)
+
+## ----show-panel, echo = FALSE, out.width = "100%"-----------------------------
+knitr::include_graphics(results2$panel_files[1])
 
 ## ----plot-overlay-------------------------------------------------------------
 plot_multiple_compounds(
