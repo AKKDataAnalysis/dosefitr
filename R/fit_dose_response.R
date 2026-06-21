@@ -11,7 +11,7 @@
 #' @param output_file Optional character string specifying the output file path.
 #'   Supports both Excel (.xlsx) and CSV formats.
 #' @param normalize Logical indicating whether to normalize response data.
-#'   If TRUE, responses are normalized from 0-100% based on the first and last values.
+#'   If TRUE, responses are normalized from 0-100\% based on the first and last values.
 #'   Default is FALSE.
 #' @param verbose Logical indicating whether to display progress messages and
 #'   summary statistics. Default is TRUE
@@ -114,7 +114,7 @@
 #' Curves are automatically assessed for quality based on:
 #' \itemize{
 #'   \item Maximum slope (shallow curves flagged)
-#'   \item Response span (<20% flagged)
+#'   \item Response span (<20\% flagged)
 #'   \item R-squared values (<0.5 flagged)
 #'   \item Biological plausibility of parameters
 #'   \item logIC50 range (>0.666 flagged)

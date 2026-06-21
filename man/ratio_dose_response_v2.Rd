@@ -22,14 +22,14 @@ ratio_dose_response_v2(
 
 \item{control_0perc}{Defines the 0\% control. Can be:
 \itemize{
-\item A single numeric value (fixed baseline)
-\item A column name (character)
+  \item A single numeric value (fixed baseline)
+  \item A column name (character)
 }}
 
 \item{control_100perc}{Defines the 100\% control. Can be:
 \itemize{
-\item Numeric indices of columns (relative to data columns, excluding row names)
-\item Column name(s) (character vector)
+  \item Numeric indices of columns (relative to data columns, excluding row names)
+  \item Column name(s) (character vector)
 }}
 
 \item{split_replicates}{Logical. If TRUE, splits experimental rows into two
@@ -37,14 +37,14 @@ technical replicates assuming symmetrical layout.}
 
 \item{info_table}{Optional data.frame containing metadata. Must contain at least:
 \itemize{
-\item Column 1: log(inhibitor)
-\item Column 2: Plate row identifiers
-\item Column 3: Construct
-\item Column 4: Compound
+  \item Column 1: log(inhibitor)
+  \item Column 2: Plate row identifiers
+  \item Column 3: Construct
+  \item Column 4: Compound
 }}
 
 \item{save_to_excel}{Optional file path (character). If provided, results are saved
-as an Excel file using the \code{openxlsx} package.}
+as an Excel file using the `openxlsx` package.}
 
 \item{verbose}{Logical. If TRUE, prints progress messages and warnings.}
 
@@ -63,21 +63,21 @@ selected (half-plate experiment).}
 \value{
 A list containing:
 \describe{
-\item{modified_ratio_table}{Final processed table (transposed, normalized,
-optionally split into replicates, and optionally annotated with log concentrations)}
+  \item{modified_ratio_table}{Final processed table (transposed, normalized,
+  optionally split into replicates, and optionally annotated with log concentrations)}
 
-\item{original_ratio_table}{Raw ratio matrix before normalization and transformation}
+  \item{original_ratio_table}{Raw ratio matrix before normalization and transformation}
 
-\item{general_means}{(Optional) Mean values for control columns}
+  \item{general_means}{(Optional) Mean values for control columns}
 
-\item{interval_means}{(Optional) Construct-level quality metrics including
-Z-score, assay window, and signal classification}
+  \item{interval_means}{(Optional) Construct-level quality metrics including
+  Z-score, assay window, and signal classification}
 
-\item{construct_intervals}{Mapping of constructs to plate row intervals}
+  \item{construct_intervals}{Mapping of constructs to plate row intervals}
 
-\item{control_info}{Details about how controls were interpreted and applied}
+  \item{control_info}{Details about how controls were interpreted and applied}
 
-\item{selected_columns_info}{Information about column selection used}
+  \item{selected_columns_info}{Information about column selection used}
 }
 }
 \description{
@@ -91,30 +91,29 @@ It is designed for high-throughput dose-response experiments where two signals
 }
 \details{
 The function expects a raw data table structured similarly to plate-reader exports:
-\itemize{
-\item Row 9: column names
-\item Rows 10-25: first measurement (e.g., luciferase)
-\item Rows 28-43: second measurement (e.g., normalizer)
-}
+
+- Row 9: column names
+- Rows 10-25: first measurement (e.g., luciferase)
+- Rows 28-43: second measurement (e.g., normalizer)
 
 The ratio is calculated as:
 \deqn{ratio = (normalizer / luciferase) * 1000}
 
 Additional processing includes:
 \itemize{
-\item Filtering low luciferase values (below \code{low_value_threshold})
-\item Handling division by zero
-\item Flexible control definition (fixed value or column-based)
-\item Construction of normalized tables with 0\% and 100\% controls
-\item Optional splitting of technical replicates
-\item Integration with metadata (\code{info_table}) for labeling and QC metrics
-\item Calculation of assay quality metrics:
-\itemize{
-\item Z-score
-\item Assay window
-\item Signal quality classification
-}
-\item Optional Excel export with multiple sheets
+  \item Filtering low luciferase values (below `low_value_threshold`)
+  \item Handling division by zero
+  \item Flexible control definition (fixed value or column-based)
+  \item Construction of normalized tables with 0\% and 100\% controls
+  \item Optional splitting of technical replicates
+  \item Integration with metadata (`info_table`) for labeling and QC metrics
+  \item Calculation of assay quality metrics:
+    \itemize{
+      \item Z-score
+      \item Assay window
+      \item Signal quality classification
+    }
+  \item Optional Excel export with multiple sheets
 }
 }
 \section{Control Handling}{
@@ -123,44 +122,44 @@ Two normalization strategies are supported:
 
 \strong{1. Fixed 0\% control + column-based 100\% control}
 \itemize{
-\item Creates a \code{Fixed_0perc} column
-\item Computes \code{Mean_100perc} from selected columns
-\item Removes original 100\% control columns
+  \item Creates a `Fixed_0perc` column
+  \item Computes `Mean_100perc` from selected columns
+  \item Removes original 100\% control columns
 }
 
 \strong{2. Column-based 0\% and 100\% controls}
 \itemize{
-\item Keeps both control columns in the dataset
-\item Reorders columns for consistency
+  \item Keeps both control columns in the dataset
+  \item Reorders columns for consistency
 }
 }
 
 \section{Quality Metrics}{
 
-When both controls and \code{info_table} are provided, the function computes:
+When both controls and `info_table` are provided, the function computes:
 
 \itemize{
-\item Z-score:
-\deqn{Z = 1 - (3 * (SD_{pos} + SD_{bg}) / (Mean_{pos} - Mean_{bg}))}
+  \item Z-score:
+  \deqn{Z = 1 - (3 * (SD_{pos} + SD_{bg}) / (Mean_{pos} - Mean_{bg}))}
 
-\item Assay window:
-\deqn{Assay\ Window = Mean_{pos} / Mean_{bg}}
+  \item Assay window:
+  \deqn{Assay\ Window = Mean_{pos} / Mean_{bg}}
 
-\item Signal classification:
-\itemize{
-\item High, medium, low, or insufficient
-}
+  \item Signal classification:
+  \itemize{
+    \item High, medium, low, or insufficient
+  }
 }
 }
 
 \section{Important Notes}{
 
 \itemize{
-\item The function assumes a fixed plate layout structure.
-\item Replicate splitting assumes symmetric experimental design.
-\item If \code{info_table} is NULL, no concentration column is added, which may
-affect compatibility with downstream analysis functions.
-\item Low luciferase values are automatically filtered to prevent ratio artifacts.
+  \item The function assumes a fixed plate layout structure.
+  \item Replicate splitting assumes symmetric experimental design.
+  \item If `info_table` is NULL, no concentration column is added, which may
+  affect compatibility with downstream analysis functions.
+  \item Low luciferase values are automatically filtered to prevent ratio artifacts.
 }
 }
 

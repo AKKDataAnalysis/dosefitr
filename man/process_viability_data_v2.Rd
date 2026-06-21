@@ -23,11 +23,11 @@ rows/columns. Auto-detection will locate the data
 block.}
 
 \item{control_0perc}{Single integer in \code{[1, n_cols]} -- well used as
-the 0\\% (background) control. Must be one of
+the 0\% (background) control. Must be one of
 \code{selected_columns}.}
 
 \item{control_100perc}{Single integer in \code{[1, n_cols]} -- well used as
-the 100\\% (positive) control. Must be one of
+the 100\% (positive) control. Must be one of
 \code{selected_columns}.}
 
 \item{split_replicates}{Accepted for API parity with v1. v2 never splits a
@@ -65,39 +65,56 @@ fallback positions as v1.}
 \value{
 A list with the same shape as v1's \code{process_viability_data()}:
 \describe{
-\item{original_table}{Numeric data.frame of extracted viability values
-(rownames = A-H or A-P; colnames = "1".."12" or "1".."24").}
-\item{modified_table}{Transposed, control-reordered, replicate-renamed
-table with a leading log(inhibitor) column.}
-\item{processing_info}{Intermediate objects used by
-\code{batch_viability_analysis()} for QC computation.}
-\item{selected_columns_info}{Description of column selection.}
-\item{version}{\code{"v2"}.}
-\item{data_type}{\code{"viability"}.}
-\item{auto_detect}{Echo of the input.}
-\item{behavior_mode}{\code{"v2-row-replicates"}.}
+  \item{original_table}{Numeric data.frame of extracted viability values
+        (rownames = A-H or A-P; colnames = "1".."12" or "1".."24").}
+  \item{modified_table}{Transposed, control-reordered, replicate-renamed
+        table with a leading log(inhibitor) column.}
+  \item{processing_info}{Intermediate objects used by
+        \code{batch_viability_analysis()} for QC computation.}
+  \item{selected_columns_info}{Description of column selection.}
+  \item{version}{\code{"v2"}.}
+  \item{data_type}{\code{"viability"}.}
+  \item{auto_detect}{Echo of the input.}
+  \item{behavior_mode}{\code{"v2-row-replicates"}.}
 }
 }
 \description{
 Variant of \code{\link{process_viability_data}} for a different plate-layout
 convention. In v2:
 \itemize{
-\item Replicates are encoded as repeated rows in \code{info_table} that
-share the same \code{Target}/\code{Compound} pair. The first
-occurrence keeps the name \code{Target:Compound}; subsequent rows
-get suffixes \code{.2}, \code{.3}, \code{.4}, ... appended to the
-column name in the final output (the construct name itself is not
-modified).
-\item Concentrations live in the first column of \code{info_table} and
-map to wells (columns of the plate), not to plate rows. Only the
-non-NA numeric entries are used; the function builds the final
-concentration column as \code{c(NA, concs, NA)}, with NA at the
-positions corresponding to \code{control_0perc} (first row of the
-final table) and \code{control_100perc} (last row).
-\item Optimised for a 96-well plate (rows A-H, columns 1-12) by default,
-but also accepts a 384-well plate (rows A-P, columns 1-24) if the
-auto-detected data block matches that shape.
+  \item Replicates are encoded as repeated rows in \code{info_table} that
+        share the same \code{Target}/\code{Compound} pair. The first
+        occurrence keeps the name \code{Target:Compound}; subsequent rows
+        get suffixes \code{.2}, \code{.3}, \code{.4}, ... appended to the
+        column name in the final output (the construct name itself is not
+        modified).
+  \item Concentrations live in the first column of \code{info_table} and
+        map to wells (columns of the plate), not to plate rows. Only the
+        non-NA numeric entries are used; the function builds the final
+        concentration column as \code{c(NA, concs, NA)}, with NA at the
+        positions corresponding to \code{control_0perc} (first row of the
+        final table) and \code{control_100perc} (last row).
+  \item Optimised for a 96-well plate (rows A-H, columns 1-12) by default,
+        but also accepts a 384-well plate (rows A-P, columns 1-24) if the
+        auto-detected data block matches that shape.
 }
+}
+\examples{
+\dontrun{
+# See vignette('dosefitr_workflow') for end-to-end usage; this function
+# consumes raw plate-reader exports plus an info_table describing the
+# plate layout, both of which are too complex to mock inside an example.
+result <- process_viability_data_v2(
+  data            = my_raw_plate_data,
+  control_0perc   = 1,
+  control_100perc = 12,
+  info_table      = my_info_table,
+  selected_columns = 1:12,
+  verbose         = FALSE
+)
+}
+
+
 }
 \seealso{
 \code{\link{process_viability_data}} (v1, two-replicates-per-row

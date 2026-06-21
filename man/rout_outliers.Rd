@@ -26,12 +26,12 @@ Must be between 0 and 1 (exclusive). Default is 0.01.}
 
 \item{n_param}{Number of model parameters: 3 (fixed Hill slope) or 4 (free Hill slope).}
 
-\item{conc_col}{Index of the concentration column in \code{data}. Default is 1.}
+\item{conc_col}{Index of the concentration column in `data`. Default is 1.}
 
-\item{log_base}{Logarithm base of the concentration values. Either \code{"log10"} or \code{"ln"}.}
+\item{log_base}{Logarithm base of the concentration values. Either `"log10"` or `"ln"`.}
 
 \item{direction}{Direction of the dose-response curve:
-\code{"inhibition"} or \code{"agonist"}. Determines Hill slope sign.}
+`"inhibition"` or `"agonist"`. Determines Hill slope sign.}
 
 \item{min_dynamic_range}{Minimum dynamic range (\%) required for reliable fitting.}
 
@@ -51,12 +51,12 @@ non-deterministic behaviour.}
 A list with the following elements:
 
 \describe{
-\item{results}{Data frame with fitted values, residuals, and outlier flags.}
-\item{cleaned_table}{Input data with detected outliers replaced by NA.}
-\item{outlier_table}{Summary of detected outliers.}
-\item{skipped_table}{Compounds excluded from analysis with reasons.}
-\item{cleared_systematic}{Flags removed due to systematic residual patterns.}
-\item{params}{List of parameters used in the analysis.}
+  \item{results}{Data frame with fitted values, residuals, and outlier flags.}
+  \item{cleaned_table}{Input data with detected outliers replaced by NA.}
+  \item{outlier_table}{Summary of detected outliers.}
+  \item{skipped_table}{Compounds excluded from analysis with reasons.}
+  \item{cleared_systematic}{Flags removed due to systematic residual patterns.}
+  \item{params}{List of parameters used in the analysis.}
 }
 }
 \description{
@@ -69,19 +69,19 @@ model misfit.
 The function performs the following steps:
 
 \enumerate{
-\item Removes control rows (NA concentrations) from fitting.
-\item Fits 3PL and/or 4PL Hill models using robust regression.
-\item Applies ROUT outlier detection based on standardized residuals.
-\item Applies replicate-consistency filtering.
-\item Removes systematic residual patterns (model misfit safeguard).
-\item Replaces detected outliers with NA in the cleaned dataset.
+  \item Removes control rows (NA concentrations) from fitting.
+  \item Fits 3PL and/or 4PL Hill models using robust regression.
+  \item Applies ROUT outlier detection based on standardized residuals.
+  \item Applies replicate-consistency filtering.
+  \item Removes systematic residual patterns (model misfit safeguard).
+  \item Replaces detected outliers with NA in the cleaned dataset.
 }
 
 Additional safeguards include:
 \itemize{
-\item Hill slope sign and magnitude constraints (4PL only)
-\item Dynamic range warnings
-\item Minimum data point requirements
+  \item Hill slope sign and magnitude constraints (4PL only)
+  \item Dynamic range warnings
+  \item Minimum data point requirements
 }
 }
 \examples{

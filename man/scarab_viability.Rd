@@ -88,8 +88,8 @@ Must be either \code{"."} (dot) or \code{","} (comma). Default is \code{"."}.}
 }
 \value{
 A data frame with 67 rows and multiple columns (one per unique compound).
-The first column \code{"Field"} contains the parameter names; subsequent columns
-contain data for each compound. Compounds or constructs with NA names are excluded.
+  The first column \code{"Field"} contains the parameter names; subsequent columns
+  contain data for each compound. Compounds or constructs with NA names are excluded.
 }
 \description{
 This function creates a comprehensive summary table in the Scarab format for
@@ -100,26 +100,26 @@ control metrics, curve parameters, and raw viability values for each compound.
 \details{
 This function is designed to work with the output of:
 \itemize{
-\item \code{\link{batch_viability_analysis}}: generates \code{results_list}
-\item \code{\link{batch_drc_analysis}}: generates \code{drc_results_list}
+  \item \code{\link{batch_viability_analysis}}: generates \code{results_list}
+  \item \code{\link{batch_drc_analysis}}: generates \code{drc_results_list}
 }
 
 \strong{Table structure (67 rows):}
 \itemize{
-\item Rows 1-7: Basic information (cell line, cell type, treatment time, compound,
-experiment ID, SGC ID, measurement method)
-\item Rows 8-15: Curve parameters (LogIC50, IC50, HillSlope, R2, etc.)
-\item Rows 16-25: Quality control metrics (Mean/SD of controls, CV\\%,
-signal-to-background, overall quality)
-\item Rows 26-29: Plate specifications
-\item Rows 30-41: LOG compound concentrations 1-12
-\item Rows 42-53: Compound viability values (replicate 1)
-\item Rows 54-65: Compound viability values (replicate 2 / duplicate)
-\item Rows 66-67: ELN ID, Comments
+  \item Rows 1-7: Basic information (cell line, cell type, treatment time, compound,
+    experiment ID, SGC ID, measurement method)
+  \item Rows 8-15: Curve parameters (LogIC50, IC50, HillSlope, R2, etc.)
+  \item Rows 16-25: Quality control metrics (Mean/SD of controls, CV\%,
+    signal-to-background, overall quality)
+  \item Rows 26-29: Plate specifications
+  \item Rows 30-41: LOG compound concentrations 1-12
+  \item Rows 42-53: Compound viability values (replicate 1)
+  \item Rows 54-65: Compound viability values (replicate 2 / duplicate)
+  \item Rows 66-67: ELN ID, Comments
 }
 
 Quality metrics are recomputed from the raw viability data stored in
-\code{processing_info} and use CV\\%-based quality assessment (not Z'/assay window,
+\code{processing_info} and use CV\%-based quality assessment (not Z'/assay window,
 which are NanoBRET-specific).
 
 Compounds or constructs whose name is \code{NA}, \code{NA_2}, \code{NA:NA},

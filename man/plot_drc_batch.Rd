@@ -166,13 +166,11 @@ argument will be ignored to allow each panel to scale independently.
 
 \strong{Automatic Title Generation:} When \code{plot_title = NULL}, the function generates
 appropriate titles:
-\itemize{
-\item Single compound: Compound name
-\item Multiple compounds, single construct: Construct name
-\item Multiple compounds, single compound name: Compound name
-\item Otherwise: "Comparative DRC Analysis"
+- Single compound: Compound name
+- Multiple compounds, single construct: Construct name
+- Multiple compounds, single compound name: Compound name
+- Otherwise: "Comparative DRC Analysis"
 The title does not indicate which plates are plotted when using the \code{plates} parameter.
-}
 
 \strong{Interoperability:} The function works seamlessly with results from \code{batch_drc_analysis()}
 and can handle both normalized and raw BRET ratio data automatically.

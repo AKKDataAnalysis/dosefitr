@@ -18,7 +18,7 @@ ratio_dose_response(
 )
 }
 \arguments{
-\item{data}{Data frame containing \strong{raw dose-response experimental data} with specific
+\item{data}{Data frame containing **raw dose-response experimental data** with specific
 structure typically exported from plate readers. Must have at least 43 rows with
 column names in row 9.}
 
@@ -56,11 +56,11 @@ selected (half-plate experiment).}
 \value{
 A list containing the following components:
 \itemize{
-\item \code{original_ratio_table}: Original calculated ratio table from raw data
-\item \code{modified_ratio_table}: Processed and formatted table ready for analysis
-\item \code{general_means}: Data frame with general control means across all rows
-\item \code{interval_means}: Data frame with construct-specific means and quality metrics
-\item \code{construct_intervals}: List mapping constructs to row intervals
+  \item \code{original_ratio_table}: Original calculated ratio table from raw data
+  \item \code{modified_ratio_table}: Processed and formatted table ready for analysis
+  \item \code{general_means}: Data frame with general control means across all rows
+  \item \code{interval_means}: Data frame with construct-specific means and quality metrics
+  \item \code{construct_intervals}: List mapping constructs to row intervals
 }
 }
 \description{
@@ -70,23 +70,23 @@ This function handles the initial data processing pipeline from raw plate reader
 data to analysis-ready formatted data.
 }
 \details{
-This function performs the \strong{initial processing of raw dose-response data} from BRET assays
+This function performs the **initial processing of raw dose-response data** from BRET assays
 or similar experimental formats. It transforms raw experimental measurements into analysis-ready
 data through the following pipeline:
 
 \strong{Raw Data Processing Pipeline:}
 \itemize{
-\item \strong{Raw Data Input}: Accepts direct output from plate readers or experimental data systems
-\item \strong{Data Extraction}: Separates measurement subtables (typically donor and acceptor channels)
-\item \strong{Quality Filtering}: Removes low-intensity signals (<1000) that may represent failed wells
-\item \strong{Ratio Calculation}: Computes BRET ratios as (subtable2 / subtable1) * 1000
-\item \strong{Control Processing}: Handles control wells separately for normalization
-\item \strong{Quality Assessment}: Calculates assay performance metrics (Z-score, Assay Window)
-\item \strong{Data Formatting}: Transposes and structures data for downstream analysis
+  \item \strong{Raw Data Input}: Accepts direct output from plate readers or experimental data systems
+  \item \strong{Data Extraction}: Separates measurement subtables (typically donor and acceptor channels)
+  \item \strong{Quality Filtering}: Removes low-intensity signals (<1000) that may represent failed wells
+  \item \strong{Ratio Calculation}: Computes BRET ratios as (subtable2 / subtable1) * 1000
+  \item \strong{Control Processing}: Handles control wells separately for normalization
+  \item **Quality Assessment**: Calculates assay performance metrics (Z-score, Assay Window)
+  \item **Data Formatting**: Transposes and structures data for downstream analysis
 }
 
 \strong{Typical Raw Data Structure:}
-The function expects \strong{raw experimental data} in the following format:
+The function expects **raw experimental data** in the following format:
 \preformatted{
   Rows 1-8:     Instrument headers, plate layout, experimental metadata (ignored)
   Row 9:        Column names (well identifiers or sample names)
@@ -105,30 +105,30 @@ Column 4: Compound - Compound identifiers (e.g., "JQ1", "Gefitinib", "ARS-1620")
 
 \strong{Quality Metrics for Raw Data Assessment:}
 \itemize{
-\item \strong{Luciferase Signal}: Assesses raw signal intensity from experimental measurements
-\item \strong{Z-Score}: Evaluates assay robustness from raw control data variability
-\item \strong{Assay Window}: Calculates dynamic range from raw control measurements
-\item \strong{Overall Quality}: Determines if raw data quality supports further analysis
+  \item \strong{Luciferase Signal}: Assesses raw signal intensity from experimental measurements
+  \item \strong{Z-Score}: Evaluates assay robustness from raw control data variability
+  \item \strong{Assay Window}: Calculates dynamic range from raw control measurements
+  \item \strong{Overall Quality}: Determines if raw data quality supports further analysis
 }
 }
 \section{Raw Data Requirements}{
 
-The input data should be \strong{raw experimental measurements} with:
+The input data should be **raw experimental measurements** with:
 \itemize{
-\item \strong{Direct instrument output}: Minimal preprocessing required
-\item \strong{Consistent structure}: Fixed row positions for data extraction
-\item \strong{Proper controls}: Clearly identified control wells in column names
-\item \strong{Metadata alignment}: Info table matching experimental design
+  \item \strong{Direct instrument output}: Minimal preprocessing required
+  \item \strong{Consistent structure}: Fixed row positions for data extraction
+  \item \strong{Proper controls}: Clearly identified control wells in column names
+  \item \strong{Metadata alignment}: Info table matching experimental design
 }
 }
 
 \section{Expected Raw Data Sources}{
 
 \itemize{
-\item Plate reader exports (Tecan, BMG Labtech, PerkinElmer)
-\item BRET assay raw measurements
-\item Luminescence or fluorescence intensity data
-\item High-throughput screening raw data
+  \item Plate reader exports (Tecan, BMG Labtech, PerkinElmer)
+  \item BRET assay raw measurements
+  \item Luminescence or fluorescence intensity data
+  \item High-throughput screening raw data
 }
 }
 
@@ -158,9 +158,9 @@ dr_results <- fit_drc_3pl(analysis_ready_data, normalize = TRUE)
 \references{
 For raw data processing in dose-response assays:
 \itemize{
-\item "BRET Assay Development Guide" (PerkinElmer)
-\item "High-Throughput Screening Data Analysis" (Inglese et al.)
-\item Journal of Biomolecular Screening raw data standards
+  \item "BRET Assay Development Guide" (PerkinElmer)
+  \item "High-Throughput Screening Data Analysis" (Inglese et al.)
+  \item Journal of Biomolecular Screening raw data standards
 }
 }
 \seealso{

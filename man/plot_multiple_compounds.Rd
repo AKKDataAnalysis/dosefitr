@@ -74,12 +74,12 @@ plot_multiple_compounds(
 )
 }
 \arguments{
-\item{results}{The list returned by \code{\link[=batch_drc_analysis]{batch_drc_analysis()}}.
-Must contain a \code{drc_results} element (one entry per plate), each with
-a \code{drc_result} sub-list that holds \code{detailed_results}.}
+\item{results}{The list returned by [`batch_drc_analysis()`].
+Must contain a `drc_results` element (one entry per plate), each with
+a `drc_result` sub-list that holds `detailed_results`.}
 
 \item{compound_indices}{Numeric vector specifying which compounds to include in the plot
-If \code{NULL} (default), all available compounds in \code{results$detailed_results}
+If `NULL` (default), all available compounds in `results$detailed_results`
 are included.}
 
 \item{target_compound}{A character string specifying a compound name, target name, or
@@ -87,11 +87,11 @@ combination in "target:compound" format. Supports partial matching (e.g., "GPCR"
 match all compounds with "GPCR" in the target name).}
 
 \item{position}{An integer specifying a single compound position to plot (alternative
-to \code{target_compound} or \code{compound_indices}).}
+to `target_compound` or `compound_indices`).}
 
 \item{x_limits}{Numeric vector of length 2 specifying the x-axis limits.
 If \code{NULL} (default), limits are calculated automatically from the
-data with a 5\\% margin.  The unit of the supplied values is controlled
+data with a 5\% margin.  The unit of the supplied values is controlled
 by \code{x_limits_scale}.}
 
 \item{x_limits_scale}{Character string declaring the unit of \code{x_limits}.
@@ -103,12 +103,12 @@ or \code{"nM"} (nanomolar, e.g. \code{c(1, 25000)}).  Ignored when
 
 \item{y_limits}{Numeric vector of length 2 specifying the y-axis limits}
 
-\item{colors}{Either a logical (\code{TRUE} for automatic colors), a character vector of
+\item{colors}{Either a logical (`TRUE` for automatic colors), a character vector of
 color names/hex codes, or a palette name (see Details for available palettes). If
-\code{TRUE} or NULL, uses the palette specified by \code{color_palette} or default hue palette.}
+`TRUE` or NULL, uses the palette specified by `color_palette` or default hue palette.}
 
-\item{color_palette}{A character string specifying a named palette to use when \code{colors}
-is \code{TRUE} or NULL. See Details for comprehensive list of available palettes including
+\item{color_palette}{A character string specifying a named palette to use when `colors`
+is `TRUE` or NULL. See Details for comprehensive list of available palettes including
 scientific journals, colorblind-friendly options, and gradient schemes.}
 
 \item{point_shapes}{Numeric vector of point shapes for different compounds}
@@ -120,8 +120,8 @@ at each compound's IC50 position on the x-axis, coloured to match the
 corresponding curve.  Lines are only drawn for compounds with a valid
 (non-NA, in-range) IC50.  Default: \code{FALSE}.}
 
-\item{legend_position}{Position of the legend: one of \code{"right"}, \code{"left"},
-\code{"top"}, \code{"bottom"}, or \code{"none"}. Default: \code{"right"}.}
+\item{legend_position}{Position of the legend: one of `"right"`, `"left"`,
+`"top"`, `"bottom"`, or `"none"`. Default: `"right"`.}
 
 \item{show_legend}{Logical indicating whether to display the legend}
 
@@ -140,9 +140,9 @@ instead of white. Default: \code{FALSE}.}
 
 \item{plot_width, plot_height}{Plot dimensions (in inches) when saving.}
 
-\item{plot_dpi}{Resolution (in DPI) for saved plots. Default: \code{600}.}
+\item{plot_dpi}{Resolution (in DPI) for saved plots. Default: `600`.}
 
-\item{plot_title}{Custom plot title. If \code{NULL}, a smart title is generated
+\item{plot_title}{Custom plot title. If `NULL`, a smart title is generated
 automatically based on the compound names.}
 
 \item{plot_title_size}{Numeric.  Font size for the plot title.  If \code{NULL}
@@ -186,7 +186,7 @@ Default: \code{1}.}
 \item{error_bar_width}{Numeric value controlling the width of error bars}
 
 \item{legend_label_wrap}{Maximum character width before legend labels
-automatically wrap to new lines. Default: \code{25}.}
+automatically wrap to new lines. Default: `25`.}
 
 \item{legend_ncol}{Numeric value specifying number of columns in legend}
 
@@ -295,18 +295,18 @@ specific plate. Has no effect when \code{results} is already a plain
 }
 \value{
 A ggplot2 object with the generated plot, containing metadata attributes.
-Metadata includes \code{legend_width_cm} (measured legend width in cm).
-\item{selected_compounds}{Character vector of selected compound names}
-\item{smart_legend_names}{Automatically generated legend labels}
-\item{n_compounds}{Number of compounds plotted}
-\item{match_type}{How compounds were selected (position, indices, pattern match)}
-\item{colors}{Vector of colors used in the plot}
-\item{color_palette_used}{Name of the palette used}
-\item{available_palettes}{List of all available palette options}
-\item{...}{Additional metadata about plot settings}
+  Metadata includes \code{legend_width_cm} (measured legend width in cm).
+  \item{selected_compounds}{Character vector of selected compound names}
+  \item{smart_legend_names}{Automatically generated legend labels}
+  \item{n_compounds}{Number of compounds plotted}
+  \item{match_type}{How compounds were selected (position, indices, pattern match)}
+  \item{colors}{Vector of colors used in the plot}
+  \item{color_palette_used}{Name of the palette used}
+  \item{available_palettes}{List of all available palette options}
+  \item{...}{Additional metadata about plot settings}
 }
 \description{
-The \code{plot_multiple_compounds()} function generates a consolidated plot of
+The `plot_multiple_compounds()` function generates a consolidated plot of
 fitted dose-response curves for multiple compounds, allowing visual
 comparison between different responses. It provides extensive customization
 options for colors, shapes, titles, legends, gridlines, and file export.
@@ -318,31 +318,31 @@ direct visual comparison across multiple compounds or experimental conditions.
 
 \strong{Key Features:}
 \itemize{
-\item \strong{Flexible compound selection}: Select by indices, pattern matching on target/compound names, or position
-\item \strong{Extensive color palette options}: Over 50 predefined palettes including scientific journals, colorblind-friendly schemes, and gradients
-\item \strong{Smart point selection}: Automatically chooses optimal point shapes based on compound count
-\item \strong{Adaptive sizing}: Point sizes and legend elements adjust based on number of compounds
-\item \strong{Intelligent text wrapping}: Automatically wraps long compound names in legend
-\item \strong{Intelligent legend labels}: Automatically simplifies labels when targets or compounds are consistent
-\item \strong{Professional styling}: Clean, publication-ready appearance with customizable elements
-\item \strong{Self-contained}: No external package loading required
+  \item \strong{Flexible compound selection}: Select by indices, pattern matching on target/compound names, or position
+  \item \strong{Extensive color palette options}: Over 50 predefined palettes including scientific journals, colorblind-friendly schemes, and gradients
+  \item \strong{Smart point selection}: Automatically chooses optimal point shapes based on compound count
+  \item \strong{Adaptive sizing}: Point sizes and legend elements adjust based on number of compounds
+  \item \strong{Intelligent text wrapping}: Automatically wraps long compound names in legend
+  \item \strong{Intelligent legend labels}: Automatically simplifies labels when targets or compounds are consistent
+  \item \strong{Professional styling}: Clean, publication-ready appearance with customizable elements
+  \item \strong{Self-contained}: No external package loading required
 }
 
 \strong{Color Palette Options:}
 
 The function provides extensive color palette options suitable for scientific publications.
-Palettes can be specified via the \code{color_palette} parameter or directly via \code{colors}.
+Palettes can be specified via the `color_palette` parameter or directly via `colors`.
 
 \emph{Base Palettes:}
 \itemize{
-\item \code{"hue"}, \code{"ggplot2"}, \code{"default"} - Default ggplot2 hue palette
+  \item \code{"hue"}, \code{"ggplot2"}, \code{"default"} - Default ggplot2 hue palette
 }
 
 \emph{ColorBrewer Palettes:}
 \itemize{
-\item \strong{Qualitative} (good for distinct categories): \code{"set1"}, \code{"set2"}, \code{"set3"}, \code{"dark2"}, \code{"paired"}, \code{"accent"}, \code{"pastel1"}, \code{"pastel2"}
-\item \strong{Sequential} (for ordered data): \code{"blues"}, \code{"reds"}, \code{"greens"}, \code{"purples"}, \code{"oranges"}, \code{"greys"}
-\item \strong{Diverging} (for deviation from midpoint): \code{"spectral"}, \code{"rdylbu"}, \code{"rdylgn"}, \code{"piyg"}, \code{"prgn"}
+  \item \strong{Qualitative} (good for distinct categories): \code{"set1"}, \code{"set2"}, \code{"set3"}, \code{"dark2"}, \code{"paired"}, \code{"accent"}, \code{"pastel1"}, \code{"pastel2"}
+  \item \strong{Sequential} (for ordered data): \code{"blues"}, \code{"reds"}, \code{"greens"}, \code{"purples"}, \code{"oranges"}, \code{"greys"}
+  \item \strong{Diverging} (for deviation from midpoint): \code{"spectral"}, \code{"rdylbu"}, \code{"rdylgn"}, \code{"piyg"}, \code{"prgn"}
 }
 
 \emph{Viridis Palettes} (perceptually uniform, colorblind-friendly):
@@ -350,32 +350,32 @@ Palettes can be specified via the \code{color_palette} parameter or directly via
 
 \emph{Scientific Journal Palettes:}
 \itemize{
-\item \code{"nature"} - Classic Nature journal colors
-\item \code{"science"} - Vibrant Science magazine palette
-\item \code{"cell"} - Cell journal distinctive colors
-\item \code{"plos"} - PLOS ONE accessible palette
-\item \code{"elife"} - eLife journal color scheme
+  \item \code{"nature"} - Classic Nature journal colors
+  \item \code{"science"} - Vibrant Science magazine palette
+  \item \code{"cell"} - Cell journal distinctive colors
+  \item \code{"plos"} - PLOS ONE accessible palette
+  \item \code{"elife"} - eLife journal color scheme
 }
 
 \emph{Publisher Palettes:}
 \itemize{
-\item \code{"bmc"} (BioMed Central), \code{"frontiers"}, \code{"wiley"}, \code{"elsevier"},
-\item \code{"oxford"} (Oxford University Press), \code{"springer"} (Springer Nature),
-\item \code{"acs"} (American Chemical Society), \code{"rsc"} (Royal Society of Chemistry)
+  \item \code{"bmc"} (BioMed Central), \code{"frontiers"}, \code{"wiley"}, \code{"elsevier"},
+  \item \code{"oxford"} (Oxford University Press), \code{"springer"} (Springer Nature),
+  \item \code{"acs"} (American Chemical Society), \code{"rsc"} (Royal Society of Chemistry)
 }
 
 \emph{Colorblind-Friendly Palettes:}
 \itemize{
-\item \code{"okabe_ito"} - Okabe & Ito palette (best for colorblindness)
-\item \code{"colorblind"} - Generic colorblind-friendly palette
-\item \code{"cud"} - Color Universal Design palette
-\item \code{"tol"} - Paul Tol's colorblind-friendly scheme
+  \item \code{"okabe_ito"} - Okabe & Ito palette (best for colorblindness)
+  \item \code{"colorblind"} - Generic colorblind-friendly palette
+  \item \code{"cud"} - Color Universal Design palette
+  \item \code{"tol"} - Paul Tol's colorblind-friendly scheme
 }
 
 \emph{Gradient Palettes} (for ordered/continuous data):
 \itemize{
-\item \code{"blue_red"}, \code{"green_red"}, \code{"purple_orange"},
-\item \code{"cool_warm"}, \code{"blue_yellow"}
+  \item \code{"blue_red"}, \code{"green_red"}, \code{"purple_orange"},
+  \item \code{"cool_warm"}, \code{"blue_yellow"}
 }
 
 \emph{Corporate Palettes:}
@@ -386,22 +386,22 @@ Palettes can be specified via the \code{color_palette} parameter or directly via
 
 \strong{Automatic Adjustments:}
 \itemize{
-\item \strong{Point shapes}: Uses most distinguishable shapes first (16, 17, 15, 18, 8, etc.), recycles intelligently
-\item \strong{Point size}: Larger points for few compounds (3.5), smaller for many (2.5)
-\item \strong{Legend text}: Smaller text for many compounds (9pt), larger for few (11pt)
-\item \strong{Legend columns}: Single column for <=10 compounds, two columns for >10 compounds
-\item \strong{Legend labels}: Automatically simplified - shows only compound names when target is consistent, only targets when compound is consistent, or full "target:compound" format otherwise
-\item \strong{X-axis limits}: Automatically calculated from data with 5\% margin
-\item \strong{Color assignment}: Intelligently selects appropriate palettes based on number of compounds and usage context
+  \item \strong{Point shapes}: Uses most distinguishable shapes first (16, 17, 15, 18, 8, etc.), recycles intelligently
+  \item \strong{Point size}: Larger points for few compounds (3.5), smaller for many (2.5)
+  \item \strong{Legend text}: Smaller text for many compounds (9pt), larger for few (11pt)
+  \item \strong{Legend columns}: Single column for <=10 compounds, two columns for >10 compounds
+  \item \strong{Legend labels}: Automatically simplified - shows only compound names when target is consistent, only targets when compound is consistent, or full "target:compound" format otherwise
+  \item \strong{X-axis limits}: Automatically calculated from data with 5\% margin
+  \item \strong{Color assignment}: Intelligently selects appropriate palettes based on number of compounds and usage context
 }
 
 \strong{Color Selection Logic:}
 The function determines colors in the following priority order:
 \enumerate{
-\item If \code{colors} is a vector of color names/hex codes, those colors are used directly
-\item If \code{color_palette} is specified, colors are generated from that named palette
-\item If \code{colors = TRUE}, colors are generated from the default hue palette
-\item Otherwise, the default hue palette is used
+  \item If `colors` is a vector of color names/hex codes, those colors are used directly
+  \item If `color_palette` is specified, colors are generated from that named palette
+  \item If `colors = TRUE`, colors are generated from the default hue palette
+  \item Otherwise, the default hue palette is used
 }
 }
 \note{

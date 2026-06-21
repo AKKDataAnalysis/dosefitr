@@ -27,11 +27,11 @@ batch_viability_analysis(
 files (both raw data and metadata). Defaults to the current working directory.}
 
 \item{control_0perc}{Integer (1-24) or NULL. Column index corresponding to the
-0\\% viability control (e.g., background signal). This is typically a condition
+0\% viability control (e.g., background signal). This is typically a condition
 where no viable cells are expected. If NULL, no background normalization is applied.}
 
 \item{control_100perc}{Integer (1-24) or NULL. Column index corresponding to the
-100\\% viability control (e.g., untreated cells). This represents the reference
+100\% viability control (e.g., untreated cells). This represents the reference
 condition for maximum viability. If NULL, normalization is not performed.}
 
 \item{split_replicates}{Logical. If TRUE, splits experimental concentrations into
@@ -93,10 +93,10 @@ table, not by row halving.}
 A named list where each element corresponds to a processed plate.
 Each entry contains:
 \itemize{
-\item data_file: Name of the processed data file
-\item info_sheet: Metadata sheet used
-\item sheet_number: Plate identifier extracted from file/sheet name
-\item result: Output list returned by process_viability_data
+  \item data_file: Name of the processed data file
+  \item info_sheet: Metadata sheet used
+  \item sheet_number: Plate identifier extracted from file/sheet name
+  \item result: Output list returned by process_viability_data
 }
 }
 \description{
@@ -108,16 +108,17 @@ and processed using \code{\link{process_viability_data}}.
 This function is designed for high-throughput screening experiments where
 multiple plates must be processed in a standardized and reproducible way.
 
+
 The function iterates over all metadata sheets with numeric suffixes and
 attempts to match each one to a corresponding data file using the same
 numeric identifier.
 
 For each plate:
 \itemize{
-\item Raw viability data and metadata are loaded from Excel files
-\item Data is processed using process_viability_data
-\item Quality metrics are computed
-\item Optional Excel reports are generated
+  \item Raw viability data and metadata are loaded from Excel files
+  \item Data is processed using process_viability_data
+  \item Quality metrics are computed
+  \item Optional Excel reports are generated
 }
 
 Quality metrics are calculated per construct using plate row mappings
@@ -126,19 +127,19 @@ defined in the metadata table.
 \section{Input Requirements}{
 
 \itemize{
-\item Metadata Excel file must contain sheets ending in numeric identifiers
-\item Data files must follow the naming pattern defined by \code{data_pattern}
-\item Metadata must contain at least four columns:
-log(inhibitor), plate row (A-P), construct, and compound
+  \item Metadata Excel file must contain sheets ending in numeric identifiers
+  \item Data files must follow the naming pattern defined by \code{data_pattern}
+  \item Metadata must contain at least four columns:
+  log(inhibitor), plate row (A-P), construct, and compound
 }
 }
 
 \section{Output}{
 
 \itemize{
-\item Per-plate Excel reports (viability_results_\if{html}{\out{<n>}}.xlsx)
-\item Quality metrics files (drc_quality/viability_results_\if{html}{\out{<n>}}.xlsx)
-\item Batch summary report (batch_viability_report.xlsx)
+  \item Per-plate Excel reports (viability_results_<n>.xlsx)
+  \item Quality metrics files (drc_quality/viability_results_<n>.xlsx)
+  \item Batch summary report (batch_viability_report.xlsx)
 }
 }
 

@@ -44,17 +44,17 @@ not exist.  Set to \code{FALSE} to skip writing entirely.}
 }
 \value{
 A named list in the same format as \code{\link{batch_ratio_analysis}}
-output.  The individual plate entries that were merged are removed and
-replaced by a single entry named \code{merged_name}.  Any plates that
-were \emph{not} selected for merging are kept unchanged.
+  output.  The individual plate entries that were merged are removed and
+  replaced by a single entry named \code{merged_name}.  Any plates that
+  were \emph{not} selected for merging are kept unchanged.
 
-The merged entry's \code{$result$modified_ratio_table} contains all
-replicate columns from every merged plate, renumbered sequentially.
-\code{$result$original_ratio_table} is set to \code{NULL} (the concept
-of a single "original" table does not apply to a merge).
-All other \code{$result} slots (\code{general_means},
-\code{interval_means}, etc.) are set to \code{NULL}; they will be
-recomputed by downstream functions as needed.
+  The merged entry's \code{$result$modified_ratio_table} contains all
+  replicate columns from every merged plate, renumbered sequentially.
+  \code{$result$original_ratio_table} is set to \code{NULL} (the concept
+  of a single "original" table does not apply to a merge).
+  All other \code{$result} slots (\code{general_means},
+  \code{interval_means}, etc.) are set to \code{NULL}; they will be
+  recomputed by downstream functions as needed.
 }
 \description{
 Takes two or more plates from a \code{\link{batch_ratio_analysis}} (or
@@ -103,12 +103,12 @@ When \code{generate_reports = TRUE}, a single Excel workbook is written to
 a \code{drc_quality/} sub-folder of the current working directory
 (created automatically if it does not exist):
 \describe{
-\item{\code{drc_quality/merged_results_<merged_name>.xlsx}}{Workbook
-with sheets: \code{Merged_Table} (combined modified table with all
-replicates renumbered), one \code{Original_<plate>} sheet per merged
-plate (the \code{modified_ratio_table} from that plate before merging),
-and a \code{Provenance} sheet listing which plates were merged and
-their source data files.}
+  \item{\code{drc_quality/merged_results_<merged_name>.xlsx}}{Workbook
+    with sheets: \code{Merged_Table} (combined modified table with all
+    replicates renumbered), one \code{Original_<plate>} sheet per merged
+    plate (the \code{modified_ratio_table} from that plate before merging),
+    and a \code{Provenance} sheet listing which plates were merged and
+    their source data files.}
 }
 }
 

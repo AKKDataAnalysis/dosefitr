@@ -255,7 +255,7 @@
 #'   \item \strong{Legend text}: Smaller text for many compounds (9pt), larger for few (11pt)
 #'   \item \strong{Legend columns}: Single column for <=10 compounds, two columns for >10 compounds
 #'   \item \strong{Legend labels}: Automatically simplified - shows only compound names when target is consistent, only targets when compound is consistent, or full "target:compound" format otherwise
-#'   \item \strong{X-axis limits}: Automatically calculated from data with 5% margin
+#'   \item \strong{X-axis limits}: Automatically calculated from data with 5\% margin
 #'   \item \strong{Color assignment}: Intelligently selects appropriate palettes based on number of compounds and usage context
 #' }
 #'

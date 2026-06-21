@@ -74,6 +74,22 @@
 #' layout) and \code{\link{batch_viability_analysis}} (use
 #' \code{version = "v2"} to dispatch to this function).
 #'
+#' @examples
+#' \dontrun{
+#' # See vignette('dosefitr_workflow') for end-to-end usage; this function
+#' # consumes raw plate-reader exports plus an info_table describing the
+#' # plate layout, both of which are too complex to mock inside an example.
+#' result <- process_viability_data_v2(
+#'   data            = my_raw_plate_data,
+#'   control_0perc   = 1,
+#'   control_100perc = 12,
+#'   info_table      = my_info_table,
+#'   selected_columns = 1:12,
+#'   verbose         = FALSE
+#' )
+#' }
+#'
+#'
 #' @importFrom stats ave
 #' @export
 

@@ -51,15 +51,15 @@ always uses \code{":"}; this parameter only affects display.}
 }
 \value{
 Invisibly returns the combined \pkg{patchwork} ggplot object.
-Each panel shows:
-\itemize{
-\item Smooth fitted 3PL/4PL curve (grey line, 200 points).
-\item Rep 1 (blue circles) and Rep 2 (orange triangles).
-\item ROUT outliers as red \eqn{\times} with standardised residual
-label (via \pkg{ggrepel}).
-\item Subtitle: model used, dynamic range \\%, convergence warning
-if applicable.
-}
+  Each panel shows:
+  \itemize{
+    \item Smooth fitted 3PL/4PL curve (grey line, 200 points).
+    \item Rep 1 (blue circles) and Rep 2 (orange triangles).
+    \item ROUT outliers as red \eqn{\times} with standardised residual
+      label (via \pkg{ggrepel}).
+    \item Subtitle: model used, dynamic range \%, convergence warning
+      if applicable.
+  }
 }
 \description{
 Generates a multi-panel figure showing fitted 3PL/4PL curves, replicate
@@ -89,5 +89,5 @@ plot_outliers_curves(out, title = "Plate 01", file = "plate_01_curves.png")
 }
 \seealso{
 \code{\link{rout_outliers}},
-\code{\link{plot_outliers_batch_curves}}
+  \code{\link{plot_outliers_batch_curves}}
 }

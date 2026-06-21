@@ -232,19 +232,19 @@ the actual \code{geom_point} size (default: 2). The effective point size is
 \value{
 Returns a ggplot object with comprehensive metadata stored as attributes:
 \itemize{
-\item \code{compound_name}: Name of the plotted compound
-\item \code{compound_index}: Index of the plotted compound
-\item \code{model_success}: Whether model fitting was successful
-\item \code{summary_data}: Data frame with summarized plotting data
-\item \code{plot_config}: Configuration settings used for plotting
-\item \code{y_limits_used}: Y-axis limits actually used
-\item \code{data_points}: Number of data points plotted
-\item \code{concentration_levels}: Number of concentration levels
-\item \code{file_saved}: Path to saved file if plot was saved
-\item \code{plot_dimensions}: Dimensions of the plot (width, height, dpi)
-\item \code{timestamp}: Time when plot was generated
-\item \code{ic50_excluded}: Whether IC50 was excluded due to threshold
-\item \code{log_ic50}: Log IC50 value if available
+  \item \code{compound_name}: Name of the plotted compound
+  \item \code{compound_index}: Index of the plotted compound
+  \item \code{model_success}: Whether model fitting was successful
+  \item \code{summary_data}: Data frame with summarized plotting data
+  \item \code{plot_config}: Configuration settings used for plotting
+  \item \code{y_limits_used}: Y-axis limits actually used
+  \item \code{data_points}: Number of data points plotted
+  \item \code{concentration_levels}: Number of concentration levels
+  \item \code{file_saved}: Path to saved file if plot was saved
+  \item \code{plot_dimensions}: Dimensions of the plot (width, height, dpi)
+  \item \code{timestamp}: Time when plot was generated
+  \item \code{ic50_excluded}: Whether IC50 was excluded due to threshold
+  \item \code{log_ic50}: Log IC50 value if available
 }
 }
 \description{
@@ -260,55 +260,55 @@ and professional styling suitable for scientific publications.
 
 \strong{Key Features:}
 \itemize{
-\item \strong{Professional Styling}: Clean, publication-ready appearance with bold axis labels
-\item \strong{Smart IC50 Handling}: Only shows IC50 line when valid value exists
-\item \strong{Error Bar Management}: Automatic handling of replicate data
-\item \strong{Threshold Awareness}: Detects and handles IC50 exclusion due to bottom thresholds
-\item \strong{Self-Contained}: No external package loading required
-\item \strong{Comprehensive Metadata}: Detailed information about the plot and data
+  \item \strong{Professional Styling}: Clean, publication-ready appearance with bold axis labels
+  \item \strong{Smart IC50 Handling}: Only shows IC50 line when valid value exists
+  \item \strong{Error Bar Management}: Automatic handling of replicate data
+  \item \strong{Threshold Awareness}: Detects and handles IC50 exclusion due to bottom thresholds
+  \item \strong{Self-Contained}: No external package loading required
+  \item \strong{Comprehensive Metadata}: Detailed information about the plot and data
 }
 
 \strong{Plot Elements:}
 \itemize{
-\item Data points with optional error bars (standard deviation)
-\item Fitted dose-response curve (when model converged)
-\item Vertical IC50 line (only when valid IC50 exists)
-\item Left-aligned parameter legend with IC50 and R2 values
-\item Professional axis formatting with customizable titles
-\item Optional background grid for better readability
+  \item Data points with optional error bars (standard deviation)
+  \item Fitted dose-response curve (when model converged)
+  \item Vertical IC50 line (only when valid IC50 exists)
+  \item Left-aligned parameter legend with IC50 and R2 values
+  \item Professional axis formatting with customizable titles
+  \item Optional background grid for better readability
 }
 
 \strong{Supported Export Formats:}
 \itemize{
-\item PNG (high-resolution, recommended for publications)
-\item JPEG (good for presentations)
-\item TIFF (lossless compression)
-\item PDF (vector format, scalable)
-\item SVG (vector format, editable)
+  \item PNG (high-resolution, recommended for publications)
+  \item JPEG (good for presentations)
+  \item TIFF (lossless compression)
+  \item PDF (vector format, scalable)
+  \item SVG (vector format, editable)
 }
 }
 \section{Plot Customization}{
 
 The function provides extensive customization options while maintaining professional quality:
 \itemize{
-\item \strong{Visual Elements}: Customize colors, sizes, and styling of all plot components
-\item \strong{Layout Control}: Adjust dimensions, resolution, and aspect ratio
-\item \strong{Content Toggle}: Show/hide legend, grid, IC50 line, and error bars
-\item \strong{Text Formatting}: Control font sizes and axis labels
-\item \strong{Export Quality}: Multiple formats with quality and resolution control
+  \item \strong{Visual Elements}: Customize colors, sizes, and styling of all plot components
+  \item \strong{Layout Control}: Adjust dimensions, resolution, and aspect ratio
+  \item \strong{Content Toggle}: Show/hide legend, grid, IC50 line, and error bars
+  \item \strong{Text Formatting}: Control font sizes and axis labels
+  \item \strong{Export Quality}: Multiple formats with quality and resolution control
 }
 }
 
 \section{Automatic Features}{
 
 \itemize{
-\item Automatic input validation and error handling
-\item Smart detection of threshold-based IC50 exclusion
-\item Automatic directory creation for saved plots
-\item Intelligent error bar display (only when meaningful data exists)
-\item Graceful handling of failed model fits with clear indication
-\item Professional axis formatting with appropriate scientific notation
-\item Compound name extraction and clean display
+  \item Automatic input validation and error handling
+  \item Smart detection of threshold-based IC50 exclusion
+  \item Automatic directory creation for saved plots
+  \item Intelligent error bar display (only when meaningful data exists)
+  \item Graceful handling of failed model fits with clear indication
+  \item Professional axis formatting with appropriate scientific notation
+  \item Compound name extraction and clean display
 }
 }
 
@@ -359,9 +359,9 @@ print(meta$log_ic50)
 \references{
 For visualization best practices in scientific publications:
 \itemize{
-\item Nature Scientific Figures Guidelines
-\item ggplot2: Elegant Graphics for Data Analysis (Springer)
-\item R Graphics Cookbook (O'Reilly)
+  \item Nature Scientific Figures Guidelines
+  \item ggplot2: Elegant Graphics for Data Analysis (Springer)
+  \item R Graphics Cookbook (O'Reilly)
 }
 }
 \seealso{

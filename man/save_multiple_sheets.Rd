@@ -29,7 +29,7 @@ have rounding applied. If NULL, all sheets are rounded (default: NULL).}
 }
 \value{
 Invisibly returns NULL. The function primarily produces an Excel file
-as output and displays a confirmation message.
+  as output and displays a confirmation message.
 }
 \description{
 Exports multiple data frames to a single Excel file with professional formatting,
@@ -42,29 +42,29 @@ scientific and pharmacological data presentation. Key features include:
 
 \strong{Advanced Formatting Features:}
 \itemize{
-\item Multiple Sheets: Each data frame becomes a separate worksheet
-\item Row Name Preservation: Automatically includes row names in a protected "RowNames" column
-\item Decimal Customization: Converts decimal separators (point to comma) with precision control
-\item Selective Rounding: Applies rounding only to specified worksheets
-\item Scientific Notation: Preserves scientific notation when present
-\item Protected Columns: Never modifies the "RowNames" column during formatting
+  \item Multiple Sheets: Each data frame becomes a separate worksheet
+  \item Row Name Preservation: Automatically includes row names in a protected "RowNames" column
+  \item Decimal Customization: Converts decimal separators (point to comma) with precision control
+  \item Selective Rounding: Applies rounding only to specified worksheets
+  \item Scientific Notation: Preserves scientific notation when present
+  \item Protected Columns: Never modifies the "RowNames" column during formatting
 }
 
 \strong{Automatic Sheet Naming:}
 \itemize{
-\item Uses variable names for sheet names when unnamed arguments provided
-\item Uses provided names when named arguments used
-\item Maintains original data structure and integrity
+  \item Uses variable names for sheet names when unnamed arguments provided
+  \item Uses provided names when named arguments used
+  \item Maintains original data structure and integrity
 }
 }
 \section{Row Name Handling}{
 
 The function automatically preserves row names through:
 \itemize{
-\item Creating a dedicated "RowNames" column as the first column
-\item Using original row names when available
-\item Generating sequential numbers (1, 2, 3...) when no row names exist
-\item Protecting the "RowNames" column from all decimal formatting operations
+  \item Creating a dedicated "RowNames" column as the first column
+  \item Using original row names when available
+  \item Generating sequential numbers (1, 2, 3...) when no row names exist
+  \item Protecting the "RowNames" column from all decimal formatting operations
 }
 }
 
@@ -72,10 +72,10 @@ The function automatically preserves row names through:
 
 Advanced control over number formatting:
 \itemize{
-\item \code{decimal_comma = TRUE}: European format (1,234 instead of 1.234)
-\item \code{decimal_comma = FALSE}: International format (1.234)
-\item Scientific notation preserved in both formats (1,23e-4 or 1.23e-4)
-\item Rounding applied before decimal separator conversion
+  \item \code{decimal_comma = TRUE}: European format (1,234 instead of 1.234)
+  \item \code{decimal_comma = FALSE}: International format (1.234)
+  \item Scientific notation preserved in both formats (1,23e-4 or 1.23e-4)
+  \item Rounding applied before decimal separator conversion
 }
 }
 
@@ -83,11 +83,11 @@ Advanced control over number formatting:
 
 The \code{round_sheets} parameter enables precise control:
 \itemize{
-\item \code{NULL}: Apply rounding to all worksheets (default behavior)
-\item \code{1}: Apply rounding only to first worksheet
-\item \code{c(1, 3)}: Apply rounding to worksheets 1 and 3
-\item \code{2:4}: Apply rounding to worksheets 2, 3, and 4
-\item \code{numeric(0)}: No rounding applied to any worksheet
+  \item \code{NULL}: Apply rounding to all worksheets (default behavior)
+  \item \code{1}: Apply rounding only to first worksheet
+  \item \code{c(1, 3)}: Apply rounding to worksheets 1 and 3
+  \item \code{2:4}: Apply rounding to worksheets 2, 3, and 4
+  \item \code{numeric(0)}: No rounding applied to any worksheet
 }
 }
 
@@ -163,9 +163,9 @@ save_multiple_sheets(
 \references{
 For scientific data presentation standards:
 \itemize{
-\item "The International System of Units (SI)" - Decimal separator conventions
-\item Nature Research Reporting Guidelines
-\item Journal of Pharmacology and Experimental Therapeutics data standards
+  \item "The International System of Units (SI)" - Decimal separator conventions
+  \item Nature Research Reporting Guidelines
+  \item Journal of Pharmacology and Experimental Therapeutics data standards
 }
 }
 \seealso{

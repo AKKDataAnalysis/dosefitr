@@ -43,7 +43,7 @@ biologically plausible parameter limits in \code{check_biological_plausibility}.
 (Bottom: -100 to 600, Top: 0 to 700), applied regardless of
 \code{normalize}.
 \code{"viability"} with \code{normalize = TRUE} uses limits appropriate
-for a normalized 0-100\\% scale (Bottom: -20 to 60, Top: 50 to 130),
+for a normalized 0-100\% scale (Bottom: -20 to 60, Top: 50 to 130),
 allowing a small tolerance for over/undershoot.
 \code{"viability"} with \code{normalize = FALSE} disables the check
 entirely -- raw count data has no meaningful absolute limits since the

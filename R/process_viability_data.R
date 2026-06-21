@@ -16,10 +16,10 @@
 #' @param data A data.frame or matrix containing raw plate data.
 #'   Must contain at least 16 rows corresponding to plate rows A-P.
 #'
-#' @param control_0perc Numeric or character. Column representing the 0% control
+#' @param control_0perc Numeric or character. Column representing the 0\% control
 #'   (e.g., background). If numeric, refers to column index (1-24).
 #'
-#' @param control_100perc Numeric or character. Column representing the 100% control
+#' @param control_100perc Numeric or character. Column representing the 100\% control
 #'   (e.g., untreated or positive control). If numeric, refers to column index (1-24).
 #'
 #' @param split_replicates Logical. If TRUE (default), splits experimental concentrations
@@ -54,7 +54,7 @@
 #'   \item Detects plate layout (rows A-P and columns 1-24)
 #'   \item Extracts viability values
 #'   \item Filters low or zero values
-#'   \item Maps control columns (0% and 100%)
+#'   \item Maps control columns (0\% and 100\%)
 #'   \item Optionally applies construct-specific control averaging
 #'   \item Reorders columns to place controls at beginning and end
 #'   \item Transposes the dataset

@@ -25,12 +25,12 @@ batch_ratio_analysis(
 \item{directory}{Character string.  Directory containing the raw data
 files and the info file (default: current working directory).}
 
-\item{control_0perc}{0\\% control specification passed to the ratio
+\item{control_0perc}{0\% control specification passed to the ratio
 function.  For \code{function_version = "v1"}: a column name string.
 For \code{function_version = "v2"}: either a single numeric value
 (fixed-value mode) or a column name string.}
 
-\item{control_100perc}{100\\% control specification passed to the ratio
+\item{control_100perc}{100\% control specification passed to the ratio
 function.  For \code{function_version = "v1"}: a column name string.
 For \code{function_version = "v2"}: a numeric vector of column
 positions or a column name string.}
@@ -81,25 +81,25 @@ Default \code{NULL} uses auto-discovery for all sheets.}
 }
 \value{
 A named list with one element per successfully processed plate.
-The element name is the info-sheet name (e.g. \code{"Sheet1"}).
-Each element is a list with:
-\describe{
-\item{\code{data_file}}{Filename of the raw data file used.}
-\item{\code{info_sheet}}{Name of the info sheet used.}
-\item{\code{sheet_number}}{Plate number extracted from the sheet
-name.}
-\item{\code{function_version}}{\code{"v1"} or \code{"v2"}.}
-\item{\code{control_0perc}}{Value passed as \code{control_0perc}.}
-\item{\code{control_100perc}}{Value passed as
-\code{control_100perc}.}
-\item{\code{selected_columns}}{Value passed as
-\code{selected_columns}.}
-\item{\code{result}}{The full return value of the ratio function
-(see \code{\link{ratio_dose_response_v2}} for the structure).}
-}
-Plates that fail processing are omitted from the list and a warning is
-issued.  If no plates succeed, a warning is issued and an empty list
-is returned.
+  The element name is the info-sheet name (e.g. \code{"Sheet1"}).
+  Each element is a list with:
+  \describe{
+    \item{\code{data_file}}{Filename of the raw data file used.}
+    \item{\code{info_sheet}}{Name of the info sheet used.}
+    \item{\code{sheet_number}}{Plate number extracted from the sheet
+      name.}
+    \item{\code{function_version}}{\code{"v1"} or \code{"v2"}.}
+    \item{\code{control_0perc}}{Value passed as \code{control_0perc}.}
+    \item{\code{control_100perc}}{Value passed as
+      \code{control_100perc}.}
+    \item{\code{selected_columns}}{Value passed as
+      \code{selected_columns}.}
+    \item{\code{result}}{The full return value of the ratio function
+      (see \code{\link{ratio_dose_response_v2}} for the structure).}
+  }
+  Plates that fail processing are omitted from the list and a warning is
+  issued.  If no plates succeed, a warning is issued and an empty list
+  is returned.
 }
 \description{
 This is the \strong{top-level entry point} for the NanoBRET processing
@@ -131,29 +131,29 @@ warning is issued.
 Raw files are parsed by the internal helper \code{.read_nanobret_raw()},
 which uses a two-stage detection strategy:
 \enumerate{
-\item \strong{Primary path (BMG PHERAstar):} searches for rows matching
-\code{"\\d+\\.\\s*Raw Data"} in column 2 (e.g.
-\code{"1. Raw Data (450-80 B)"}).  This is the fast, instrument-specific
-path and is tried first.
-\item \strong{Fallback path (generic):} if no PHERAstar title row is found,
-scans the first 30 rows for a row whose integers form a consecutive
-sequence starting at 1 (e.g. \code{1, 2, ..., 8} or \code{1, 2, ..., 24}).
-This handles partial plates of any width and works with any plate reader
-that exports a standard layout (e.g. Tecan Spark, BioTek Synergy).
+  \item \strong{Primary path (BMG PHERAstar):} searches for rows matching
+    \code{"\\d+\\.\\s*Raw Data"} in column 2 (e.g.
+    \code{"1. Raw Data (450-80 B)"}).  This is the fast, instrument-specific
+    path and is tried first.
+  \item \strong{Fallback path (generic):} if no PHERAstar title row is found,
+    scans the first 30 rows for a row whose integers form a consecutive
+    sequence starting at 1 (e.g. \code{1, 2, ..., 8} or \code{1, 2, ..., 24}).
+    This handles partial plates of any width and works with any plate reader
+    that exports a standard layout (e.g. Tecan Spark, BioTek Synergy).
 }
 }
 
 \section{Output files (when generate_reports = TRUE)}{
 
 \describe{
-\item{\code{results_<N>.xlsx}}{Per-plate workbook with sheets:
-\code{Modified_Ratio_Table}, \code{Original_Ratio_Table},
-\code{General_Means}, \code{Interval_Means},
-\code{Control_Info}, \code{Selected_Columns_Info},
-\code{Processing_Info}.}
-\item{\code{batch_analysis_report.xlsx}}{Consolidated workbook with a
-\code{Summary} sheet (one row per plate) and one quality-metrics
-sheet per plate.}
+  \item{\code{results_<N>.xlsx}}{Per-plate workbook with sheets:
+    \code{Modified_Ratio_Table}, \code{Original_Ratio_Table},
+    \code{General_Means}, \code{Interval_Means},
+    \code{Control_Info}, \code{Selected_Columns_Info},
+    \code{Processing_Info}.}
+  \item{\code{batch_analysis_report.xlsx}}{Consolidated workbook with a
+    \code{Summary} sheet (one row per plate) and one quality-metrics
+    sheet per plate.}
 }
 }
 

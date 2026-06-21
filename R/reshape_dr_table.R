@@ -29,8 +29,8 @@
 #' \itemize{
 #'   \item \strong{log(inhibitor) vs. response (three parameters)}: Section header
 #'   \item \strong{Best-fit values}: Bottom, Top, LogIC50, IC50, Span
-#'   \item \strong{Lower 95% conf. limit}: Profile likelihood confidence intervals
-#'   \item \strong{Upper 95% conf. limit}: Profile likelihood confidence intervals  
+#'   \item \strong{Lower 95\% conf. limit}: Profile likelihood confidence intervals
+#'   \item \strong{Upper 95\% conf. limit}: Profile likelihood confidence intervals  
 #'   \item \strong{Goodness of Fit}: Degrees of Freedom, R-squared, Sum of Squares, Syx
 #'   \item \strong{Additional metrics}: Max Slope, Curve Quality
 #' }

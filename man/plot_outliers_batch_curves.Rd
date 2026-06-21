@@ -69,8 +69,8 @@ always uses \code{":"}; this parameter only affects display.}
 }
 \value{
 Invisibly returns a character vector of the PNG file paths
-written to \code{output_dir} (one path per successfully processed
-plate).  The primary side-effect is writing those PNG files.
+  written to \code{output_dir} (one path per successfully processed
+  plate).  The primary side-effect is writing those PNG files.
 }
 \description{
 Generates a multi-panel dose-response figure for every plate in a

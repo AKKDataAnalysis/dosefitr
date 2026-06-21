@@ -2,7 +2,7 @@
 #'
 #' @description
 #' This function processes dual-readout plate data (e.g., luciferase and a normalizer),
-#' calculates ratios, applies optional normalization to controls (0% and 100%),
+#' calculates ratios, applies optional normalization to controls (0\% and 100\%),
 #' performs quality control metrics, handles replicate splitting, and optionally
 #' exports results to Excel.
 #'
@@ -24,7 +24,7 @@
 #'   \item Filtering low luciferase values (below `low_value_threshold`)
 #'   \item Handling division by zero
 #'   \item Flexible control definition (fixed value or column-based)
-#'   \item Construction of normalized tables with 0% and 100% controls
+#'   \item Construction of normalized tables with 0\% and 100\% controls
 #'   \item Optional splitting of technical replicates
 #'   \item Integration with metadata (`info_table`) for labeling and QC metrics
 #'   \item Calculation of assay quality metrics:
@@ -38,13 +38,13 @@
 #'
 #' @param data A data.frame containing the raw plate data. Must have at least 43 rows.
 #'
-#' @param control_0perc Defines the 0% control. Can be:
+#' @param control_0perc Defines the 0\% control. Can be:
 #' \itemize{
 #'   \item A single numeric value (fixed baseline)
 #'   \item A column name (character)
 #' }
 #'
-#' @param control_100perc Defines the 100% control. Can be:
+#' @param control_100perc Defines the 100\% control. Can be:
 #' \itemize{
 #'   \item Numeric indices of columns (relative to data columns, excluding row names)
 #'   \item Column name(s) (character vector)
@@ -100,14 +100,14 @@
 #' @section Control Handling:
 #' Two normalization strategies are supported:
 #'
-#' \strong{1. Fixed 0% control + column-based 100% control}
+#' \strong{1. Fixed 0\% control + column-based 100\% control}
 #' \itemize{
 #'   \item Creates a `Fixed_0perc` column
 #'   \item Computes `Mean_100perc` from selected columns
-#'   \item Removes original 100% control columns
+#'   \item Removes original 100\% control columns
 #' }
 #'
-#' \strong{2. Column-based 0% and 100% controls}
+#' \strong{2. Column-based 0\% and 100\% controls}
 #' \itemize{
 #'   \item Keeps both control columns in the dataset
 #'   \item Reorders columns for consistency

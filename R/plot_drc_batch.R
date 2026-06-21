@@ -177,8 +177,6 @@
 #'
 #' @import ggplot2
 #' @import dplyr
-#' @import tidyr
-#' @import tibble
 #' @import scales
 #' @importFrom RColorBrewer brewer.pal
 #' @importFrom viridisLite viridis
@@ -224,7 +222,7 @@ plot_drc_batch <- function(batch_drc_results,
   # ============================================================================
   # 1. SETUP & NAMESPACE CHECKS
   # ============================================================================
-  required_packages <- c("ggplot2", "scales", "dplyr", "tidyr", "tibble")
+  required_packages <- c("ggplot2", "scales", "dplyr")
   missing_packages <- sapply(required_packages, function(pkg) {
     !requireNamespace(pkg, quietly = TRUE)
   })
@@ -524,8 +522,8 @@ plot_drc_batch <- function(batch_drc_results,
   # ============================================================================
   plot_stats <- dplyr::group_by(plot_raw, plate, construct, compound, construct_compound, unique_id, log_inhibitor)
   plot_stats <- dplyr::summarise(plot_stats,
-                                 mean_response = mean(response, na.rm=T),
-                                 sd_response = sd(response, na.rm=T),
+                                 mean_response = mean(response, na.rm = TRUE),
+                                 sd_response = sd(response, na.rm = TRUE),
                                  .groups="drop")
 
   n_groups <- length(unique(plot_raw$construct_compound))

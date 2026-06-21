@@ -8,7 +8,7 @@
 #' and subsequent columns contain response values in duplicate pairs.
 #' @param output_file Optional character string specifying path to save results.
 #' Supports .csv and .xlsx formats.
-#' @param normalize Logical indicating whether to normalize response data to 0-100%
+#' @param normalize Logical indicating whether to normalize response data to 0-100\%
 #' based on first and last data points. Default is FALSE.
 #' @param verbose Logical indicating whether to display detailed progress messages.
 #' Default is FALSE.

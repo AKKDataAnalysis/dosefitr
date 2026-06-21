@@ -33,10 +33,10 @@ into two technical replicates.}
 \item{info_table}{Optional data.frame containing metadata. Must contain at least
 four columns:
 \describe{
-\item{Column 1}{log(inhibitor) values}
-\item{Column 2}{Plate row identifiers (A-P)}
-\item{Column 3}{Construct name}
-\item{Column 4}{Compound name}
+  \item{Column 1}{log(inhibitor) values}
+  \item{Column 2}{Plate row identifiers (A-P)}
+  \item{Column 3}{Construct name}
+  \item{Column 4}{Compound name}
 }}
 
 \item{selected_columns}{Optional numeric vector specifying which data columns (1-24)
@@ -56,14 +56,14 @@ structure within the input data.}
 \value{
 A list with the following elements:
 \describe{
-\item{original_table}{Numeric data.frame of extracted viability values}
-\item{modified_table}{Processed data.frame ready for analysis}
-\item{processing_info}{List containing intermediate data and metadata}
-\item{selected_columns_info}{Information about selected columns}
-\item{version}{Function version (4.2)}
-\item{data_type}{Type of data ("viability")}
-\item{auto_detect}{Logical indicating if auto-detection was used}
-\item{behavior_mode}{Processing mode ("original")}
+  \item{original_table}{Numeric data.frame of extracted viability values}
+  \item{modified_table}{Processed data.frame ready for analysis}
+  \item{processing_info}{List containing intermediate data and metadata}
+  \item{selected_columns_info}{Information about selected columns}
+  \item{version}{Function version (4.2)}
+  \item{data_type}{Type of data ("viability")}
+  \item{auto_detect}{Logical indicating if auto-detection was used}
+  \item{behavior_mode}{Processing mode ("original")}
 }
 }
 \description{
@@ -80,18 +80,19 @@ and converts it into a structured format suitable for downstream analysis.
 It supports automatic table detection, control normalization, replicate splitting,
 and annotation using an optional metadata table.
 
+
 The function performs the following steps:
 \enumerate{
-\item Detects plate layout (rows A-P and columns 1-24)
-\item Extracts viability values
-\item Filters low or zero values
-\item Maps control columns (0\% and 100\%)
-\item Optionally applies construct-specific control averaging
-\item Reorders columns to place controls at beginning and end
-\item Transposes the dataset
-\item Optionally renames columns using \code{info_table}
-\item Splits technical replicates (if enabled)
-\item Adds log(inhibitor) values (if provided)
+  \item Detects plate layout (rows A-P and columns 1-24)
+  \item Extracts viability values
+  \item Filters low or zero values
+  \item Maps control columns (0\% and 100\%)
+  \item Optionally applies construct-specific control averaging
+  \item Reorders columns to place controls at beginning and end
+  \item Transposes the dataset
+  \item Optionally renames columns using \code{info_table}
+  \item Splits technical replicates (if enabled)
+  \item Adds log(inhibitor) values (if provided)
 }
 
 Column indices (1-24) always refer to the original plate layout,

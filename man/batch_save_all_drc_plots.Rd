@@ -34,8 +34,8 @@ batch_save_all_drc_plots(
 \arguments{
 \item{batch_drc_results}{A list of DRC results. Can be either:
 \itemize{
-\item Output from \code{batch_drc_analysis()} (with \code{$drc_results})
-\item A direct list of plate-level DRC results
+  \item Output from \code{batch_drc_analysis()} (with \code{$drc_results})
+  \item A direct list of plate-level DRC results
 }}
 
 \item{output_dir}{Character. Directory where plots will be saved.
@@ -43,9 +43,9 @@ Default is \code{"DRC_Plots"}.}
 
 \item{organize_by}{Character. Directory organization strategy:
 \itemize{
-\item \code{"plate"}: plots grouped by plate (default)
-\item \code{"compound"}: plots grouped by compound
-\item \code{"flat"}: all plots in a single directory
+  \item \code{"plate"}: plots grouped by plate (default)
+  \item \code{"compound"}: plots grouped by compound
+  \item \code{"flat"}: all plots in a single directory
 }}
 
 \item{compounds_to_plot}{Optional character vector of compound names to include.
@@ -119,15 +119,15 @@ explicitly set there.}
 \value{
 Invisibly returns a list with summary information:
 \itemize{
-\item \code{total} Number of compounds processed
-\item \code{successes} Number of successfully generated plots
-\item \code{failures} Number of failed plots
-\item \code{failed_compounds} Character vector of failed entries
-\item \code{error_messages} List of error messages
-\item \code{output_dir} Output directory path
-\item \code{organization} Directory structure used
-\item \code{point_color} Point color used in plots
-\item \code{timestamp} Time of execution
+  \item \code{total} Number of compounds processed
+  \item \code{successes} Number of successfully generated plots
+  \item \code{failures} Number of failed plots
+  \item \code{failed_compounds} Character vector of failed entries
+  \item \code{error_messages} List of error messages
+  \item \code{output_dir} Output directory path
+  \item \code{organization} Directory structure used
+  \item \code{point_color} Point color used in plots
+  \item \code{timestamp} Time of execution
 }
 }
 \description{
@@ -139,14 +139,15 @@ flexible directory organization and customizable aesthetics.
 This function scans all plates, identifies successfully fitted compounds,
 and generates publication-quality plots using \code{plot_dose_response()}.
 
+
 The function performs the following steps:
 \enumerate{
-\item Validates input structure and extracts plate-level results
-\item Identifies compounds with successful model fits
-\item Optionally filters by plate and/or compound
-\item Creates directory structure for output
-\item Generates plots using \code{plot_dose_response()}
-\item Saves plots to disk with safe filenames
+  \item Validates input structure and extracts plate-level results
+  \item Identifies compounds with successful model fits
+  \item Optionally filters by plate and/or compound
+  \item Creates directory structure for output
+  \item Generates plots using \code{plot_dose_response()}
+  \item Saves plots to disk with safe filenames
 }
 
 Compound and construct names are automatically parsed from input strings

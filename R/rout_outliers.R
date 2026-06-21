@@ -20,7 +20,7 @@
 #' @param direction Direction of the dose-response curve:
 #' `"inhibition"` or `"agonist"`. Determines Hill slope sign.
 #'
-#' @param min_dynamic_range Minimum dynamic range (%) required for reliable fitting.
+#' @param min_dynamic_range Minimum dynamic range (\%) required for reliable fitting.
 #'
 #' @param ntry_retry Number of retry attempts for model fitting using random starts.
 #'

@@ -19,10 +19,10 @@ instead of point (default: FALSE).}
 \value{
 A data frame with the following structure:
 \itemize{
-\item Rows organized into logical sections (best-fit values, confidence intervals, etc.)
-\item Compounds as columns
-\item Parameters as rows with section headers
-\item Professional formatting suitable for publications
+  \item Rows organized into logical sections (best-fit values, confidence intervals, etc.)
+  \item Compounds as columns
+  \item Parameters as rows with section headers
+  \item Professional formatting suitable for publications
 }
 }
 \description{
@@ -38,12 +38,12 @@ interpretation and comparison across multiple compounds.
 \strong{Output Structure:}
 The table is organized into the following sections:
 \itemize{
-\item \strong{log(inhibitor) vs. response (three parameters)}: Section header
-\item \strong{Best-fit values}: Bottom, Top, LogIC50, IC50, Span
-\item \strong{Lower 95\% conf. limit}: Profile likelihood confidence intervals
-\item \strong{Upper 95\% conf. limit}: Profile likelihood confidence intervals
-\item \strong{Goodness of Fit}: Degrees of Freedom, R-squared, Sum of Squares, Syx
-\item \strong{Additional metrics}: Max Slope, Curve Quality
+  \item \strong{log(inhibitor) vs. response (three parameters)}: Section header
+  \item \strong{Best-fit values}: Bottom, Top, LogIC50, IC50, Span
+  \item \strong{Lower 95\% conf. limit}: Profile likelihood confidence intervals
+  \item \strong{Upper 95\% conf. limit}: Profile likelihood confidence intervals  
+  \item \strong{Goodness of Fit}: Degrees of Freedom, R-squared, Sum of Squares, Syx
+  \item \strong{Additional metrics}: Max Slope, Curve Quality
 }
 
 \strong{Input Requirements:}
@@ -55,11 +55,11 @@ Curve_Quality, Degrees_of_Freedom}
 
 The reshaped table has the following characteristics:
 \itemize{
-\item \strong{Columns}: Compound names
-\item \strong{Rows}: Parameters organized in logical groups
-\item \strong{Section headers}: Descriptive headers for parameter groups
-\item \strong{Professional ordering}: Follows standard pharmacological reporting
-\item \strong{Excel-ready}: Directly exportable to formatted spreadsheets
+  \item \strong{Columns}: Compound names
+  \item \strong{Rows}: Parameters organized in logical groups
+  \item \strong{Section headers}: Descriptive headers for parameter groups
+  \item \strong{Professional ordering}: Follows standard pharmacological reporting
+  \item \strong{Excel-ready}: Directly exportable to formatted spreadsheets
 }
 }
 
@@ -67,9 +67,9 @@ The reshaped table has the following characteristics:
 
 When \code{decimal_comma = TRUE}:
 \itemize{
-\item Converts decimal points to commas (e.g., 1.234 -> 1,234)
-\item Suitable for European and many international formats
-\item Only affects Excel export, not the returned data frame
+  \item Converts decimal points to commas (e.g., 1.234 -> 1,234)
+  \item Suitable for European and many international formats
+  \item Only affects Excel export, not the returned data frame
 }
 }
 
@@ -114,9 +114,9 @@ print(structured_table)
 \references{
 For pharmacological data reporting standards:
 \itemize{
-\item "The IUPHAR/BPS Guide to PHARMACOLOGY" data standards
-\item Journal of Pharmacology and Experimental Therapeutics guidelines
-\item Nature Scientific Data reporting standards
+  \item "The IUPHAR/BPS Guide to PHARMACOLOGY" data standards
+  \item Journal of Pharmacology and Experimental Therapeutics guidelines
+  \item Nature Scientific Data reporting standards
 }
 }
 \seealso{

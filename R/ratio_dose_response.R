@@ -8,9 +8,9 @@
 #' @param data Data frame containing **raw dose-response experimental data** with specific
 #'   structure typically exported from plate readers. Must have at least 43 rows with
 #'   column names in row 9.
-#' @param control_0perc Character specifying the column name for 0% control (background control,
+#' @param control_0perc Character specifying the column name for 0\% control (background control,
 #'   typically vehicle-treated samples like DMSO).
-#' @param control_100perc Character specifying the column name for 100% control (positive control,
+#' @param control_100perc Character specifying the column name for 100\% control (positive control,
 #'   typically maximum inhibition samples).
 #' @param split_replicates Logical indicating whether to split experimental replicates
 #'   into separate columns (default: TRUE).

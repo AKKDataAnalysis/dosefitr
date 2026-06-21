@@ -56,27 +56,27 @@ This value will be applied to all compounds in the plate. Default is NA.}
 
 \item{tracer_kd_app}{Tracer KD app value as log. Can be specified in three ways:
 \itemize{
-\item \strong{Single value}: e.g., \code{-7.5} - applies the same value to all kinases
-\item \strong{Named vector}: e.g., \code{c(LRRK2 = -7.5, AAK1 = -8.0)} - specifies value for specific kinases
-\item \strong{Unnamed vector}: e.g., \code{c(-7.5, -8.0)} - applies values in the order of unique kinases appearing in the plate
+  \item \strong{Single value}: e.g., \code{-7.5} - applies the same value to all kinases
+  \item \strong{Named vector}: e.g., \code{c(LRRK2 = -7.5, AAK1 = -8.0)} - specifies value for specific kinases
+  \item \strong{Unnamed vector}: e.g., \code{c(-7.5, -8.0)} - applies values in the order of unique kinases appearing in the plate
 }
 Kinases without a specified value default to \code{NA} (with a warning).
 Default is \code{NA}.}
 
 \item{tracer_concentration_used}{Tracer concentration used as log. Can be specified in three ways:
 \itemize{
-\item \strong{Single value}: e.g., \code{-7.0} - applies the same value to all kinases
-\item \strong{Named vector}: e.g., \code{c(LRRK2 = -7.0, AAK1 = -7.5)} - specifies value for specific kinases
-\item \strong{Unnamed vector}: e.g., \code{c(-7.0, -7.5)} - applies values in the order of unique kinases appearing in the plate
+  \item \strong{Single value}: e.g., \code{-7.0} - applies the same value to all kinases
+  \item \strong{Named vector}: e.g., \code{c(LRRK2 = -7.0, AAK1 = -7.5)} - specifies value for specific kinases
+  \item \strong{Unnamed vector}: e.g., \code{c(-7.0, -7.5)} - applies values in the order of unique kinases appearing in the plate
 }
 Kinases without a specified value default to \code{NA} (with a warning).
 Default is \code{NA}.}
 
 \item{nLuc_orientation}{Orientation of nLuc. Can be specified in three ways:
 \itemize{
-\item \strong{Single character}: "C" or "N" - applies the same orientation to all kinases
-\item \strong{Named vector}: e.g., \code{c(LRRK2 = "C", AAK1 = "N")} - specifies orientation for specific kinases
-\item \strong{Unnamed vector}: e.g., \code{c("C", "N", "C")} - applies orientations in the order of unique kinases appearing in the plate
+  \item \strong{Single character}: "C" or "N" - applies the same orientation to all kinases
+  \item \strong{Named vector}: e.g., \code{c(LRRK2 = "C", AAK1 = "N")} - specifies orientation for specific kinases
+  \item \strong{Unnamed vector}: e.g., \code{c("C", "N", "C")} - applies orientations in the order of unique kinases appearing in the plate
 }
 Kinases without specified orientation default to "C" (with a warning).
 Default is "C".}
@@ -92,9 +92,9 @@ Default is "Flask Transfection".}
 
 \item{tracer}{Tracer name. Can be specified in three ways:
 \itemize{
-\item \strong{Single character}: e.g., \code{"Tracer K10"} - applies the same tracer to all kinases
-\item \strong{Named vector}: e.g., \code{c(LRRK2 = "Tracer K10", AAK1 = "Tracer 236")} - specifies tracer for specific kinases
-\item \strong{Unnamed vector}: e.g., \code{c("Tracer K10", "Tracer 236")} - applies tracers in the order of unique kinases appearing in the plate
+  \item \strong{Single character}: e.g., \code{"Tracer K10"} - applies the same tracer to all kinases
+  \item \strong{Named vector}: e.g., \code{c(LRRK2 = "Tracer K10", AAK1 = "Tracer 236")} - specifies tracer for specific kinases
+  \item \strong{Unnamed vector}: e.g., \code{c("Tracer K10", "Tracer 236")} - applies tracers in the order of unique kinases appearing in the plate
 }
 Kinases without a specified tracer default to \code{"Tracer K10"} (with a warning).
 Default is \code{"Tracer K10"}.}
@@ -143,9 +143,9 @@ Default is ".".}
 }
 \value{
 A data frame with 77 rows and multiple columns (one per unique compound).
-The first column "Field" contains the parameter names, and subsequent columns
-(X4, X5, ...) contain data for each compound. The number of compound columns
-depends on how many unique compounds are present in the plate.
+  The first column "Field" contains the parameter names, and subsequent columns
+  (X4, X5, ...) contain data for each compound. The number of compound columns
+  depends on how many unique compounds are present in the plate.
 }
 \description{
 This function creates a comprehensive summary table in the Scarab format,
@@ -157,54 +157,54 @@ and raw BRET values for each compound.
 This function is designed to work seamlessly with the output of two other functions
 in this package:
 \itemize{
-\item \code{\link{batch_ratio_analysis}}: Generates the \code{results_list} with raw data
-\item \code{\link{batch_drc_analysis}}: Generates the \code{drc_results_list} with curve fitting results
+  \item \code{\link{batch_ratio_analysis}}: Generates the \code{results_list} with raw data
+  \item \code{\link{batch_drc_analysis}}: Generates the \code{drc_results_list} with curve fitting results
 }
 
 The function generates a comprehensive table with the following sections:
 
 \strong{Basic Information (Rows 1-10):}
 \itemize{
-\item \code{Kinase}: Extracted from column names (e.g., "LRRK2" from "LRRK2:MDKM34")
-\item \code{nLuc Orientation}: Specified via \code{nLuc_orientation} parameter
-\item \code{Compound}: Compound name (e.g., "MDKM34")
-\item \code{Experiment ID}: Generated as \code{date-experimenter_abbrev-Kinase-Compound}
-\item \code{Construct ID}: Auto-generated as \code{{Kinase}A-nb001} (for N) or \code{{Kinase}A-nb002} (for C)
+  \item \code{Kinase}: Extracted from column names (e.g., "LRRK2" from "LRRK2:MDKM34")
+  \item \code{nLuc Orientation}: Specified via \code{nLuc_orientation} parameter
+  \item \code{Compound}: Compound name (e.g., "MDKM34")
+  \item \code{Experiment ID}: Generated as \code{date-experimenter_abbrev-Kinase-Compound}
+  \item \code{Construct ID}: Auto-generated as \code{{Kinase}A-nb001} (for N) or \code{{Kinase}A-nb002} (for C)
 }
 
 \strong{Curve Parameters (Rows 11-18):}
 Extracted from \code{final_summary_table} in \code{drc_results_list}
 \itemize{
-\item LogIC50, IC50, HillSlope, R2, etc.
+  \item LogIC50, IC50, HillSlope, R2, etc.
 }
 
 \strong{Quality Control (Rows 19-29):}
 Extracted from \code{interval_means} in \code{results_list}
 \itemize{
-\item Controls (Positive, Background), Z', Assay window, etc.
+  \item Controls (Positive, Background), Z', Assay window, etc.
 }
 
 \strong{Experimental Details (Rows 30-37):}
 \itemize{
-\item Tracer information, plate specifications, etc.
+  \item Tracer information, plate specifications, etc.
 }
 
 \strong{Concentration Data (Rows 38-73):}
 \itemize{
-\item \code{LOG Compound Concentration 1-12}: From \code{modified_ratio_table}
-\item \code{Compound Concentration X BRET}: From main columns (without .2 suffix)
-\item \code{Compound Concentration X BRET-Duplicate}: From duplicate columns (with .2 suffix)
+  \item \code{LOG Compound Concentration 1-12}: From \code{modified_ratio_table}
+  \item \code{Compound Concentration X BRET}: From main columns (without .2 suffix)
+  \item \code{Compound Concentration X BRET-Duplicate}: From duplicate columns (with .2 suffix)
 }
 
 \strong{Metadata (Rows 74-76):}
 \itemize{
-\item ELN ID, Comments, Is EUbScarab Ready?
+  \item ELN ID, Comments, Is EUbScarab Ready?
 }
 
 The Construct ID (row 7) is automatically generated based on kinase and orientation:
 \itemize{
-\item If orientation is \code{"N"}: \code{{kinase}A-nb001}
-\item If orientation is \code{"C"}: \code{{kinase}A-nb002}
+  \item If orientation is \code{"N"}: \code{{kinase}A-nb001}
+  \item If orientation is \code{"C"}: \code{{kinase}A-nb002}
 }
 
 All numeric values are converted to character strings to maintain formatting

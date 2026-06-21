@@ -26,17 +26,17 @@ Must be strictly between 0 and 1 (default = 0.01).}
 
 \item{n_param}{Integer. Number of parameters for the Hill model:
 \itemize{
-\item 3: 3-parameter logistic model
-\item 4: 4-parameter logistic model
+  \item 3: 3-parameter logistic model
+  \item 4: 4-parameter logistic model
 }}
 
 \item{direction}{Character. Curve direction:
 \itemize{
-\item "inhibition" (default)
-\item "activation"
+  \item "inhibition" (default)
+  \item "activation"
 }}
 
-\item{min_dynamic_range}{Numeric. Minimum dynamic range (\\%) required for
+\item{min_dynamic_range}{Numeric. Minimum dynamic range (\%) required for
 curve evaluation (default = 20).}
 
 \item{ntry_retry}{Integer. Number of retry attempts for model fitting if
@@ -47,11 +47,11 @@ ROUT-flagged outliers that are consistent with cytotoxicity are
 \emph{rescued} (restored to their original values and removed from the
 outlier list).  A point is rescued only when \strong{both} of the
 following conditions are met simultaneously:
-\strong{- Replicate agreement}: \emph{both} replicates at that
-concentration are flagged by ROUT (i.e. the drop is reproducible,
-not a single-replicate artefact).
-\strong{- Top-2 concentration}: the flagged concentration is one
-of the two highest tested concentrations in the plate.
+ \strong{- Replicate agreement}: \emph{both} replicates at that
+    concentration are flagged by ROUT (i.e. the drop is reproducible,
+    not a single-replicate artefact).
+  \strong{- Top-2 concentration}: the flagged concentration is one
+    of the two highest tested concentrations in the plate.
 Rescued points are logged in \code{$rescued_summary} for full
 traceability.  Set to \code{FALSE} (default) for NanoBRET data, where
 high-concentration drops are more likely to be technical artefacts
@@ -67,11 +67,11 @@ to disable seeding and restore non-deterministic behaviour.}
 \value{
 A list containing:
 \itemize{
-\item Updated plate entries with cleaned \code{modified_ratio_table}
-\item Optional \code{modified_ratio_table_original} when outliers are detected
-\item \code{outlier_summary}: aggregated outliers across all plates
-\item \code{skipped_summary}: skipped compounds and reasons
-\item \code{params}: parameters used in the analysis
+  \item Updated plate entries with cleaned \code{modified_ratio_table}
+  \item Optional \code{modified_ratio_table_original} when outliers are detected
+  \item \code{outlier_summary}: aggregated outliers across all plates
+  \item \code{skipped_summary}: skipped compounds and reasons
+  \item \code{params}: parameters used in the analysis
 }
 
 The returned object is invisible (assign it to a variable to use it).
@@ -91,20 +91,20 @@ is expected to contain a processed dose-response table.
 
 For each plate:
 \itemize{
-\item Removes empty or invalid columns (e.g., NA-only compounds)
-\item Separates control rows (NA concentration) from dose rows
-\item Applies \code{rout_outliers()} to dose rows only
-\item Reinserts control rows into their original positions
-\item Replaces detected outliers with NA
-\item Stores cleaned and (optionally) original tables
+  \item Removes empty or invalid columns (e.g., NA-only compounds)
+  \item Separates control rows (NA concentration) from dose rows
+  \item Applies \code{rout_outliers()} to dose rows only
+  \item Reinserts control rows into their original positions
+  \item Replaces detected outliers with NA
+  \item Stores cleaned and (optionally) original tables
 }
 }
 \section{Column Filtering}{
 
 Columns are automatically removed if:
 \itemize{
-\item Their name starts with "NA"
-\item More than 80\\% of their values are NA or NaN
+  \item Their name starts with "NA"
+  \item More than 80\% of their values are NA or NaN
 }
 
 Removed columns are reported in \code{skipped_summary}.
@@ -114,8 +114,8 @@ Removed columns are reported in \code{skipped_summary}.
 
 Rows where the concentration column is NA are treated as controls:
 \itemize{
-\item Excluded from model fitting
-\item Reinserted into the cleaned table at their original positions
+  \item Excluded from model fitting
+  \item Reinserted into the cleaned table at their original positions
 }
 
 This preserves compatibility with downstream normalization and plotting.
@@ -124,10 +124,10 @@ This preserves compatibility with downstream normalization and plotting.
 \section{Outlier Handling}{
 
 \itemize{
-\item Outliers are detected using \code{rout_outliers()}
-\item Flagged values are replaced with NA in the cleaned table
-\item Original values are stored in the attribute
-\code{attr(modified_ratio_table, "outliers_replaced")}
+  \item Outliers are detected using \code{rout_outliers()}
+  \item Flagged values are replaced with NA in the cleaned table
+  \item Original values are stored in the attribute
+  \code{attr(modified_ratio_table, "outliers_replaced")}
 }
 }
 
@@ -135,9 +135,9 @@ This preserves compatibility with downstream normalization and plotting.
 
 Compounds may be skipped due to:
 \itemize{
-\item Empty or NA-only columns
-\item Insufficient valid data points
-\item Model fitting failure
+  \item Empty or NA-only columns
+  \item Insufficient valid data points
+  \item Model fitting failure
 }
 
 These are recorded in \code{skipped_summary}.
@@ -146,9 +146,9 @@ These are recorded in \code{skipped_summary}.
 \section{Important Notes}{
 
 \itemize{
-\item The function assumes log10-transformed concentrations.
-\item Safe to re-run: previous outputs are overwritten cleanly.
-\item Designed for integration with batch pipelines and downstream analysis.
+  \item The function assumes log10-transformed concentrations.
+  \item Safe to re-run: previous outputs are overwritten cleanly.
+  \item Designed for integration with batch pipelines and downstream analysis.
 }
 }
 

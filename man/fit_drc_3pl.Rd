@@ -34,7 +34,7 @@ summary statistics. Default is TRUE}
 for curves where the Bottom parameter exceeds a threshold. Default is FALSE.}
 
 \item{bottom_threshold}{Numeric value specifying the Bottom threshold when
-\code{enforce_bottom_threshold = TRUE}. Curves with Bottom <= this value will have
+`enforce_bottom_threshold = TRUE`. Curves with Bottom <= this value will have
 IC50 values set to NA. Default is 60.}
 
 \item{r_sqr_threshold}{Numeric value between 0 and 1 specifying the R2 cutoff
@@ -47,7 +47,7 @@ biologically plausible parameter limits in \code{check_biological_plausibility}.
 (Bottom: -100 to 600, Top: 0 to 700), applied regardless of
 \code{normalize}.
 \code{"viability"} with \code{normalize = TRUE} uses limits appropriate
-for a normalized 0-100\\% scale (Bottom: -20 to 60, Top: 50 to 130),
+for a normalized 0-100\% scale (Bottom: -20 to 60, Top: 50 to 130),
 allowing a small tolerance for over/undershoot.
 \code{"viability"} with \code{normalize = FALSE} disables the check
 entirely -- raw count data has no meaningful absolute limits since the
@@ -57,18 +57,18 @@ Any other value also disables the check entirely.}
 \value{
 A list containing the following components:
 \itemize{
-\item \code{summary_table}: Data frame with fitted parameters for all compounds
-\item \code{detailed_results}: List containing detailed fitting results for each compound
-\item \code{n_compounds}: Number of compounds analyzed
-\item \code{successful_fits}: Number of successful curve fits
-\item \code{normalized}: Logical indicating if data was normalized
-\item \code{original_data}: Original input data
-\item \code{processed_data}: Processed data (normalized if requested)
-\item \code{threshold_settings}: List with threshold settings and affected compounds (if applicable)
+  \item \code{summary_table}: Data frame with fitted parameters for all compounds
+  \item \code{detailed_results}: List containing detailed fitting results for each compound
+  \item \code{n_compounds}: Number of compounds analyzed
+  \item \code{successful_fits}: Number of successful curve fits
+  \item \code{normalized}: Logical indicating if data was normalized
+  \item \code{original_data}: Original input data
+  \item \code{processed_data}: Processed data (normalized if requested)
+  \item \code{threshold_settings}: List with threshold settings and affected compounds (if applicable)
 }
 }
 \description{
-The \code{fit_drc_3pl()} function fits a three-parameter logistic (3PL) dose-response
+The `fit_drc_3pl()` function fits a three-parameter logistic (3PL) dose-response
 model to experimental data. It supports duplicate measurements, normalization,
 and optional filtering of low bottom values. The function computes fitted parameters,
 model statistics, and diagnostic metrics, providing a concise summary of model performance.
@@ -77,32 +77,26 @@ model statistics, and diagnostic metrics, providing a concise summary of model p
 This function performs comprehensive dose-response analysis using the following steps:
 
 \strong{Data Structure:}
-\itemize{
-\item First column: log10(inhibitor concentration) values
-\item Subsequent columns: Pairs of response measurements (technical duplicates)
-\item Example: Column1 = log_conc, Column2 = Response1, Column3 = Response2, Column4 = Response3, Column5 = Response4, etc.
-}
+- First column: log10(inhibitor concentration) values
+- Subsequent columns: Pairs of response measurements (technical duplicates)
+- Example: Column1 = log_conc, Column2 = Response1, Column3 = Response2, Column4 = Response3, Column5 = Response4, etc.
 
 \strong{Model Fitting:}
-\itemize{
-\item Uses 3-parameter logistic model with fixed Hill slope of -1
-\item Implements multiple starting value strategies for robust convergence
-\item Includes biological plausibility checks and automatic parameter corrections
-\item Calculates ideal Hill slope using 4-parameter model for comparison
-}
+- Uses 3-parameter logistic model with fixed Hill slope of -1
+- Implements multiple starting value strategies for robust convergence
+- Includes biological plausibility checks and automatic parameter corrections
+- Calculates ideal Hill slope using 4-parameter model for comparison
 
 \strong{Output Parameters:}
-\itemize{
-\item Bottom: Minimum response asymptote
-\item Top: Maximum response asymptote
-\item LogIC50: log10(IC50) value
-\item IC50: Half-maximal inhibitory concentration
-\item Span: Top - Bottom (response range)
-\item Confidence intervals for all parameters
-\item Goodness-of-fit metrics (R2, Syx, etc.)
-\item Curve quality assessment
-\item Maximum slope and ideal Hill slope
-}
+- Bottom: Minimum response asymptote
+- Top: Maximum response asymptote
+- LogIC50: log10(IC50) value
+- IC50: Half-maximal inhibitory concentration
+- Span: Top - Bottom (response range)
+- Confidence intervals for all parameters
+- Goodness-of-fit metrics (R2, Syx, etc.)
+- Curve quality assessment
+- Maximum slope and ideal Hill slope
 }
 \section{Data Format}{
 
@@ -120,11 +114,11 @@ The input data should be structured as follows:
 
 Curves are automatically assessed for quality based on:
 \itemize{
-\item Maximum slope (shallow curves flagged)
-\item Response span (<20\% flagged)
-\item R-squared values (<0.5 flagged)
-\item Biological plausibility of parameters
-\item logIC50 range (>0.666 flagged)
+  \item Maximum slope (shallow curves flagged)
+  \item Response span (<20\% flagged)
+  \item R-squared values (<0.5 flagged)
+  \item Biological plausibility of parameters
+  \item logIC50 range (>0.666 flagged)
 }
 }
 
@@ -159,16 +153,16 @@ table(results$summary_table$Curve_Quality)
 \references{
 For methodological details on dose-response analysis:
 \itemize{
-\item GraphPad Prism Curve Fitting Guide
-\item NIH Assay Guidance Manual
+  \item GraphPad Prism Curve Fitting Guide
+  \item NIH Assay Guidance Manual
 }
 }
 \seealso{
 Useful related functions:
 \itemize{
-\item \code{\link[=plot_dose_response]{plot_dose_response()}} for plotting results
-\item plot_multiple_compounds() for exporting results
-\item save_multiple_sheets() for saving results to Excel
-\item \code{\link[stats]{nls}} for nonlinear regression details
+  \item [plot_dose_response()] for plotting results
+  \item plot_multiple_compounds() for exporting results
+  \item save_multiple_sheets() for saving results to Excel
+  \item \code{\link[stats]{nls}} for nonlinear regression details
 }
 }

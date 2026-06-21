@@ -40,7 +40,7 @@ customizing individual plots (colors, sizes, limits, etc.).}
 }
 \value{
 Invisibly returns a numeric vector of the compound indices that were plotted.
-Primarily produces image files as output.
+  Primarily produces image files as output.
 }
 \description{
 Automatically creates and saves individual dose-response plots for multiple compounds
@@ -54,12 +54,12 @@ compound with consistent formatting and automatic file naming.
 
 \strong{Key Features:}
 \itemize{
-\item Batch Processing: Automatically generates plots for multiple compounds
-\item Automatic File Management: Creates organized directory structure
-\item Consistent Formatting: Applies uniform styling across all plots
-\item Flexible Compound Selection: Plot all compounds or specific subsets
-\item Multiple Output Formats: Supports various image formats for different use cases
-\item Progress Tracking: Provides real-time progress feedback
+  \item Batch Processing: Automatically generates plots for multiple compounds
+  \item Automatic File Management: Creates organized directory structure
+  \item Consistent Formatting: Applies uniform styling across all plots
+  \item Flexible Compound Selection: Plot all compounds or specific subsets
+  \item Multiple Output Formats: Supports various image formats for different use cases
+  \item Progress Tracking: Provides real-time progress feedback
 }
 
 \strong{Automatic File Naming:}
@@ -72,32 +72,32 @@ for filesystem compatibility.
 
 The function creates a structured output system:
 \itemize{
-\item \strong{Directory Creation}: Automatically creates output directory if missing
-\item \strong{File Naming}: Consistent, descriptive names for easy identification
-\item \strong{Progress Reporting}: Real-time feedback on generation progress
-\item \strong{Error Handling}: Continues processing even if individual plots fail
+  \item \strong{Directory Creation}: Automatically creates output directory if missing
+  \item \strong{File Naming}: Consistent, descriptive names for easy identification
+  \item \strong{Progress Reporting}: Real-time feedback on generation progress
+  \item \strong{Error Handling}: Continues processing even if individual plots fail
 }
 }
 
 \section{Supported File Formats}{
 
 \itemize{
-\item \strong{PNG}: Good balance of quality and file size (default)
-\item \strong{JPEG}: Smaller file size, good for presentations
-\item \strong{TIFF}: High quality, lossless compression for publications
-\item \strong{PDF}: Vector format, scalable and editable
-\item \strong{SVG}: Vector format, web-compatible and editable
+  \item \strong{PNG}: Good balance of quality and file size (default)
+  \item \strong{JPEG}: Smaller file size, good for presentations
+  \item \strong{TIFF}: High quality, lossless compression for publications
+  \item \strong{PDF}: Vector format, scalable and editable
+  \item \strong{SVG}: Vector format, web-compatible and editable
 }
 }
 
 \section{Use Cases}{
 
 \itemize{
-\item \strong{High-Throughput Screening}: Generate plots for entire compound libraries
-\item \strong{Publication Preparation}: Create consistent figures for manuscripts
-\item \strong{Quality Control}: Visual assessment of all curve fits
-\item \strong{Data Sharing}: Provide comprehensive visualization to collaborators
-\item \strong{Archive Creation}: Generate permanent records of analysis results
+  \item \strong{High-Throughput Screening}: Generate plots for entire compound libraries
+  \item \strong{Publication Preparation}: Create consistent figures for manuscripts
+  \item \strong{Quality Control}: Visual assessment of all curve fits
+  \item \strong{Data Sharing}: Provide comprehensive visualization to collaborators
+  \item \strong{Archive Creation}: Generate permanent records of analysis results
 }
 }
 

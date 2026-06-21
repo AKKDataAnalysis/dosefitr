@@ -38,7 +38,7 @@
 #'   (activation) are also treated as N/D. Curve type is determined inside the
 #'   fitting function: a curve is flat when the difference between the
 #'   mean of the first three and last three responses
-#'   is below `max(15, 15% of the response range)`; it is activation when the
+#'   is below `max(15, 15\% of the response range)`; it is activation when the
 #'   final responses are higher than the initial ones by that same threshold.
 #' @param verbose Logical. If `TRUE`, prints progress details.
 #'
