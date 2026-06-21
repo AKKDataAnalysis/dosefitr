@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>NanoBRET pipeline: dose-response analysis end-to-end</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">NanoBRET pipeline: dose-response analysis
+end-to-end</h1>
+
+
+<div id="TOC">
+<ul>
+<li><a href="#overview" id="toc-overview">Overview</a></li>
+<li><a href="#setup" id="toc-setup">1. Setup</a></li>
+<li><a href="#plate-layout-and-info-table" id="toc-plate-layout-and-info-table">2. Plate layout and info
+table</a></li>
+<li><a href="#bret-ratio-computation" id="toc-bret-ratio-computation">3.
+BRET ratio computation</a></li>
+<li><a href="#outlier-detection-rout" id="toc-outlier-detection-rout">4.
+Outlier detection (ROUT)</a></li>
+<li><a href="#dose-response-curve-fitting" id="toc-dose-response-curve-fitting">5. Dose-response curve
+fitting</a></li>
+<li><a href="#visualisation" id="toc-visualisation">6.
+Visualisation</a></li>
+<li><a href="#export" id="toc-export">7. Export</a></li>
+<li><a href="#reading-the-quality-metrics" id="toc-reading-the-quality-metrics">8. Reading the quality
+metrics</a></li>
+<li><a href="#see-also" id="toc-see-also">See also</a></li>
+</ul>
+</div>
+
+<div id="overview" class="section level2">
+<h2>Overview</h2>
+<p>This vignette walks through the <strong>NanoBRET</strong>
+dose-response pipeline of <strong>dosefitr</strong>, end-to-end, on
+bundled example data. Every step runs at build time on two small plates
+included with the package, so you can copy any chunk straight into your
+own R session.</p>
+<p>The eight stages of the pipeline:</p>
+<ol style="list-style-type: decimal">
+<li>Setup and stage the bundled plates into a working directory.</li>
+<li>Inspect the plate layout and the info table.</li>
+<li>Compute BRET ratios from the dual-emission raw data
+(<code>batch_ratio_analysis()</code>).</li>
+<li>Detect outliers with the ROUT test
+(<code>rout_outliers_batch()</code> +
+<code>plot_outliers_curves()</code>).</li>
+<li>Fit 4PL dose-response curves
+(<code>batch_drc_analysis()</code>).</li>
+<li>Visualise individual and overlay plots
+(<code>plot_drc_batch()</code>, <code>plot_multiple_compounds()</code>,
+<code>compare_plates_drc()</code>).</li>
+<li>Export Scarab-format tables and multi-sheet workbooks
+(<code>scarab_table()</code>, <code>save_multiple_sheets()</code>).</li>
+<li>Read the quality metrics.</li>
+</ol>
+</div>
+<div id="setup" class="section level2">
+<h2>1. Setup</h2>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(dosefitr)</span></code></pre></div>
+<p>The package ships with two example PHERAstar plates and their
+accompanying info table. They are located in <code>inst/extdata/</code>
+and are loaded with <code>system.file()</code>:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>extdata_dir <span class="ot">&lt;-</span> <span class="fu">system.file</span>(<span class="st">&quot;extdata&quot;</span>, <span class="at">package =</span> <span class="st">&quot;dosefitr&quot;</span>)</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a><span class="fu">list.files</span>(extdata_dir, <span class="at">pattern =</span> <span class="st">&quot;^nanobret_&quot;</span>)</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="co">#&gt; [1] &quot;nanobret_info.xlsx&quot;     &quot;nanobret_plate_01.xlsx&quot; &quot;nanobret_plate_02.xlsx&quot;</span></span></code></pre></div>
+<p><code>batch_ratio_analysis()</code> scans a directory for plate files
+matching a regular expression, so we stage the relevant files into a
+working directory under <code>tempdir()</code>. Writing to
+<code>tempdir()</code> keeps the vignette compliant with CRAN policy (no
+writes outside the temporary directory):</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>work_dir <span class="ot">&lt;-</span> <span class="fu">file.path</span>(<span class="fu">tempdir</span>(), <span class="st">&quot;dosefitr_nanobret&quot;</span>)</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="fu">dir.create</span>(work_dir, <span class="at">showWarnings =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a><span class="fu">invisible</span>(<span class="fu">file.copy</span>(</span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>  <span class="at">from      =</span> <span class="fu">list.files</span>(extdata_dir, <span class="at">pattern =</span> <span class="st">&quot;^nanobret_&quot;</span>,</span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a>                         <span class="at">full.names =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a>  <span class="at">to        =</span> work_dir,</span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a>  <span class="at">overwrite =</span> <span class="cn">TRUE</span></span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a>))</span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a><span class="fu">list.files</span>(work_dir)</span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a><span class="co">#&gt; [1] &quot;nanobret_info.xlsx&quot;     &quot;nanobret_plate_01.xlsx&quot; &quot;nanobret_plate_02.xlsx&quot;</span></span></code></pre></div>
+</div>
+<div id="plate-layout-and-info-table" class="section level2">
+<h2>2. Plate layout and info table</h2>
+<p>Each plate is a 384-well PHERAstar export with two emission channels
+(donor 450-80 nm, acceptor 610-80 nm). The first 12 rows of the
+worksheet carry instrument metadata; the data is laid out in 16 rows
+(<code>A</code>-<code>P</code>) by 24 columns:</p>
+<ul>
+<li><strong>Column 1</strong> – DMSO (vehicle) control, the “0 %
+inhibition” baseline.</li>
+<li><strong>Columns 2-12</strong> – 11 inhibitor concentrations,
+technical replicate 1.</li>
+<li><strong>Columns 13-23</strong> – the same 11 concentrations,
+technical replicate 2.</li>
+<li><strong>Column 24</strong> – saturated competitor, the “100 %
+inhibition” floor.</li>
+</ul>
+<p>The mapping from row to compound is in
+<code>nanobret_info.xlsx</code>, one sheet per plate. The first column
+lists log10-concentrations (with <code>NA</code> for control rows), and
+the remaining columns identify each plate row:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>info_path <span class="ot">&lt;-</span> <span class="fu">file.path</span>(work_dir, <span class="st">&quot;nanobret_info.xlsx&quot;</span>)</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>info_plate_01 <span class="ot">&lt;-</span> openxlsx<span class="sc">::</span><span class="fu">read.xlsx</span>(info_path, <span class="at">sheet =</span> <span class="st">&quot;plate_01&quot;</span>)</span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a><span class="fu">head</span>(info_plate_01, <span class="dv">8</span>)</span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a><span class="co">#&gt;   log(inhibitor).[M] Plate_Row  Target Compound</span></span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a><span class="co">#&gt; 1                 NA         A KinaseA     Cpd1</span></span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a><span class="co">#&gt; 2              -4.61         B KinaseA     Cpd2</span></span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a><span class="co">#&gt; 3              -5.13         C KinaseA     Cpd3</span></span>
+<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a><span class="co">#&gt; 4              -5.61         D KinaseA     Cpd4</span></span>
+<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a><span class="co">#&gt; 5              -6.13         E KinaseA     Cpd5</span></span>
+<span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a><span class="co">#&gt; 6              -6.61         F KinaseA     Cpd6</span></span>
+<span id="cb4-13"><a href="#cb4-13" tabindex="-1"></a><span class="co">#&gt; 7              -7.13         G KinaseA     Cpd7</span></span>
+<span id="cb4-14"><a href="#cb4-14" tabindex="-1"></a><span class="co">#&gt; 8              -7.61         H KinaseB     Cpd8</span></span></code></pre></div>
+<p>The example data covers 16 compounds per plate. Plate 01 has three
+targets (<code>KinaseA</code>, <code>KinaseB</code>,
+<code>KinaseC</code>); plate 02 has one (<code>KinaseD</code>) plus four
+“bridging” rows that repeat compounds from plate 01 to demonstrate the
+inter-plate comparison step.</p>
+</div>
+<div id="bret-ratio-computation" class="section level2">
+<h2>3. BRET ratio computation</h2>
+<p><code>batch_ratio_analysis()</code> reads both plates, extracts the
+donor and acceptor matrices, computes the BRET ratio per well as
+<code>(acceptor / donor) * 1000</code>, and normalises each row by its
+controls.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>ratio_out <span class="ot">&lt;-</span> <span class="fu">file.path</span>(<span class="fu">tempdir</span>(), <span class="st">&quot;dosefitr_nanobret_ratio&quot;</span>)</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="fu">dir.create</span>(ratio_out, <span class="at">showWarnings =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a>ratio_res <span class="ot">&lt;-</span> <span class="fu">batch_ratio_analysis</span>(</span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a>  <span class="at">directory        =</span> work_dir,</span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a>  <span class="at">info_file        =</span> <span class="st">&quot;nanobret_info.xlsx&quot;</span>,</span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a>  <span class="at">data_pattern     =</span> <span class="st">&quot;nanobret_plate_</span><span class="sc">\\</span><span class="st">d+</span><span class="sc">\\</span><span class="st">.xlsx$&quot;</span>,</span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a>  <span class="at">control_0perc    =</span> <span class="st">&quot;1&quot;</span>,</span>
+<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a>  <span class="at">control_100perc  =</span> <span class="st">&quot;24&quot;</span>,</span>
+<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a>  <span class="at">selected_columns =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">24</span>,</span>
+<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a>  <span class="at">generate_reports =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a>  <span class="at">output_dir       =</span> ratio_out,</span>
+<span id="cb5-13"><a href="#cb5-13" tabindex="-1"></a>  <span class="at">verbose          =</span> <span class="cn">FALSE</span></span>
+<span id="cb5-14"><a href="#cb5-14" tabindex="-1"></a>)</span>
+<span id="cb5-15"><a href="#cb5-15" tabindex="-1"></a></span>
+<span id="cb5-16"><a href="#cb5-16" tabindex="-1"></a><span class="fu">names</span>(ratio_res)</span>
+<span id="cb5-17"><a href="#cb5-17" tabindex="-1"></a><span class="co">#&gt; [1] &quot;plate_01&quot; &quot;plate_02&quot;</span></span></code></pre></div>
+<p>The returned object is a named list, one entry per plate. The actual
+ratio tables live under <code>$result</code>:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>mrt <span class="ot">&lt;-</span> ratio_res<span class="sc">$</span>plate_01<span class="sc">$</span>result<span class="sc">$</span>modified_ratio_table</span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a><span class="fu">dim</span>(mrt)</span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a><span class="co">#&gt; [1] 13 33</span></span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a></span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a><span class="fu">head</span>(mrt[, <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>], <span class="dv">8</span>)</span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a><span class="co">#&gt;   log(inhibitor).[M] KinaseA:Cpd1 KinaseA:Cpd1.2 KinaseA:Cpd2 KinaseA:Cpd2.2</span></span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a><span class="co">#&gt; 1                 NA    440.60473      440.60473    440.60473      440.60473</span></span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a><span class="co">#&gt; 2              -4.61     57.77871       60.26671     49.53919       54.08118</span></span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a><span class="co">#&gt; 3              -5.13     73.78084       70.48321     56.15228       60.14455</span></span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a><span class="co">#&gt; 4              -5.61     98.96811      115.34193     74.37310       78.36705</span></span>
+<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a><span class="co">#&gt; 5              -6.13    172.31550      176.22107    139.43796      142.79831</span></span>
+<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a><span class="co">#&gt; 6              -6.61    265.00617      308.53165    216.65074      227.51707</span></span>
+<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a><span class="co">#&gt; 7              -7.13    390.80482      343.93675    366.84205      358.08598</span></span>
+<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a><span class="co">#&gt; 8              -7.61    429.18063      440.03427    434.23990      421.83017</span></span>
+<span id="cb6-16"><a href="#cb6-16" tabindex="-1"></a><span class="co">#&gt;   KinaseA:Cpd3</span></span>
+<span id="cb6-17"><a href="#cb6-17" tabindex="-1"></a><span class="co">#&gt; 1    440.60473</span></span>
+<span id="cb6-18"><a href="#cb6-18" tabindex="-1"></a><span class="co">#&gt; 2     56.84276</span></span>
+<span id="cb6-19"><a href="#cb6-19" tabindex="-1"></a><span class="co">#&gt; 3     52.68437</span></span>
+<span id="cb6-20"><a href="#cb6-20" tabindex="-1"></a><span class="co">#&gt; 4     69.50638</span></span>
+<span id="cb6-21"><a href="#cb6-21" tabindex="-1"></a><span class="co">#&gt; 5    124.26619</span></span>
+<span id="cb6-22"><a href="#cb6-22" tabindex="-1"></a><span class="co">#&gt; 6    182.47985</span></span>
+<span id="cb6-23"><a href="#cb6-23" tabindex="-1"></a><span class="co">#&gt; 7    327.93687</span></span>
+<span id="cb6-24"><a href="#cb6-24" tabindex="-1"></a><span class="co">#&gt; 8    400.10961</span></span></code></pre></div>
+<p>A well-behaved inhibition curve runs from a high BRET ratio at the
+lowest concentrations (tracer bound) down to a low BRET ratio at the
+highest concentrations (tracer displaced). Looking at one compound:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">data.frame</span>(</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>  <span class="at">log_conc =</span> mrt[, <span class="dv">1</span>],</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>  <span class="at">Cpd1_rep1 =</span> <span class="fu">round</span>(mrt[, <span class="st">&quot;KinaseA:Cpd1&quot;</span>],   <span class="dv">1</span>),</span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>  <span class="at">Cpd1_rep2 =</span> <span class="fu">round</span>(mrt[, <span class="st">&quot;KinaseA:Cpd1.2&quot;</span>], <span class="dv">1</span>)</span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a>)</span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a><span class="co">#&gt;    log_conc Cpd1_rep1 Cpd1_rep2</span></span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a><span class="co">#&gt; 1        NA     440.6     440.6</span></span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a><span class="co">#&gt; 2     -4.61      57.8      60.3</span></span>
+<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a><span class="co">#&gt; 3     -5.13      73.8      70.5</span></span>
+<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a><span class="co">#&gt; 4     -5.61      99.0     115.3</span></span>
+<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a><span class="co">#&gt; 5     -6.13     172.3     176.2</span></span>
+<span id="cb7-12"><a href="#cb7-12" tabindex="-1"></a><span class="co">#&gt; 6     -6.61     265.0     308.5</span></span>
+<span id="cb7-13"><a href="#cb7-13" tabindex="-1"></a><span class="co">#&gt; 7     -7.13     390.8     343.9</span></span>
+<span id="cb7-14"><a href="#cb7-14" tabindex="-1"></a><span class="co">#&gt; 8     -7.61     429.2     440.0</span></span>
+<span id="cb7-15"><a href="#cb7-15" tabindex="-1"></a><span class="co">#&gt; 9     -8.00     428.5     412.4</span></span>
+<span id="cb7-16"><a href="#cb7-16" tabindex="-1"></a><span class="co">#&gt; 10    -8.43     425.6     437.3</span></span>
+<span id="cb7-17"><a href="#cb7-17" tabindex="-1"></a><span class="co">#&gt; 11    -8.91     496.3     428.6</span></span>
+<span id="cb7-18"><a href="#cb7-18" tabindex="-1"></a><span class="co">#&gt; 12    -9.38     417.0     424.6</span></span>
+<span id="cb7-19"><a href="#cb7-19" tabindex="-1"></a><span class="co">#&gt; 13       NA      50.1      50.1</span></span></code></pre></div>
+<p>The control rows (first and last, with <code>NA</code>
+log-concentration) carry the 0 % and 100 % inhibition control means.</p>
+</div>
+<div id="outlier-detection-rout" class="section level2">
+<h2>4. Outlier detection (ROUT)</h2>
+<p><code>rout_outliers_batch()</code> runs the ROUT test (Motulsky &amp;
+Brown 2006, BMC Bioinformatics) on every fitted curve. Wells that
+diverge by more than the ROUT Q-threshold (default 1 %)
+<strong>and</strong> disagree with their replicate are flagged:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>rout_res <span class="ot">&lt;-</span> <span class="fu">rout_outliers_batch</span>(</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>  <span class="at">batch_results =</span> ratio_res,</span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>  <span class="at">Q             =</span> <span class="fl">0.01</span>,</span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>  <span class="at">n_param       =</span> <span class="dv">4</span><span class="dt">L</span>,</span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>  <span class="at">direction     =</span> <span class="st">&quot;inhibition&quot;</span>,</span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a>  <span class="at">verbose       =</span> <span class="cn">FALSE</span></span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a>)</span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a></span>
+<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a><span class="co"># Summary of detection</span></span>
+<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a><span class="fu">nrow</span>(rout_res<span class="sc">$</span>outlier_summary)</span>
+<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a><span class="co">#&gt; [1] 30</span></span>
+<span id="cb8-12"><a href="#cb8-12" tabindex="-1"></a></span>
+<span id="cb8-13"><a href="#cb8-13" tabindex="-1"></a><span class="fu">table</span>(rout_res<span class="sc">$</span>outlier_summary<span class="sc">$</span>plate)</span>
+<span id="cb8-14"><a href="#cb8-14" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb8-15"><a href="#cb8-15" tabindex="-1"></a><span class="co">#&gt; plate_01 plate_02 </span></span>
+<span id="cb8-16"><a href="#cb8-16" tabindex="-1"></a><span class="co">#&gt;       13       17</span></span></code></pre></div>
+<p><code>outlier_summary</code> has one row per flagged well, with the
+fitted value, the observed value, the standardised residual, and the
+dynamic range:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="fu">head</span>(rout_res<span class="sc">$</span>outlier_summary, <span class="dv">6</span>)</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="co">#&gt;      plate     compound         column replicate row log10_conc bret_ratio</span></span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a><span class="co">#&gt; 1 plate_01 KinaseA:Cpd1   KinaseA:Cpd1         1  11      -8.91   496.3071</span></span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a><span class="co">#&gt; 2 plate_01 KinaseA:Cpd2   KinaseA:Cpd2         1  11      -8.91   261.0834</span></span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a><span class="co">#&gt; 3 plate_01 KinaseA:Cpd2 KinaseA:Cpd2.2         2  11      -8.91   238.7008</span></span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a><span class="co">#&gt; 4 plate_01 KinaseA:Cpd3   KinaseA:Cpd3         1  11      -8.91   228.4345</span></span>
+<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a><span class="co">#&gt; 5 plate_01 KinaseA:Cpd3 KinaseA:Cpd3.2         2  11      -8.91   224.4356</span></span>
+<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a><span class="co">#&gt; 6 plate_01 KinaseA:Cpd4 KinaseA:Cpd4.2         2   8      -7.61   329.9767</span></span>
+<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a><span class="co">#&gt;     fitted std_residual dynamic_range_pct</span></span>
+<span id="cb9-10"><a href="#cb9-10" tabindex="-1"></a><span class="co">#&gt; 1 428.0667        5.264             612.9</span></span>
+<span id="cb9-11"><a href="#cb9-11" tabindex="-1"></a><span class="co">#&gt; 2 452.0296       -8.183             798.9</span></span>
+<span id="cb9-12"><a href="#cb9-12" tabindex="-1"></a><span class="co">#&gt; 3 452.0296       -9.142             798.9</span></span>
+<span id="cb9-13"><a href="#cb9-13" tabindex="-1"></a><span class="co">#&gt; 4 458.8216      -12.086             754.5</span></span>
+<span id="cb9-14"><a href="#cb9-14" tabindex="-1"></a><span class="co">#&gt; 5 458.8216      -12.296             754.5</span></span>
+<span id="cb9-15"><a href="#cb9-15" tabindex="-1"></a><span class="co">#&gt; 6 390.7186       -5.133             708.1</span></span></code></pre></div>
+<p><code>plot_outliers_curves()</code> overlays the flagged wells on the
+fitted curves, so you can sanity-check the call:</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="fu">plot_outliers_curves</span>(</span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>  <span class="at">rout_output   =</span> rout_res<span class="sc">$</span>plate_01,</span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a>  <span class="at">subplot_title =</span> <span class="st">&quot;compound&quot;</span>,</span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a>  <span class="at">ncol          =</span> <span class="dv">4</span><span class="dt">L</span></span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a>)</span></code></pre></div>
+<p>For most clean plates, ROUT flags single outliers in only a handful
+of compounds; large clusters of flags usually indicate a misfit rather
+than a true outlier.</p>
+</div>
+<div id="dose-response-curve-fitting" class="section level2">
+<h2>5. Dose-response curve fitting</h2>
+<p><code>batch_drc_analysis()</code> fits each compound’s BRET ratio
+with a 4PL model. By default it auto-detects the assay type from the
+ratio table shape (here, <code>nanobret</code>) and applies assay-aware
+plausibility limits on the Bottom, Top, and Hill parameters.</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a>drc_out <span class="ot">&lt;-</span> <span class="fu">file.path</span>(<span class="fu">tempdir</span>(), <span class="st">&quot;dosefitr_nanobret_drc&quot;</span>)</span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a><span class="fu">dir.create</span>(drc_out, <span class="at">showWarnings =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a></span>
+<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a>drc_res <span class="ot">&lt;-</span> <span class="fu">batch_drc_analysis</span>(</span>
+<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a>  <span class="at">batch_results    =</span> ratio_res,</span>
+<span id="cb11-6"><a href="#cb11-6" tabindex="-1"></a>  <span class="at">model            =</span> <span class="st">&quot;4pl&quot;</span>,</span>
+<span id="cb11-7"><a href="#cb11-7" tabindex="-1"></a>  <span class="at">normalize        =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb11-8"><a href="#cb11-8" tabindex="-1"></a>  <span class="at">output_dir       =</span> drc_out,</span>
+<span id="cb11-9"><a href="#cb11-9" tabindex="-1"></a>  <span class="at">generate_reports =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb11-10"><a href="#cb11-10" tabindex="-1"></a>  <span class="at">verbose          =</span> <span class="cn">FALSE</span></span>
+<span id="cb11-11"><a href="#cb11-11" tabindex="-1"></a>)</span>
+<span id="cb11-12"><a href="#cb11-12" tabindex="-1"></a></span>
+<span id="cb11-13"><a href="#cb11-13" tabindex="-1"></a>drc_res<span class="sc">$</span>drc_results<span class="sc">$</span>plate_01<span class="sc">$</span>drc_result<span class="sc">$</span>successful_fits</span>
+<span id="cb11-14"><a href="#cb11-14" tabindex="-1"></a><span class="co">#&gt; [1] 16</span></span></code></pre></div>
+<p>The per-plate summary table carries the fitted parameters, 95 %
+confidence intervals, R^2, and a quality label:</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a>sum_01 <span class="ot">&lt;-</span> drc_res<span class="sc">$</span>drc_results<span class="sc">$</span>plate_01<span class="sc">$</span>drc_result<span class="sc">$</span>summary_table</span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a></span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a>sum_01[, <span class="fu">c</span>(<span class="st">&quot;Compound&quot;</span>, <span class="st">&quot;LogIC50&quot;</span>, <span class="st">&quot;HillSlope&quot;</span>,</span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a>           <span class="st">&quot;R_squared&quot;</span>, <span class="st">&quot;Curve_Quality&quot;</span>)]</span>
+<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a><span class="co">#&gt;             Compound LogIC50 HillSlope R_squared         Curve_Quality</span></span>
+<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a><span class="co">#&gt; 1       KinaseA:Cpd1  -6.454    -1.031     0.985            Good curve</span></span>
+<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a><span class="co">#&gt; 2       KinaseA:Cpd2  -6.557    -1.539     0.885            Good curve</span></span>
+<span id="cb12-8"><a href="#cb12-8" tabindex="-1"></a><span class="co">#&gt; 3       KinaseA:Cpd3  -6.746    -1.411     0.856 Wide logIC50 CI range</span></span>
+<span id="cb12-9"><a href="#cb12-9" tabindex="-1"></a><span class="co">#&gt; 4       KinaseA:Cpd4  -7.005    -1.017     0.989            Good curve</span></span>
+<span id="cb12-10"><a href="#cb12-10" tabindex="-1"></a><span class="co">#&gt; 5       KinaseA:Cpd5  -7.067    -1.193     0.984            Good curve</span></span>
+<span id="cb12-11"><a href="#cb12-11" tabindex="-1"></a><span class="co">#&gt; 6       KinaseA:Cpd6  -7.346    -1.171     0.985            Good curve</span></span>
+<span id="cb12-12"><a href="#cb12-12" tabindex="-1"></a><span class="co">#&gt; 7       KinaseA:Cpd7  -7.472    -1.304     0.992            Good curve</span></span>
+<span id="cb12-13"><a href="#cb12-13" tabindex="-1"></a><span class="co">#&gt; 8       KinaseB:Cpd8  -6.881    -0.927     0.986            Good curve</span></span>
+<span id="cb12-14"><a href="#cb12-14" tabindex="-1"></a><span class="co">#&gt; 9       KinaseB:Cpd9  -7.146    -1.015     0.985            Good curve</span></span>
+<span id="cb12-15"><a href="#cb12-15" tabindex="-1"></a><span class="co">#&gt; 10     KinaseB:Cpd10  -7.170    -1.147     0.992            Good curve</span></span>
+<span id="cb12-16"><a href="#cb12-16" tabindex="-1"></a><span class="co">#&gt; 11     KinaseB:Cpd11  -7.548    -1.143     0.995            Good curve</span></span>
+<span id="cb12-17"><a href="#cb12-17" tabindex="-1"></a><span class="co">#&gt; 12     KinaseB:Cpd12  -7.780    -1.146     0.995            Good curve</span></span>
+<span id="cb12-18"><a href="#cb12-18" tabindex="-1"></a><span class="co">#&gt; 13     KinaseB:Cpd13  -7.958    -1.292     0.997            Good curve</span></span>
+<span id="cb12-19"><a href="#cb12-19" tabindex="-1"></a><span class="co">#&gt; 14     KinaseC:Cpd14  -5.700    -0.629     0.992            Good curve</span></span>
+<span id="cb12-20"><a href="#cb12-20" tabindex="-1"></a><span class="co">#&gt; Bottom KinaseC:Cpd15  -6.047    -1.308     0.809 Wide logIC50 CI range</span></span>
+<span id="cb12-21"><a href="#cb12-21" tabindex="-1"></a><span class="co">#&gt; 15     KinaseC:Cpd16  -6.429    -1.040     0.982            Good curve</span></span></code></pre></div>
+<p>Quality labels distinguish clean fits from those with wide IC50
+confidence intervals, hill-slope problems, or other issues. For this
+clean example data set, almost every compound earns “Good curve”:</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="fu">table</span>(sum_01<span class="sc">$</span>Curve_Quality)</span>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a><span class="co">#&gt;            Good curve Wide logIC50 CI range </span></span>
+<span id="cb13-4"><a href="#cb13-4" tabindex="-1"></a><span class="co">#&gt;                    14                     2</span></span></code></pre></div>
+</div>
+<div id="visualisation" class="section level2">
+<h2>6. Visualisation</h2>
+<div id="one-compound-per-plot" class="section level3">
+<h3>6.1 One compound per plot</h3>
+<p><code>plot_drc_batch()</code> draws fitted curves for one or more
+construct-compound pairs, overlaying replicates:</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="fu">plot_drc_batch</span>(</span>
+<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a>  <span class="at">batch_drc_results  =</span> drc_res,</span>
+<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a>  <span class="at">construct_compound =</span> <span class="st">&quot;KinaseA:Cpd1&quot;</span>,</span>
+<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a>  <span class="at">show_error_bars    =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb14-5"><a href="#cb14-5" tabindex="-1"></a>  <span class="at">verbose            =</span> <span class="cn">FALSE</span></span>
+<span id="cb14-6"><a href="#cb14-6" tabindex="-1"></a>)</span></code></pre></div>
+<p><img role="img" src="data:image/png;base64,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" /><!-- --></p>
+</div>
+<div id="multiple-compounds-overlaid" class="section level3">
+<h3>6.2 Multiple compounds overlaid</h3>
+<p><code>plot_multiple_compounds()</code> overlays several curves to
+highlight differences in potency or shape:</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a><span class="fu">plot_multiple_compounds</span>(</span>
+<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a>  <span class="at">results          =</span> drc_res,</span>
+<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a>  <span class="at">compound_indices =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">4</span>,</span>
+<span id="cb15-4"><a href="#cb15-4" tabindex="-1"></a>  <span class="at">plate            =</span> <span class="st">&quot;plate_01&quot;</span>,</span>
+<span id="cb15-5"><a href="#cb15-5" tabindex="-1"></a>  <span class="at">y_limits         =</span> <span class="cn">NULL</span>,</span>
+<span id="cb15-6"><a href="#cb15-6" tabindex="-1"></a>  <span class="at">show_error_bars  =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb15-7"><a href="#cb15-7" tabindex="-1"></a>  <span class="at">verbose          =</span> <span class="cn">FALSE</span></span>
+<span id="cb15-8"><a href="#cb15-8" tabindex="-1"></a>)</span></code></pre></div>
+<p><img role="img" src="data:image/png;base64,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" /><!-- --><img role="img" src="data:image/png;base64,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" /><!-- --></p>
+</div>
+<div id="the-same-compound-across-plates" class="section level3">
+<h3>6.3 The same compound across plates</h3>
+<p><code>compare_plates_drc()</code> makes one figure per
+construct-compound that appears on more than one plate, useful for
+cross-plate consistency QC. The bundled <code>plate_02</code> repeats
+four of <code>plate_01</code>’s compounds under the same construct, so
+four cross-plate plots are produced:</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a>compare_out <span class="ot">&lt;-</span> <span class="fu">file.path</span>(<span class="fu">tempdir</span>(), <span class="st">&quot;dosefitr_nanobret_compare&quot;</span>)</span>
+<span id="cb16-2"><a href="#cb16-2" tabindex="-1"></a><span class="fu">dir.create</span>(compare_out, <span class="at">showWarnings =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb16-3"><a href="#cb16-3" tabindex="-1"></a></span>
+<span id="cb16-4"><a href="#cb16-4" tabindex="-1"></a>cmp_res <span class="ot">&lt;-</span> <span class="fu">compare_plates_drc</span>(</span>
+<span id="cb16-5"><a href="#cb16-5" tabindex="-1"></a>  <span class="at">batch_drc_result =</span> drc_res,</span>
+<span id="cb16-6"><a href="#cb16-6" tabindex="-1"></a>  <span class="at">compare_by       =</span> <span class="st">&quot;compound&quot;</span>,</span>
+<span id="cb16-7"><a href="#cb16-7" tabindex="-1"></a>  <span class="at">output_dir       =</span> compare_out,</span>
+<span id="cb16-8"><a href="#cb16-8" tabindex="-1"></a>  <span class="at">min_plates       =</span> <span class="dv">2</span>,</span>
+<span id="cb16-9"><a href="#cb16-9" tabindex="-1"></a>  <span class="at">verbose          =</span> <span class="cn">FALSE</span></span>
+<span id="cb16-10"><a href="#cb16-10" tabindex="-1"></a>)</span>
+<span id="cb16-11"><a href="#cb16-11" tabindex="-1"></a></span>
+<span id="cb16-12"><a href="#cb16-12" tabindex="-1"></a><span class="fu">list.files</span>(compare_out, <span class="at">pattern =</span> <span class="st">&quot;</span><span class="sc">\\</span><span class="st">.png$&quot;</span>)</span>
+<span id="cb16-13"><a href="#cb16-13" tabindex="-1"></a><span class="co">#&gt; [1] &quot;KinaseA__Cpd1.png&quot;  &quot;KinaseA__Cpd5.png&quot;  &quot;KinaseB__Cpd13.png&quot;</span></span>
+<span id="cb16-14"><a href="#cb16-14" tabindex="-1"></a><span class="co">#&gt; [4] &quot;KinaseB__Cpd9.png&quot;</span></span></code></pre></div>
+<p><code>compare_plates_drc()</code> returns plot objects in
+<code>$plots</code> and writes each one to disk; you can inspect them
+with any image viewer or load them inline.</p>
+</div>
+</div>
+<div id="export" class="section level2">
+<h2>7. Export</h2>
+<div id="scarab-format-submission-tables" class="section level3">
+<h3>7.1 Scarab-format submission tables</h3>
+<p><code>scarab_table()</code> produces a wide submission table in the
+SGC Scarab format, one column per compound:</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a>sc_01 <span class="ot">&lt;-</span> <span class="fu">scarab_table</span>(</span>
+<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a>  <span class="at">results_list      =</span> ratio_res,</span>
+<span id="cb17-3"><a href="#cb17-3" tabindex="-1"></a>  <span class="at">drc_results_list  =</span> drc_res,</span>
+<span id="cb17-4"><a href="#cb17-4" tabindex="-1"></a>  <span class="at">plate_name        =</span> <span class="st">&quot;plate_01&quot;</span>,</span>
+<span id="cb17-5"><a href="#cb17-5" tabindex="-1"></a>  <span class="at">date              =</span> <span class="fu">format</span>(<span class="fu">Sys.Date</span>(), <span class="st">&quot;%y%m%d&quot;</span>),</span>
+<span id="cb17-6"><a href="#cb17-6" tabindex="-1"></a>  <span class="at">experimenter_abbrev =</span> <span class="st">&quot;DEMO&quot;</span>,</span>
+<span id="cb17-7"><a href="#cb17-7" tabindex="-1"></a>  <span class="at">save              =</span> <span class="cn">FALSE</span></span>
+<span id="cb17-8"><a href="#cb17-8" tabindex="-1"></a>)</span>
+<span id="cb17-9"><a href="#cb17-9" tabindex="-1"></a></span>
+<span id="cb17-10"><a href="#cb17-10" tabindex="-1"></a><span class="fu">dim</span>(sc_01)</span>
+<span id="cb17-11"><a href="#cb17-11" tabindex="-1"></a><span class="co">#&gt; [1] 76 17</span></span>
+<span id="cb17-12"><a href="#cb17-12" tabindex="-1"></a></span>
+<span id="cb17-13"><a href="#cb17-13" tabindex="-1"></a><span class="fu">head</span>(sc_01[, <span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>], <span class="dv">6</span>)</span>
+<span id="cb17-14"><a href="#cb17-14" tabindex="-1"></a><span class="co">#&gt;                            Field                       X4</span></span>
+<span id="cb17-15"><a href="#cb17-15" tabindex="-1"></a><span class="co">#&gt; 1                         Kinase                  KinaseA</span></span>
+<span id="cb17-16"><a href="#cb17-16" tabindex="-1"></a><span class="co">#&gt; 2               nLuc Orientation                        C</span></span>
+<span id="cb17-17"><a href="#cb17-17" tabindex="-1"></a><span class="co">#&gt; 3                       Compound                     Cpd1</span></span>
+<span id="cb17-18"><a href="#cb17-18" tabindex="-1"></a><span class="co">#&gt; 4 Experiment Type (lysed/intact)              intact mode</span></span>
+<span id="cb17-19"><a href="#cb17-19" tabindex="-1"></a><span class="co">#&gt; 5                  Experiment ID 260620-DEMO-KinaseA-Cpd1</span></span>
+<span id="cb17-20"><a href="#cb17-20" tabindex="-1"></a><span class="co">#&gt; 6                      Cell line                  HEK293T</span></span>
+<span id="cb17-21"><a href="#cb17-21" tabindex="-1"></a><span class="co">#&gt;                         X5                       X6                       X7</span></span>
+<span id="cb17-22"><a href="#cb17-22" tabindex="-1"></a><span class="co">#&gt; 1                  KinaseA                  KinaseA                  KinaseA</span></span>
+<span id="cb17-23"><a href="#cb17-23" tabindex="-1"></a><span class="co">#&gt; 2                        C                        C                        C</span></span>
+<span id="cb17-24"><a href="#cb17-24" tabindex="-1"></a><span class="co">#&gt; 3                     Cpd2                     Cpd3                     Cpd4</span></span>
+<span id="cb17-25"><a href="#cb17-25" tabindex="-1"></a><span class="co">#&gt; 4              intact mode              intact mode              intact mode</span></span>
+<span id="cb17-26"><a href="#cb17-26" tabindex="-1"></a><span class="co">#&gt; 5 260620-DEMO-KinaseA-Cpd2 260620-DEMO-KinaseA-Cpd3 260620-DEMO-KinaseA-Cpd4</span></span>
+<span id="cb17-27"><a href="#cb17-27" tabindex="-1"></a><span class="co">#&gt; 6                  HEK293T                  HEK293T                  HEK293T</span></span></code></pre></div>
+</div>
+<div id="multi-sheet-excel-workbook" class="section level3">
+<h3>7.2 Multi-sheet Excel workbook</h3>
+<p><code>save_multiple_sheets()</code> writes any number of data frames
+to a single Excel file, one sheet per argument. Here we export both the
+ratio table and the fit summary for plate 01:</p>
+<div class="sourceCode" id="cb18"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" tabindex="-1"></a>xlsx_out <span class="ot">&lt;-</span> <span class="fu">file.path</span>(<span class="fu">tempdir</span>(), <span class="st">&quot;dosefitr_nanobret_export.xlsx&quot;</span>)</span>
+<span id="cb18-2"><a href="#cb18-2" tabindex="-1"></a></span>
+<span id="cb18-3"><a href="#cb18-3" tabindex="-1"></a><span class="fu">save_multiple_sheets</span>(</span>
+<span id="cb18-4"><a href="#cb18-4" tabindex="-1"></a>  <span class="at">file_name     =</span> xlsx_out,</span>
+<span id="cb18-5"><a href="#cb18-5" tabindex="-1"></a>  <span class="at">Ratios        =</span> mrt,</span>
+<span id="cb18-6"><a href="#cb18-6" tabindex="-1"></a>  <span class="at">Fit_Summary   =</span> sum_01,</span>
+<span id="cb18-7"><a href="#cb18-7" tabindex="-1"></a>  <span class="at">decimal_comma =</span> <span class="cn">FALSE</span></span>
+<span id="cb18-8"><a href="#cb18-8" tabindex="-1"></a>)</span>
+<span id="cb18-9"><a href="#cb18-9" tabindex="-1"></a></span>
+<span id="cb18-10"><a href="#cb18-10" tabindex="-1"></a><span class="fu">file.exists</span>(xlsx_out)</span>
+<span id="cb18-11"><a href="#cb18-11" tabindex="-1"></a><span class="co">#&gt; [1] TRUE</span></span></code></pre></div>
+</div>
+</div>
+<div id="reading-the-quality-metrics" class="section level2">
+<h2>8. Reading the quality metrics</h2>
+<p>The result of <code>batch_ratio_analysis()</code> includes a
+per-plate quality block printed at run time. The key numbers to
+watch:</p>
+<ul>
+<li><p><strong>S/B (signal-to-background)</strong> – ratio of mean 0 %
+control wells to mean 100 % control wells in the acceptor channel.
+Values above 5 indicate a usable dynamic range.</p></li>
+<li><p><strong>Z-prime</strong> – a unitless robustness statistic
+combining S/B with control variability. Values above 0.5 are usable,
+above 0.7 are excellent.</p></li>
+<li><p><strong>CV %</strong> – coefficient of variation between
+technical replicates. Anything under 10 % is well-behaved.</p></li>
+</ul>
+<p>For a complete description of each fit-level quality label
+(<code>Good curve</code>, <code>Wide logIC50 CI range</code>,
+<code>Top too low</code>, etc.) see the help page of
+<code>batch_drc_analysis()</code>.</p>
+</div>
+<div id="see-also" class="section level2">
+<h2>See also</h2>
+<ul>
+<li><code>vignette(&quot;dosefitr-viability&quot;, package = &quot;dosefitr&quot;)</code>
+for the viability/proliferation pipeline using the same plate
+layout.</li>
+<li><code>?batch_ratio_analysis</code>,
+<code>?batch_drc_analysis</code>, <code>?rout_outliers_batch</code> for
+parameter-level documentation.</li>
+</ul>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
