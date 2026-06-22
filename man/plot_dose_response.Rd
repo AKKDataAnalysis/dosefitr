@@ -60,7 +60,11 @@ plot_dose_response(
   title_hjust = 0.5,
   point_size_scale = 2,
   legend_annotation_scale = 0.3,
-  verbose = FALSE
+  verbose = FALSE,
+  excluded_point_color = "red",
+  excluded_point_shape = 4,
+  excluded_point_size = NULL,
+  excluded_point_alpha = 1
 )
 }
 \arguments{
@@ -228,6 +232,20 @@ the actual \code{geom_point} size (default: 2). The effective point size is
 \code{axis_text_size * legend_annotation_scale}.}
 
 \item{verbose}{Logical indicating whether to show verbose messages (default: FALSE).}
+
+\item{excluded_point_color}{Character. Colour of data points that were excluded
+from fitting by hook-effect detection. Default: `"red"`. Only visible when
+the result contains `data_full` with `excluded = TRUE` rows (i.e. when
+`hook_effect` was enabled in `batch_drc_analysis()`).}
+
+\item{excluded_point_shape}{Integer. ggplot2 shape code for excluded points.
+Default: `4` (\eqn{\times} symbol).}
+
+\item{excluded_point_size}{Numeric or `NULL`. Size of excluded points.
+`NULL` (default) inherits `point_size`.}
+
+\item{excluded_point_alpha}{Numeric between 0 and 1. Opacity of excluded points.
+Default: `1`.}
 }
 \value{
 Returns a ggplot object with comprehensive metadata stored as attributes:

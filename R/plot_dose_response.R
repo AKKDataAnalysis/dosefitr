@@ -110,6 +110,16 @@
 #'   (default: 0.3). The effective annotation size is
 #'   \code{axis_text_size * legend_annotation_scale}.
 #' @param verbose Logical indicating whether to show verbose messages (default: FALSE).
+#' @param excluded_point_color Character. Colour of data points that were excluded
+#'   from fitting by hook-effect detection. Default: `"red"`. Only visible when
+#'   the result contains `data_full` with `excluded = TRUE` rows (i.e. when
+#'   `hook_effect` was enabled in `batch_drc_analysis()`).
+#' @param excluded_point_shape Integer. ggplot2 shape code for excluded points.
+#'   Default: `4` (\eqn{\times} symbol).
+#' @param excluded_point_size Numeric or `NULL`. Size of excluded points.
+#'   `NULL` (default) inherits `point_size`.
+#' @param excluded_point_alpha Numeric between 0 and 1. Opacity of excluded points.
+#'   Default: `1`.
 #' @param plot_title Controls the plot title. \code{FALSE} (default) = no title;
 #'   \code{TRUE} = automatic title (construct + compound name);
 #'   character = custom title text.
@@ -292,7 +302,11 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
                                title_hjust = 0.5,
                                point_size_scale = 2,
                                legend_annotation_scale = 0.3,
-                               verbose = FALSE) {
+                               verbose = FALSE,
+                               excluded_point_color = "red",
+                               excluded_point_shape = 4,
+                               excluded_point_size  = NULL,
+                               excluded_point_alpha = 1) {
   
   # Null-coalescing operator
   `%||%` <- function(a, b) if (is.null(a) || length(a) == 0 || all(is.na(a))) b else a
@@ -385,6 +399,17 @@ if (is.null(label_sep)) {
   }
   
   summary_data <- calculate_summary_stats(clean_data)
+
+  # Compute excluded-point summary (hook-effect points: plotted but not fitted)
+  excluded_summary <- NULL
+  if (!is.null(result$data_full) && is.data.frame(result$data_full) &&
+      "excluded" %in% names(result$data_full) &&
+      any(result$data_full$excluded, na.rm = TRUE)) {
+    excluded_raw <- result$data_full[result$data_full$excluded == TRUE, , drop = FALSE]
+    if (nrow(excluded_raw) > 0L && all(c("log_inhibitor", "response") %in% names(excluded_raw))) {
+      excluded_summary <- calculate_summary_stats(excluded_raw)
+    }
+  }
   
   if (nrow(summary_data) == 0) {
     stop("No valid summary data available for plotting")
@@ -680,6 +705,44 @@ if (is.null(label_sep)) {
       )
   }
   
+  # Add excluded (hook-effect) points as red x symbols
+  if (!is.null(excluded_summary) && nrow(excluded_summary) > 0L) {
+    p <- p +
+      ggplot2::geom_point(
+        data = excluded_summary,
+        ggplot2::aes(x = log_inhibitor, y = mean_response),
+        color = excluded_point_color,
+        shape = excluded_point_shape,
+        size  = (excluded_point_size %||% point_size) * point_size_scale,
+        alpha = excluded_point_alpha
+      )
+    # Error bars for excluded points (only when SD is meaningful)
+    excl_valid_mask <- !is.na(excluded_summary$sd_response) &
+      is.finite(excluded_summary$sd_response) &
+      excluded_summary$n_replicates > 1L &
+      excluded_summary$sd_response > 1e-10
+    if (any(excl_valid_mask)) {
+      excl_valid_data <- excluded_summary[excl_valid_mask, ]
+      excl_valid_data$ymin_clipped <- pmax(
+        excl_valid_data$mean_response - excl_valid_data$sd_response, y_seg_limits[1])
+      excl_valid_data$ymax_clipped <- pmin(
+        excl_valid_data$mean_response + excl_valid_data$sd_response, y_seg_limits[2])
+      p <- p +
+        ggplot2::geom_errorbar(
+          data = excl_valid_data,
+          ggplot2::aes(
+            x    = log_inhibitor,
+            ymin = ymin_clipped,
+            ymax = ymax_clipped
+          ),
+          width     = error_bar_width * 10,
+          color     = excluded_point_color,
+          linewidth = error_linewidth,
+          alpha     = error_alpha
+        )
+    }
+  }
+
   # Add fitted curve if model was successful
   if (!is.null(curve_data)) {
     p <- p +

@@ -41,6 +41,23 @@
 #'   is below `max(15, 15\% of the response range)`; it is activation when the
 #'   final responses are higher than the initial ones by that same threshold.
 #' @param verbose Logical. If `TRUE`, prints progress details.
+#' @param hook_effect Controls automatic hook-effect detection at the two highest
+#'   concentration points of inhibition curves. A hook is declared when the mean
+#'   response at a candidate concentration exceeds the fitted curve by more than
+#'   `hook_threshold` times the residual standard error (Syx) of the first-pass fit.
+#'   Accepted values:
+#'   \itemize{
+#'     \item `FALSE` (default) — disabled; no hook detection.
+#'     \item `TRUE` — applied to every compound in the batch.
+#'     \item A character vector of `"Construct:Compound"` names — applied only to
+#'       those compounds (e.g. `c("BRPF1B:LW501", "BRPF1B:LW454")`).
+#'   }
+#'   Detected hook points are excluded from fitting but still plotted as red
+#'   \eqn{\times} symbols in `plot_dose_response()`.
+#' @param hook_threshold Positive numeric. Number of residual standard errors
+#'   (Syx) above the fitted curve that a candidate point must exceed to be
+#'   classified as a hook. Default `2` (approximately a 2-SE exceedance).
+#'   Only used when `hook_effect` is not `FALSE`.
 #'
 #'
 #' @details
@@ -107,6 +124,20 @@
 #' )
 #' }
 #'
+#' # Auto-detect hook effect for all compounds (2-SE threshold)
+#' drc_results <- batch_drc_analysis(
+#'   batch_results = ratio_results,
+#'   hook_effect    = TRUE,
+#'   hook_threshold = 2
+#' )
+#'
+#' # Apply hook detection only to specific compounds
+#' drc_results <- batch_drc_analysis(
+#'   batch_results = ratio_results,
+#'   hook_effect    = c("BRPF1B:LW501", "BRPF1B:LW454"),
+#'   hook_threshold = 2
+#' )
+#'
 #'
 #' @seealso
 #' * [`fit_drc_3pl()`] - Fits the dose-response curve for a single plate.
@@ -126,7 +157,9 @@ batch_drc_analysis <- function(batch_results,
                                generate_reports = TRUE,
                                model = "3pl",
                                nd_if_activation = FALSE,
-                               verbose = TRUE) {
+                               verbose = TRUE,
+                               hook_effect    = FALSE,
+                               hook_threshold = 2) {
   
   # ============================================================================
   # 1. SETUP & DEPENDENCIES
@@ -151,6 +184,15 @@ batch_drc_analysis <- function(batch_results,
   model <- tolower(model)
   if (!model %in% c("3pl", "4pl"))
     stop("model must be either '3pl' or '4pl'.")
+
+  # hook_effect / hook_threshold validation
+  if (!isFALSE(hook_effect) && !isTRUE(hook_effect) && !is.character(hook_effect))
+    stop("hook_effect must be FALSE, TRUE, or a character vector of compound names.")
+  if (is.character(hook_effect) && length(hook_effect) == 0L)
+    stop("hook_effect character vector must contain at least one compound name.")
+  if (!is.numeric(hook_threshold) || length(hook_threshold) != 1L ||
+      !is.finite(hook_threshold) || hook_threshold <= 0)
+    stop("hook_threshold must be a single positive finite number.")
   
   # Input validation
   if (!is.list(batch_results) || length(batch_results) == 0) {
@@ -187,6 +229,154 @@ batch_drc_analysis <- function(batch_results,
   # 2. INTERNAL FUNCTIONS
   # ============================================================================
   
+  # ---------------------------------------------------------------------------
+  # Hook-effect detection helpers
+  # ---------------------------------------------------------------------------
+
+  # Determine whether hook detection should be applied to a given compound.
+  # base_name: the Construct:Compound string (replicate suffix already stripped).
+  .apply_hook <- function(base_name) {
+    if (isFALSE(hook_effect)) return(FALSE)
+    if (isTRUE(hook_effect))  return(TRUE)
+    # character vector: check membership
+    base_name %in% hook_effect
+  }
+
+  # Warn about hook_effect names that match no compound in the batch.
+  # Called once after all plates are processed.
+  .warn_unmatched_hook_names <- function(seen_base_names) {
+    if (!is.character(hook_effect) || length(hook_effect) == 0L) return(invisible(NULL))
+    unmatched <- setdiff(hook_effect, seen_base_names)
+    if (length(unmatched) > 0L)
+      warning("hook_effect: the following compound names were not found in any plate: ",
+              paste(unmatched, collapse = ", "), call. = FALSE)
+  }
+
+  # Detect and exclude hook-effect points for one compound result.
+  # Returns a list:
+  #   $result      - updated detailed_result (second-pass fit if hooks found)
+  #   $data_full   - data.frame(log_inhibitor, response, excluded)
+  #   $excluded_conc - numeric vector of excluded log10 concentrations (may be length 0)
+  .detect_and_refit_hook <- function(result, data_table, model, normalize,
+                                     enforce_bottom_threshold, bottom_threshold,
+                                     r_sqr_threshold, assay_type) {
+
+    # Build full long-format data frame for this compound (all replicates)
+    comp_base  <- sub("\\.\\d+$", "", result$compound %||% "")
+    col_names  <- colnames(data_table)[-1]
+    base_names <- sub("\\.\\d+$", "", col_names)
+    comp_cols  <- which(base_names == comp_base) + 1L  # +1 for conc col
+
+    if (length(comp_cols) == 0L) {
+      # Fallback: use result$data if column matching fails
+      df_full <- result$data
+      if (is.null(df_full)) {
+        return(list(result = result, data_full = NULL, excluded_conc = numeric(0)))
+      }
+    } else {
+      df_full <- stats::na.omit(data.frame(
+        log_inhibitor = rep(data_table[[1]], length(comp_cols)),
+        response      = as.numeric(unlist(data_table[, comp_cols, drop = FALSE]))
+      ))
+    }
+
+    # First-pass Syx
+    syx <- result$goodness_of_fit$Syx %||% NA_real_
+    if (is.na(syx) || syx <= 0 || !is.finite(syx)) {
+      df_full$excluded <- FALSE
+      return(list(result = result, data_full = df_full, excluded_conc = numeric(0)))
+    }
+
+    # Identify the two highest unique concentration levels
+    conc_levels <- sort(unique(df_full$log_inhibitor), decreasing = TRUE)
+    candidates  <- conc_levels[seq_len(min(2L, length(conc_levels)))]
+
+    # Compute mean residual at each candidate concentration
+    model_obj <- result$model
+    if (is.null(model_obj)) {
+      df_full$excluded <- FALSE
+      return(list(result = result, data_full = df_full, excluded_conc = numeric(0)))
+    }
+
+    excluded_conc <- numeric(0)
+    for (k in seq_along(candidates)) {
+      c_val    <- candidates[k]
+      mean_obs <- mean(df_full$response[df_full$log_inhibitor == c_val], na.rm = TRUE)
+      fitted_v <- tryCatch(
+        stats::predict(model_obj, newdata = data.frame(log_inhibitor = c_val)),
+        error = function(e) NA_real_
+      )
+      if (is.na(fitted_v)) break
+      residual <- mean_obs - fitted_v
+      if (residual > hook_threshold * syx) {
+        excluded_conc <- c(excluded_conc, c_val)
+      } else {
+        # Stop at first non-hook (working inward from highest conc)
+        break
+      }
+    }
+
+    # Annotate full data frame
+    df_full$excluded <- df_full$log_inhibitor %in% excluded_conc
+
+    if (length(excluded_conc) == 0L) {
+      return(list(result = result, data_full = df_full, excluded_conc = numeric(0)))
+    }
+
+    # Second-pass fit: mask excluded rows in data_table
+    masked_table <- data_table
+    log_col      <- data_table[[1]]
+    for (j in comp_cols) {
+      above <- !is.na(log_col) & log_col %in% excluded_conc
+      masked_table[above, j] <- NA_real_
+    }
+
+    second_pass <- tryCatch({
+      if (model == "3pl") {
+        fit_drc_3pl(
+          data                     = masked_table[, c(1L, comp_cols), drop = FALSE],
+          output_file              = NULL,
+          normalize                = normalize,
+          verbose                  = FALSE,
+          enforce_bottom_threshold = enforce_bottom_threshold,
+          bottom_threshold         = bottom_threshold,
+          r_sqr_threshold          = r_sqr_threshold
+        )
+      } else {
+        fit_drc_4pl(
+          data                     = masked_table[, c(1L, comp_cols), drop = FALSE],
+          output_file              = NULL,
+          normalize                = normalize,
+          verbose                  = FALSE,
+          enforce_bottom_threshold = enforce_bottom_threshold,
+          bottom_threshold         = bottom_threshold,
+          r_sqr_threshold          = r_sqr_threshold,
+          assay_type               = assay_type
+        )
+      }
+    }, error = function(e) NULL)
+
+    if (is.null(second_pass) ||
+        length(second_pass$detailed_results) == 0L ||
+        !isTRUE(second_pass$detailed_results[[1]]$success)) {
+      warning("hook_effect: second-pass fit failed for '", comp_base,
+              "' after excluding ", length(excluded_conc), " point(s). ",
+              "Keeping first-pass result.", call. = FALSE)
+      df_full$excluded <- FALSE
+      return(list(result = result, data_full = df_full, excluded_conc = numeric(0)))
+    }
+
+    new_result <- second_pass$detailed_results[[1]]
+    new_result$hook_excluded_conc  <- excluded_conc
+    new_result$hook_first_pass_syx <- syx
+
+    list(result = result, data_full = df_full, excluded_conc = excluded_conc,
+         new_result = new_result)
+  }
+
+  # Accumulator for all compound base names seen (for unmatched-name warning)
+  .seen_hook_names <- character(0)
+
   generate_drc_batch_report <- function(drc_results, batch_results, main_dir, sub_dir, verbose = TRUE) {
     
     # Helper for safe Excel sheet names
@@ -522,6 +712,14 @@ batch_drc_analysis <- function(batch_results,
             0L
           }
           
+          # Hook-effect: extract excluded concentrations for this compound
+          .hook_excl <- res$hook_excluded_conc %||% numeric(0)
+          hook_excluded_str <- if (length(.hook_excl) > 0L) {
+            paste(round(.hook_excl, 3), collapse = ", ")
+          } else {
+            ""
+          }
+
           pharm_list[[length(pharm_list) + 1]] <- data.frame(
             Plate = plate_name,
             Construct = construct_name,
@@ -537,6 +735,7 @@ batch_drc_analysis <- function(batch_results,
             Outliers_Removed = n_outliers_removed,
             Warning = final_warnings,
             Exclusion = final_exclusions,
+            Hook_Excluded_Conc = hook_excluded_str,
             stringsAsFactors = FALSE
           )
 
@@ -591,6 +790,7 @@ batch_drc_analysis <- function(batch_results,
             Outliers_Removed = n_outliers_removed,
             Warning = final_warnings,
             Exclusion = final_exclusions,
+            Hook_Excluded_Conc = hook_excluded_str,
             stringsAsFactors = FALSE
           )
         }
@@ -835,6 +1035,89 @@ batch_drc_analysis <- function(batch_results,
           plate_drc_result$final_summary_table <- t_data
         }
       }
+
+      # -- Hook-effect detection and second-pass refitting ----------------
+      # Runs after N/D post-processing so curve_type is already set.
+      if (!isFALSE(hook_effect) &&
+          !is.null(plate_drc_result$detailed_results) &&
+          length(plate_drc_result$detailed_results) > 0L) {
+
+        for (.hi in seq_along(plate_drc_result$detailed_results)) {
+          .res <- plate_drc_result$detailed_results[[.hi]]
+
+          # Only process successful inhibition fits
+          if (!isTRUE(.res$success)) next
+          if ((.res$curve_type %||% "unknown") != "inhibition") next
+
+          .base <- sub("\\.\\d+$", "", .res$compound %||% "")
+          .seen_hook_names <<- unique(c(.seen_hook_names, .base))
+
+          if (!.apply_hook(.base)) next
+
+          if (verbose)
+            message("  [hook] Checking '", .base, "' for hook effect...")
+
+          .hook_out <- .detect_and_refit_hook(
+            result                   = .res,
+            data_table               = data_table,
+            model                    = model,
+            normalize                = normalize,
+            enforce_bottom_threshold = enforce_bottom_threshold,
+            bottom_threshold         = bottom_threshold,
+            r_sqr_threshold          = r_sqr_threshold,
+            assay_type               = assay_type
+          )
+
+          # Attach data_full to the (possibly updated) result
+          if (!is.null(.hook_out$new_result)) {
+            # Hook(s) found and second pass succeeded
+            .hook_out$new_result$data_full <- .hook_out$data_full
+            plate_drc_result$detailed_results[[.hi]] <- .hook_out$new_result
+            if (verbose)
+              message("  [hook] Excluded ", length(.hook_out$excluded_conc),
+                      " point(s) at log10[M] = ",
+                      paste(round(.hook_out$excluded_conc, 3), collapse = ", "),
+                      " for '", .base, "'")
+          } else {
+            # No hook detected (or second pass failed) - attach data_full anyway
+            plate_drc_result$detailed_results[[.hi]]$data_full <- .hook_out$data_full
+          }
+        }
+
+        # Rebuild summary_table and final_summary_table after potential refits
+        if (!is.null(plate_drc_result$summary_table) &&
+            nrow(plate_drc_result$summary_table) > 0L) {
+          for (.hi in seq_along(plate_drc_result$detailed_results)) {
+            .res2 <- plate_drc_result$detailed_results[[.hi]]
+            if (!isTRUE(.res2$success)) next
+            if (length(.res2$hook_excluded_conc %||% numeric(0)) == 0L) next
+            .cpd_name <- strsplit(.res2$compound %||% "", " \\| ")[[1]][1]
+            .row_idx  <- which(plate_drc_result$summary_table$Compound == .cpd_name)
+            if (length(.row_idx) == 0L) next
+            # Update key columns from second-pass parameters
+            .p <- .res2$parameters$Value
+            if (!is.null(.p) && length(.p) >= 5L) {
+              plate_drc_result$summary_table$Bottom[.row_idx]   <- round(.p[1], 3)
+              plate_drc_result$summary_table$Top[.row_idx]      <- round(.p[2], 3)
+              plate_drc_result$summary_table$LogIC50[.row_idx]  <- round(.p[3], 3)
+              plate_drc_result$summary_table$IC50[.row_idx]     <- format(.p[4], scientific = TRUE)
+              plate_drc_result$summary_table$Span[.row_idx]     <- round(.p[5], 3)
+            }
+            .gof <- .res2$goodness_of_fit
+            if (!is.null(.gof)) {
+              plate_drc_result$summary_table$R_squared[.row_idx] <- round(.gof$R_squared %||% NA_real_, 3)
+              plate_drc_result$summary_table$Syx[.row_idx]       <- round(.gof$Syx %||% NA_real_, 3)
+            }
+          }
+          # Rebuild transposed final_summary_table
+          .st2 <- plate_drc_result$summary_table
+          if (nrow(.st2) > 0L) {
+            .td2 <- as.data.frame(t(.st2[, -1, drop = FALSE]))
+            colnames(.td2) <- .st2$Compound
+            plate_drc_result$final_summary_table <- .td2
+          }
+        }
+      }  # end hook_effect block
       
       # -- Write per-plate Excel file with N/D-corrected tables -------------
       if (!is.null(output_file) && requireNamespace("openxlsx", quietly = TRUE)) {
@@ -902,6 +1185,9 @@ batch_drc_analysis <- function(batch_results,
   }
   
   # ============================================================================
+  # Warn about any hook_effect compound names that were never matched
+  .warn_unmatched_hook_names(.seen_hook_names)
+
   # 4. REPORTING & RETURN
   # ============================================================================
   

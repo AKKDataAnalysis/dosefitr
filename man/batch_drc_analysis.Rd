@@ -14,7 +14,9 @@ batch_drc_analysis(
   generate_reports = TRUE,
   model = "3pl",
   nd_if_activation = FALSE,
-  verbose = TRUE
+  verbose = TRUE,
+  hook_effect = FALSE,
+  hook_threshold = 2
 )
 }
 \arguments{
@@ -52,6 +54,25 @@ is below `max(15, 15\% of the response range)`; it is activation when the
 final responses are higher than the initial ones by that same threshold.}
 
 \item{verbose}{Logical. If `TRUE`, prints progress details.}
+
+\item{hook_effect}{Controls automatic hook-effect detection at the two highest
+concentration points of inhibition curves. A hook is declared when the mean
+response at a candidate concentration exceeds the fitted curve by more than
+`hook_threshold` times the residual standard error (Syx) of the first-pass fit.
+Accepted values:
+\itemize{
+  \item `FALSE` (default) — disabled; no hook detection.
+  \item `TRUE` — applied to every compound in the batch.
+  \item A character vector of `"Construct:Compound"` names — applied only to
+    those compounds (e.g. `c("BRPF1B:LW501", "BRPF1B:LW454")`).
+}
+Detected hook points are excluded from fitting but still plotted as red
+\eqn{\times} symbols in `plot_dose_response()`.}
+
+\item{hook_threshold}{Positive numeric. Number of residual standard errors
+(Syx) above the fitted curve that a candidate point must exceed to be
+classified as a hook. Default `2` (approximately a 2-SE exceedance).
+Only used when `hook_effect` is not `FALSE`.}
 }
 \value{
 A named list of DRC analysis results for each plate.
@@ -129,6 +150,20 @@ batch_drc_analysis(
   generate_reports = FALSE
 )
 }
+
+# Auto-detect hook effect for all compounds (2-SE threshold)
+drc_results <- batch_drc_analysis(
+  batch_results = ratio_results,
+  hook_effect    = TRUE,
+  hook_threshold = 2
+)
+
+# Apply hook detection only to specific compounds
+drc_results <- batch_drc_analysis(
+  batch_results = ratio_results,
+  hook_effect    = c("BRPF1B:LW501", "BRPF1B:LW454"),
+  hook_threshold = 2
+)
 
 
 }
