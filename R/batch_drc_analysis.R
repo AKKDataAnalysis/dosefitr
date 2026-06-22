@@ -124,6 +124,8 @@
 #' )
 #' }
 #'
+#' \dontrun{
+#'
 #' # Auto-detect hook effect for all compounds (2-SE threshold)
 #' drc_results <- batch_drc_analysis(
 #'   batch_results = ratio_results,
@@ -137,7 +139,7 @@
 #'   hook_effect    = c("BRPF1B:LW501", "BRPF1B:LW454"),
 #'   hook_threshold = 2
 #' )
-#'
+#' }
 #'
 #' @seealso
 #' * [`fit_drc_3pl()`] - Fits the dose-response curve for a single plate.

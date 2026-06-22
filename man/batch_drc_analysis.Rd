@@ -151,6 +151,8 @@ batch_drc_analysis(
 )
 }
 
+\dontrun{
+
 # Auto-detect hook effect for all compounds (2-SE threshold)
 drc_results <- batch_drc_analysis(
   batch_results = ratio_results,
@@ -164,7 +166,7 @@ drc_results <- batch_drc_analysis(
   hook_effect    = c("BRPF1B:LW501", "BRPF1B:LW454"),
   hook_threshold = 2
 )
-
+}
 
 }
 \seealso{
