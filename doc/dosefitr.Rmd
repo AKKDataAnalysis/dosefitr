@@ -1,0 +1,264 @@
+---
+title: "dosefitr walkthrough"
+author:
+  - name: Thiago Loreto Matos
+    affiliation: |
+      Pharmacogenetics Laboratory, Drug Research and Development Center,
+      Department of Physiology and Pharmacology, Federal University of Ceará,
+      Fortaleza, 60430-160, Brazil
+    email: thiago-loreto@hotmail.com
+date: "`r Sys.Date()`"
+package: dosefitr
+output:
+  BiocStyle::html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+vignette: >
+  %\VignetteIndexEntry{dosefitr walkthrough}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+    collapse  = TRUE,
+    comment   = "#>",
+    fig.align = "center"
+)
+```
+
+```{=html}
+<style>
+/* Typography tuning for BiocStyle's semantic author block.
+   Selectors match p.author-name, p.author-affiliation, p.author-email
+   produced by BiocStyle::html_document (verified against rendered DOM). */
+p.author-name       { font-size: 1.05em; margin-top: -0.5em; font-style: italic; font-weight: 700; }
+p.author-affiliation{ font-size: 0.88em; color: #444; margin-top: 0.2em; font-style: normal; font-weight: normal; }
+p.author-email      { font-size: 0.88em; margin-top: 0.2em; font-style: normal; font-weight: normal; }
+p.author-affiliation .affil-mark,
+p.author-email .affil-mark { font-style: normal; font-weight: normal; }
+
+/* Pkgdown produces different author-block markup than BiocStyle
+   (h4.author + address.author_afil + <a class=email>).
+   These rules tighten the pkgdown site's author block only; they have
+   no effect on BiocStyle's own vignette render because the selectors
+   don't match BiocStyle's DOM. */
+h4.author           { font-size: 1.05em; margin: 0.9em 0 0.05em 0; font-style: italic; font-weight: 700; }
+address.author_afil { display: block; font-style: normal; margin: 0 0 0.1em 0; }
+address.author_afil p { font-size: 0.88em; color: #444; margin: 0 0 0.05em 0; }
+address.author_afil br { display: none; }
+a.author_email[href="mailto:#"] { display: none; }
+address.author_afil a.email { font-size: 0.88em; }
+h4.date             { font-size: 0.95em; margin-top: 1em; font-weight: 500; }
+</style>
+```
+
+# Introduction
+
+`dosefitr` is a self-contained R toolchain for **NanoBRET kinase binding
+assays** and **cell viability** experiments read out on the BMG PHERAstar
+platform. It turns raw 384-well plate-reader exports into a full
+dose-response analysis package in one R session: plate parsing, control
+normalisation, ROUT outlier detection, 3PL / 4PL logistic fitting with
+IC50 / pIC50 and confidence intervals, publication-ready plots, and
+Scarab-formatted submission tables.
+
+## Motivation for Bioconductor
+
+Preclinical dose-response analysis sits between two well-served ecosystems
+that leave a gap in the middle. On one side, generic curve-fitting
+engines (`drc`, `nplr`, `dr4pl`) provide flexible non-linear regression
+but expect the user to shape their own tidy data frame, pick a model
+family, and hand-roll everything upstream and downstream of the fit —
+plate parsing, control normalisation, outlier detection, batch iteration,
+export. On the other side, large-scale pharmacogenomic frameworks
+(`PharmacoGx`) treat drug response as one facet of curated multi-omic
+screens (GDSC, CCLE, gCSI) via the `PharmacoSet` /
+`TreatmentResponseExperiment` classes; they solve a different problem
+than the day-to-day plate-reader output of a single wet lab.
+
+`dosefitr` fills the gap: the user hands in a folder of BMG PHERAstar
+Excel exports and receives a full analysis package back — normalised
+ratio / viability tables, ROUT-flagged wells, 4PL fits with assay-aware
+plausibility limits, quality-controlled `Curve_Quality` labels, per-plate
+patchwork panels, cross-plate consistency checks, and a Scarab-formatted
+submission table. No external pipeline, no shell scripts, no per-plate
+manual data wrangling.
+
+Inclusion in Bioconductor makes `dosefitr` discoverable to the
+translational-pharmacology and chemical-biology communities that already
+rely on Bioconductor for the omics half of their pipelines, and ensures
+long-term maintenance through the Bioconductor release cycle.
+
+## Comparison with related packages
+
+Several CRAN and Bioconductor packages, and one non-R desktop tool,
+address parts of the dose-response workflow:
+
+- **`drc`** (CRAN) — the canonical generic non-linear regression
+  toolkit for dose-response. Very flexible in model choice (log-logistic,
+  Weibull, exponential decay, Brain-Cousens, ...), and the standard
+  reference for methods research. `dosefitr` is not a replacement:
+  it targets a narrower problem (kinase-binding NanoBRET and viability
+  on 384-well PHERAstar plates) and layers plate parsing, control
+  normalisation, ROUT outlier detection, batch iteration across plates,
+  Curve_Quality classification, and Scarab-format export on top of the
+  4PL / 3PL fits themselves.
+- **`nplr`** (CRAN) — n-parameter logistic focused on IC50 estimation
+  with confidence intervals. Single-curve API; the user shapes the
+  data. Complementary to `dosefitr` for the fit itself but not for the
+  surrounding pipeline (parsing, batching, QC, export).
+- **`dr4pl`** (CRAN) — robust 4PL with convergence safeguards for
+  pathological data (single high outliers, support problems, and
+  non-logistic shapes that break `drc` and `nplr`) as documented in
+  An et al. (R Journal, 2019). Single-curve API, complementary to
+  `dosefitr` at the fit step; `dosefitr` uses its own `OptimModel`-based
+  4PL / 3PL solver with assay-aware Bottom / Top / Hill-slope bounds.
+- **`PharmacoGx`** (Bioconductor) — large-scale pharmacogenomic analysis
+  built around the `PharmacoSet` and `TreatmentResponseExperiment` S4
+  classes. Designed for cross-cell-line meta-analyses of published
+  screens (GDSC, CCLE, gCSI), including drug-synergy detection
+  (Loewe / Bliss / HSA / ZIP) from PharmacoGx 3.0 onwards. It is the
+  right tool when the question is *how does this compound behave across
+  a panel of curated cell lines and their molecular features?* —
+  a different problem from *how do I turn today's PHERAstar output into
+  a submission-ready IC50 table?*.
+- **GraphPad Prism** (non-R desktop tool) — the community-standard
+  interactive tool for benchtop dose-response analysis. Reproduces the
+  4PL / 3PL fits and IC50 reporting that `dosefitr` provides, but is
+  closed-source, licence-gated, and requires manual per-plate data
+  wrangling. `dosefitr` reproduces its analytical outputs in a
+  scriptable, batch-friendly, open-source R workflow.
+
+`dosefitr`'s unique combination is: **BMG PHERAstar-aware parsing +
+control-normalised ratio / viability tables + ROUT outlier detection +
+assay-aware 4PL / 3PL fitting with Curve_Quality labels + Scarab-format
+export**, all in one package with no external pipeline dependency.
+
+## Vignette scope
+
+This vignette introduces the package, walks a hero example on the
+bundled NanoBRET plates, and points to the three companion vignettes
+that cover the full workflows end-to-end.
+
+- **NanoBRET pipeline** (dual-channel donor / acceptor, function by
+  function): `vignette("dosefitr-nanobret")`.
+- **Viability pipeline** (single-channel luminescence, e.g. CellTiter-Glo):
+  `vignette("dosefitr-viability")`.
+- **End-to-end protocol** (a working template mirroring a real analysis
+  session, one topic per step): `vignette("dosefitr-protocol")`.
+
+# Installation
+
+`dosefitr` is planned for submission to Bioconductor once the
+accompanying manuscript is published. Once accepted, install the release
+version with:
+
+```{r install-bioc, eval = FALSE}
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install("dosefitr")
+```
+
+The in-development version is on GitHub:
+
+```{r install-github, eval = FALSE}
+# install.packages("remotes")
+remotes::install_github("AKKDataAnalysis/dosefitr")
+```
+
+# Quick start
+
+```{r setup}
+library(dosefitr)
+```
+
+`dosefitr` ships two example NanoBRET plates and an info table under
+`inst/extdata/`. We stage them into a working directory under
+`tempdir()` to keep the vignette compliant with the "no writes outside
+`tempdir()`" policy:
+
+```{r stage}
+extdata_dir <- system.file("extdata", package = "dosefitr")
+work_dir    <- file.path(tempdir(), "dosefitr_intro")
+dir.create(work_dir, showWarnings = FALSE)
+invisible(file.copy(
+    from      = list.files(extdata_dir, pattern = "^nanobret_",
+                           full.names = TRUE),
+    to        = work_dir,
+    overwrite = TRUE
+))
+list.files(work_dir)
+```
+
+The hero example takes the two staged plates through the full pipeline:
+BRET ratios, 4PL fits, per-compound summary, and one plot per compound.
+
+```{r hero}
+# 1. BRET ratios
+ratio_res <- batch_ratio_analysis(
+    directory        = work_dir,
+    info_file        = "nanobret_info.xlsx",
+    data_pattern     = "nanobret_plate_\\d+\\.xlsx$",
+    control_0perc    = "1",
+    control_100perc  = "24",
+    selected_columns = 1:24,
+    generate_reports = FALSE,
+    output_dir       = file.path(tempdir(), "dosefitr_intro_ratio"),
+    verbose          = FALSE
+)
+
+# 2. 4PL dose-response fits
+drc_res <- batch_drc_analysis(
+    batch_results    = ratio_res,
+    model            = "4pl",
+    normalize        = FALSE,
+    output_dir       = file.path(tempdir(), "dosefitr_intro_drc"),
+    generate_reports = FALSE,
+    verbose          = FALSE
+)
+
+# 3. Per-plate summary table
+sum_01 <- drc_res$drc_results$plate_01$drc_result$summary_table
+sum_01[, c("Compound", "LogIC50", "HillSlope",
+           "R_squared", "Curve_Quality")]
+```
+
+The `Curve_Quality` column carries per-compound labels (`Good curve`,
+`Wide logIC50 CI range`, `Top too low`, `Bottom too high`, ...) that
+distinguish clean fits from those with wide IC50 CIs, hill-slope
+problems, or plateaux that do not bracket the response range. For the
+bundled example plates almost every compound earns `Good curve`:
+
+```{r quality}
+table(sum_01$Curve_Quality)
+```
+
+For the full pipeline — plate layout, info table, ROUT outlier
+detection, per-plate panel plots, cross-plate comparison, Scarab
+export, and quality metrics — see:
+
+- `vignette("dosefitr-nanobret", package = "dosefitr")` — BRET ratios,
+  ROUT, 4PL fits, plotting, Scarab export.
+- `vignette("dosefitr-viability", package = "dosefitr")` — single-channel
+  viability normalisation, 4PL fits, Scarab export.
+
+# Where to next
+
+- `?batch_ratio_analysis` and `?batch_viability_analysis` — the two
+  entry points, one per pipeline.
+- `?batch_drc_analysis` — parameter reference for the shared fitting
+  step, including the assay-aware plausibility limits and the full list
+  of `Curve_Quality` labels.
+- `?rout_outliers_batch` — ROUT outlier detection at the batch level.
+- `?batch_save_all_drc_plots` — the workhorse batch plotter.
+- `?scarab_table` and `?scarab_viability` — Scarab-format submission
+  tables for NanoBRET and viability respectively.
+- GitHub: <https://github.com/AKKDataAnalysis/dosefitr>
+
+# Session info
+
+```{r session-info, echo=FALSE}
+sessionInfo()
+```

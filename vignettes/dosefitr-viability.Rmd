@@ -62,7 +62,9 @@ of compounds, one set of plate maps, two readouts.
 
 For the package's motivation for inclusion in Bioconductor and a
 comparison with other CRAN and Bioconductor dose-response packages, see
-`vignette("dosefitr", package = "dosefitr")`.
+`vignette("dosefitr", package = "dosefitr")`. For a topic-by-topic
+NanoBRET walkthrough written as an adaptable analysis template, see
+`vignette("dosefitr-protocol", package = "dosefitr")`.
 
 The seven stages of the pipeline:
 
@@ -123,12 +125,29 @@ list.files(work_dir)
 Each plate is a 384-well PHERAstar luminescence export with a single
 emission channel. The first 12 rows of the worksheet are instrument
 metadata; the data block follows at row 13. Each of the 16 rows
-(`A`-`P`) holds one compound:
+(`A`-`P`) holds one compound.
+
+The example plates bundled with the package follow the layout below,
+but this is only an illustration: `dosefitr` does not require the
+controls in any specific columns. What matters is that you tell the
+package **where** the controls are with the `control_0perc` and
+`control_100perc` arguments to `batch_viability_analysis()`. Any
+column indices in `selected_columns` are allowed -- for example,
+controls in columns 1 and 2 with the dose series across columns 3-24,
+or interleaved controls at columns 1, 12, and 24. Note that
+`batch_viability_analysis()` accepts **integer** control column
+indices, unlike the NanoBRET pipeline which uses character indices.
+The example layout is:
 
 -   **Column 1** -- DMSO (vehicle) control, the "100 % viability" baseline.
 -   **Columns 2-12** -- 11 inhibitor concentrations, technical replicate 1.
 -   **Columns 13-23** -- the same 11 concentrations, technical replicate 2.
 -   **Column 24** -- compound-saturated wells, the "0 % viability" floor.
+
+If your plates use a different layout, keep the info table structure
+the same (log10-concentrations in column 1, one compound per remaining
+column, `NA` in control rows) and change the `control_0perc` /
+`control_100perc` / `selected_columns` arguments to match.
 
 `viability_info.xlsx` carries one sheet per plate. The first column
 holds log10-concentrations (with `NA` for the control rows), the

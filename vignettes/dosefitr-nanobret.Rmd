@@ -59,9 +59,11 @@ copy-pastes into your own R session.
 
 For the package's motivation for inclusion in Bioconductor and a
 comparison with other CRAN and Bioconductor dose-response packages, see
-`vignette("dosefitr", package = "dosefitr")`. For the single-channel
-viability pipeline that shares the same plate layout, see
-`vignette("dosefitr-viability", package = "dosefitr")`.
+`vignette("dosefitr", package = "dosefitr")`. For a topic-by-topic
+walkthrough with the same functions used as an adaptable analysis
+template, see `vignette("dosefitr-protocol", package = "dosefitr")`. For
+the single-channel viability pipeline that shares the same plate layout,
+see `vignette("dosefitr-viability", package = "dosefitr")`.
 
 The eight stages of the pipeline:
 
@@ -120,12 +122,27 @@ list.files(work_dir)
 Each plate is a 384-well PHERAstar export with two emission channels
 (donor 450-80 nm, acceptor 610-80 nm). The first 12 rows of the
 worksheet carry instrument metadata; the data is laid out in 16 rows
-(`A`-`P`) by 24 columns:
+(`A`-`P`) by 24 columns.
+
+The example plates bundled with the package follow the layout below,
+but this is only an illustration: `dosefitr` does not require the
+controls in any specific columns. What matters is that you tell the
+package **where** the controls are with the `control_0perc` and
+`control_100perc` arguments to `batch_ratio_analysis()` (and the
+equivalent arguments in the viability pipeline). Any column indices
+in `selected_columns` are allowed -- for example, controls in columns
+1 and 2 with the dose series across columns 3-24, or interleaved
+controls at columns 1, 12, and 24. The example layout is:
 
 -   **Column 1** -- DMSO (vehicle) control, the "0 % inhibition" baseline.
 -   **Columns 2-12** -- 11 inhibitor concentrations, technical replicate 1.
 -   **Columns 13-23** -- the same 11 concentrations, technical replicate 2.
 -   **Column 24** -- saturated competitor, the "100 % inhibition" floor.
+
+If your plates use a different layout, keep the info table structure
+the same (log10-concentrations in column 1, one compound per remaining
+column, `NA` in control rows) and change the `control_0perc` /
+`control_100perc` / `selected_columns` arguments to match.
 
 The mapping from row to compound is in `nanobret_info.xlsx`, one sheet
 per plate. The first column lists log10-concentrations (with `NA` for

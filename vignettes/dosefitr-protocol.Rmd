@@ -1,0 +1,497 @@
+---
+title: "End-to-end NanoBRET analysis protocol"
+author:
+  - name: Thiago Loreto Matos
+    affiliation: |
+      Pharmacogenetics Laboratory, Drug Research and Development Center,
+      Department of Physiology and Pharmacology, Federal University of Ceará,
+      Fortaleza, 60430-160, Brazil
+    email: thiago-loreto@hotmail.com
+date: "`r Sys.Date()`"
+package: dosefitr
+output:
+  BiocStyle::html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+vignette: >
+  %\VignetteIndexEntry{End-to-end NanoBRET analysis protocol}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse   = TRUE,
+  comment    = "#>",
+  fig.width  = 7,
+  fig.height = 4.5,
+  eval       = TRUE,
+  message    = FALSE,
+  warning    = FALSE
+)
+```
+
+```{=html}
+<style>
+p.author-name       { font-size: 1.05em; margin-top: -0.5em; font-style: italic; font-weight: 700; }
+p.author-affiliation{ font-size: 0.88em; color: #444; margin-top: 0.2em; font-style: normal; font-weight: normal; }
+p.author-email      { font-size: 0.88em; margin-top: 0.2em; font-style: normal; font-weight: normal; }
+p.author-affiliation .affil-mark,
+p.author-email .affil-mark { font-style: normal; font-weight: normal; }
+
+h4.author           { font-size: 1.05em; margin: 0.9em 0 0.05em 0; font-style: italic; font-weight: 700; }
+address.author_afil { display: block; font-style: normal; margin: 0 0 0.1em 0; }
+address.author_afil p { font-size: 0.88em; color: #444; margin: 0 0 0.05em 0; }
+address.author_afil br { display: none; }
+a.author_email[href="mailto:#"] { display: none; }
+address.author_afil a.email { font-size: 0.88em; }
+h4.date             { font-size: 0.95em; margin-top: 1em; font-weight: 500; }
+</style>
+```
+
+# Introduction
+
+This vignette is an end-to-end **NanoBRET analysis protocol**, written as
+a working template you can adapt to your own experiments. Each stage of
+the analysis is a separate topic: one short prose block explaining what
+the step does and how to change it for your project, followed by a code
+block that runs against the two bundled example plates.
+
+The walkthrough mirrors the pattern of a real-world `dosefitr` session:
+locate the raw data, build the ratio table, detect outliers, fit the
+dose-response curves, save the plots, compare across plates, and export a
+Scarab-formatted submission table. Where a step has a common variation
+(v2 ratio processor, viability pipeline, replicate merging), that
+variation is treated as its own sub-topic instead of being folded into
+the main flow.
+
+For an overview of the package and a comparison with other CRAN and
+Bioconductor dose-response packages, see
+`vignette("dosefitr", package = "dosefitr")`. For a per-function
+walkthrough of the NanoBRET pipeline, see
+`vignette("dosefitr-nanobret", package = "dosefitr")`. For the
+single-channel viability pipeline, see
+`vignette("dosefitr-viability", package = "dosefitr")`.
+
+# Install and load
+
+Install the release version from Bioconductor once accepted:
+
+```{r install-bioc, eval = FALSE}
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install("dosefitr")
+```
+
+Or install the in-development version from GitHub:
+
+```{r install-github, eval = FALSE}
+# install.packages("remotes")
+remotes::install_github("AKKDataAnalysis/dosefitr")
+```
+
+Load the package:
+
+```{r libs}
+library(dosefitr)
+```
+
+# Point at your data
+
+`batch_ratio_analysis()` scans a directory for plate files that match a
+regular expression, together with a single Excel info table that maps
+each plate-row to a compound. Everything downstream builds on the object
+that this function returns.
+
+The package ships two example NanoBRET plates plus an info table under
+`inst/extdata/`. To keep this vignette compliant with the "no writes
+outside `tempdir()`" rule, we stage those files into a working directory
+under `tempdir()`:
+
+```{r stage}
+extdata_dir <- system.file("extdata", package = "dosefitr")
+work_dir    <- file.path(tempdir(), "dosefitr_protocol")
+dir.create(work_dir, showWarnings = FALSE, recursive = TRUE)
+
+invisible(file.copy(
+    from      = list.files(extdata_dir, pattern = "^nanobret_",
+                           full.names = TRUE),
+    to        = work_dir,
+    overwrite = TRUE
+))
+
+list.files(work_dir)
+```
+
+**In your own project.** Skip the copy-to-tempdir step and pass the
+path to your data folder as the `directory` argument to
+`batch_ratio_analysis()` below (for example,
+`directory = "C:/path/to/your/dataset"`).
+
+# Compute BRET ratios (v1)
+
+`batch_ratio_analysis()` reads each plate's donor and acceptor channels,
+computes the BRET ratio per well as `(acceptor / donor) * 1000`, and
+normalises each compound row by the plate's 0 % and 100 % controls. The
+result is a named list, one entry per plate, keyed by the info-table
+sheet name.
+
+The example call below uses the bundled data's layout (controls at
+columns 1 and 24) and passes `low_value_threshold = 3000`, which flags
+wells whose donor channel falls below 3000 counts as unreliable. On the
+bundled data no wells fall below that floor, so no wells are flagged --
+but the argument is included to demonstrate the pattern.
+
+```{r ratio}
+ratio_out <- file.path(tempdir(), "dosefitr_protocol_ratio")
+dir.create(ratio_out, showWarnings = FALSE)
+
+ratio_res <- batch_ratio_analysis(
+    directory           = work_dir,
+    info_file           = "nanobret_info.xlsx",
+    data_pattern        = "nanobret_plate_\\d+\\.xlsx$",
+    control_0perc       = "1",
+    control_100perc     = "24",
+    selected_columns    = 1:24,
+    low_value_threshold = 3000,
+    generate_reports    = FALSE,
+    output_dir          = ratio_out,
+    verbose             = FALSE
+)
+
+names(ratio_res)
+
+mrt <- ratio_res$plate_01$result$modified_ratio_table
+dim(mrt)
+head(mrt[, 1:5], 6)
+```
+
+**In your own project.** The three arguments most likely to differ
+between plates are:
+
+- `control_0perc` -- which column holds the 0 % control (baseline).
+- `control_100perc` -- which column holds the 100 % control (saturated).
+- `selected_columns` -- which columns to include in the analysis.
+
+For example, if your DMSO baseline is in column 24 and your saturated
+compound is in column 12:
+
+```{r own-project-ratio, eval = FALSE}
+ratio_res <- batch_ratio_analysis(
+    directory           = "C:/path/to/your/dataset",
+    control_0perc       = 24,
+    control_100perc     = 12,
+    low_value_threshold = 3000,
+    output_dir          = "./drc_quality",
+    verbose             = TRUE
+)
+```
+
+# Compute BRET ratios (v2 processor)
+
+The v2 processor handles two layouts the v1 processor does not:
+
+1. **Info tables with merged control cells** -- the info sheet has a
+   merged control block instead of one row per control column.
+2. **Multiple 100 % control columns** -- `control_100perc` is a *vector*
+   of column indices (for example, when the saturated-compound wells are
+   duplicated across two columns).
+
+Switch on the v2 processor by passing `function_version = "v2"`. The
+snippet below shows the pattern; it does not run because the bundled
+info table follows the v1 layout:
+
+```{r ratio-v2, eval = FALSE}
+ratio_res_v2 <- batch_ratio_analysis(
+    directory           = "C:/path/to/your/dataset",
+    control_0perc       = 16,
+    control_100perc     = c(12, 24),
+    low_value_threshold = 3000,
+    function_version    = "v2",
+    output_dir          = "./drc_quality",
+    verbose             = TRUE
+)
+```
+
+See `vignette("dosefitr-viability", package = "dosefitr")` for the
+canonical v2-processor example on cell-viability data.
+
+# Detect outliers (ROUT)
+
+`rout_outliers_batch()` runs the Motulsky & Brown ROUT test
+(BMC Bioinformatics, 2006) on every fitted curve. Wells that diverge by
+more than the ROUT `Q` threshold **and** disagree with their replicate
+are flagged.
+
+You have a choice at this step: feed the raw `ratio_res` into the DRC
+fitter and let the fitter see every point, or feed the ROUT-cleaned
+`rout_res` and drop the outliers before fitting. Both are valid; the
+outlier report is useful either way for QC.
+
+```{r rout}
+rout_res <- rout_outliers_batch(ratio_res, Q = 0.01, verbose = FALSE)
+
+nrow(rout_res$outlier_summary)
+head(rout_res$outlier_summary, 5)
+```
+
+Overlay the flagged wells on the fitted curves for a visual sanity check:
+
+```{r rout-plot, fig.width = 8, fig.height = 6}
+pobc_out <- file.path(tempdir(), "dosefitr_protocol_pobc")
+dir.create(pobc_out, showWarnings = FALSE)
+
+pobc_res <- plot_outliers_batch_curves(
+    rout_res,
+    plates     = "plate_01",
+    output_dir = pobc_out,
+    verbose    = FALSE
+)
+```
+
+# Merge replicate plates (optional)
+
+If the same 384-well layout was run on separate days or with different
+compound batches, `merge_plate_replicates()` combines the per-plate
+tables into a single wide table with all replicate columns side-by-side.
+Bridging compounds (present on both plates) end up with four replicate
+columns instead of two.
+
+```{r merge}
+merge_out <- file.path(tempdir(), "dosefitr_protocol_merge")
+dir.create(merge_out, showWarnings = FALSE)
+
+merged_res <- merge_plate_replicates(
+    ratio_res,
+    output_dir       = merge_out,
+    generate_reports = FALSE
+)
+
+names(merged_res)
+
+merged_mrt <- merged_res[[1]]$result$modified_ratio_table
+dim(merged_mrt)
+head(colnames(merged_mrt), 8)
+```
+
+Compounds that appear on only one plate keep their two-replicate columns;
+compounds that appear on both plates gain four columns
+(`Cpd1`, `Cpd1.2`, `Cpd1.3`, `Cpd1.4`).
+
+# Fit dose-response curves (4PL / 3PL)
+
+`batch_drc_analysis()` fits every compound with a 3- or 4-parameter
+logistic model, using the `OptimModel`-based solver with assay-aware
+plausibility limits on Bottom, Top, and Hill-slope. Each fit is labelled
+with a `Curve_Quality` tag (`Good curve`, `Wide logIC50 CI range`,
+`Top too low`, `Bottom too high`, ...) that summarises the fit's health.
+
+## `model = "3pl"` or `"4pl"`?
+
+The 3PL model fixes the Hill slope to 1 and estimates only Bottom, Top,
+and LogIC50. The 4PL model additionally estimates the Hill slope. Use
+3PL when you want a standard, comparable IC50 across many compounds and
+you have no strong prior evidence for cooperative binding; use 4PL when
+the slope itself is a parameter you care about, or when several
+compounds visibly show slopes far from 1.
+
+## `normalize = TRUE` or `normalize = FALSE`?
+
+For **NanoBRET** you can fit either the raw control-normalised ratio
+table (`normalize = FALSE`) or re-scale the fit output to a 0 - 100 %
+inhibition axis inside the fitter (`normalize = TRUE`). Both give the
+same `LogIC50` -- the difference is only whether the reported Bottom and
+Top are in ratio units or in percent. `normalize = TRUE` is the more
+Prism-like presentation; `normalize = FALSE` keeps the numbers on the
+original BRET-ratio scale.
+
+For **viability** the recommended default is `normalize = TRUE`, which
+clamps the fit to the 0 - 100 % viability window; see
+`vignette("dosefitr-viability", package = "dosefitr")`.
+
+```{r drc}
+drc_out <- file.path(tempdir(), "dosefitr_protocol_drc")
+dir.create(drc_out, showWarnings = FALSE)
+
+drc_res <- batch_drc_analysis(
+    batch_results    = rout_res,
+    model            = "3pl",
+    normalize        = TRUE,
+    output_dir       = drc_out,
+    generate_reports = FALSE,
+    verbose          = FALSE
+)
+
+sum_01 <- drc_res$drc_results$plate_01$drc_result$summary_table
+sum_01[, c("Compound", "LogIC50", "R_squared", "Curve_Quality")]
+```
+
+**In your own project.** Switch `model` to `"4pl"` if you want a
+free-Hill fit. Set `normalize = FALSE` if you would rather see the fit
+on the raw BRET-ratio scale. If you skipped the ROUT step above, pass
+`ratio_res` directly instead of `rout_res`.
+
+# Save all dose-response plots
+
+`batch_save_all_drc_plots()` writes one PNG per compound plus (optionally)
+a combined patchwork panel per plate. Filenames encode the plate and
+`construct:compound` key, so a plate of 16 compounds becomes 16 PNGs (or
+32 across two plates).
+
+```{r save-plots}
+plots_out <- file.path(tempdir(), "dosefitr_protocol_plots")
+dir.create(plots_out, showWarnings = FALSE)
+
+save_res <- batch_save_all_drc_plots(
+    batch_drc_results = drc_res,
+    output_dir        = plots_out,
+    dpi               = 72,
+    save_panel        = FALSE,
+    verbose           = FALSE
+)
+
+length(list.files(plots_out, recursive = TRUE, pattern = "\\.png$"))
+```
+
+**In your own project.** For large batches, narrow the output with
+`plates_to_plot` (character vector of plate names) or `compounds_to_plot`
+(character vector of compound suffixes -- the part after `:` in the
+compound key). Set `save_panel = TRUE` to also emit a combined
+per-plate panel figure.
+
+# Overlay multiple compounds
+
+`plot_multiple_compounds()` overlays several curves on a single set of
+axes. This is useful for target-specific SAR comparisons -- for example,
+the six KinaseA compounds side-by-side:
+
+```{r overlay, fig.width = 7, fig.height = 5}
+overlay <- plot_multiple_compounds(
+    drc_res,
+    compound_indices  = 1:6,
+    plate             = "plate_01",
+    color_palette     = "colorblind",
+    plot_title        = "",
+    legend_text_size  = 12,
+    axis_text_size    = 11,
+    axis_title_size   = 12,
+    save_plot         = NULL,
+    verbose           = FALSE
+)
+
+overlay
+```
+
+**In your own project.** Replace `compound_indices` with the row indices
+you want to overlay (the same order as in `drc_res$..$summary_table`).
+Pass `save_plot = TRUE` to auto-save the plot under the plate's DRC output
+directory, or a file path to save with an explicit name.
+
+# Compare compounds across plates
+
+`compare_plates_drc()` matches compounds across plates (via
+`compare_by = "compound"`) or targets across plates
+(via `compare_by = "construct"`) and produces side-by-side fits for each
+match. It is the standard cross-plate consistency check.
+
+The two bundled plates share four "bridging" compounds
+(`KinaseA:Cpd1`, `KinaseA:Cpd5`, `KinaseB:Cpd9`, `KinaseB:Cpd13`). We
+compare a two-compound subset to keep the output small:
+
+```{r compare}
+cmp_out <- file.path(tempdir(), "dosefitr_protocol_cmp")
+dir.create(cmp_out, showWarnings = FALSE)
+
+cmp_res <- compare_plates_drc(
+    drc_res,
+    compare_by        = "compound",
+    selected_entities = c("KinaseA:Cpd1", "KinaseB:Cpd9"),
+    min_plates        = 2,
+    output_dir        = cmp_out,
+    plot_dpi          = 72,
+    verbose           = FALSE
+)
+
+length(cmp_res)
+names(cmp_res)
+```
+
+**In your own project.** Drop `selected_entities` to compare every
+bridging compound. Use `compare_by = "construct"` when you want the
+same target aggregated across plates (useful for tracking compound
+libraries against a single kinase across weeks of screening).
+
+# Build the Scarab table
+
+`scarab_table()` produces a Scarab-format submission table: one long
+sheet with fitted parameters, quality metrics, and experiment metadata
+side-by-side. The metadata block encodes information a curator needs to
+reproduce the analysis (date, experimenter, tracer identity and
+concentration, nLuc orientation, decimal-separator convention).
+
+The values below are illustrative -- supply your own for each experiment.
+
+```{r scarab}
+scarab <- scarab_table(
+    ratio_res, drc_res,
+    plate_name                 = "plate_01",
+    date                       = "240101",
+    experimenter_abbrev        = "ME",
+    nLuc_orientation           = "C",
+    tracer_kd_app              = -7.5,
+    tracer_concentration_used  = -7.5,
+    tracer                     = "Tracer K10",
+    decimal_separator          = ","
+)
+
+dim(scarab)
+head(scarab[, 1:5], 6)
+```
+
+**In your own project.** Set `decimal_separator = "."` if your Scarab
+instance expects US-style decimals. Set `nLuc_orientation` to `"N"` for
+N-terminal fusion constructs. `date` is a free-form character string
+using the convention your team already uses (here `YYMMDD`).
+
+# Cell viability sidebar
+
+The same plate layout can carry a single-channel viability readout
+(e.g. CellTiter-Glo). Substitute `batch_viability_analysis()` for
+`batch_ratio_analysis()` and pass `normalize = TRUE` to the DRC step:
+
+```{r viability-sidebar, eval = FALSE}
+via_res <- batch_viability_analysis(
+    directory        = "C:/path/to/your/dataset",
+    control_0perc    = 13,
+    control_100perc  = 12,
+    selected_columns = c(2:23),
+    output_dir       = "./drc_quality",
+    verbose          = TRUE
+)
+
+drc_res_via <- batch_drc_analysis(
+    batch_results = via_res,
+    model         = "3pl",
+    normalize     = TRUE,
+    output_dir    = "./drc_results",
+    verbose       = TRUE
+)
+```
+
+For a runnable end-to-end viability example, see
+`vignette("dosefitr-viability", package = "dosefitr")`.
+
+# Sanity check
+
+For the bundled plates you should see 16/16 successful fits per plate and
+mostly `Good curve` labels. If your own analysis shows many failures,
+first check that `control_0perc` and `control_100perc` match your actual
+plate layout -- a mis-specified control column is the single most common
+source of failed fits.
+
+# Session info
+
+```{r session-info, echo = FALSE}
+sessionInfo()
+```
