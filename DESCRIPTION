@@ -20,7 +20,8 @@ License: MIT + file LICENSE
 Encoding: UTF-8
 Language: en-US
 LazyData: true
-RoxygenNote: 7.3.3
+Depends:
+    R (>= 4.4.0)
 Imports: 
     ggplot2,
     stats,
@@ -37,10 +38,21 @@ Imports:
     ggrepel,
     patchwork
 Suggests: 
+    BiocStyle,
     knitr,
     rmarkdown,
     testthat (>= 3.0.0)
 URL: https://github.com/AKKDataAnalysis/dosefitr
 BugReports: https://github.com/AKKDataAnalysis/dosefitr/issues
+biocViews:
+    Software,
+    CellBasedAssays,
+    MicrotitrePlateAssay,
+    Cheminformatics,
+    QualityControl,
+    Regression,
+    Visualization,
+    DataImport
 VignetteBuilder: knitr
 Config/testthat/edition: 3
+Config/roxygen2/version: 8.0.0

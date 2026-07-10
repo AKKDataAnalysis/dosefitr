@@ -1,8 +1,8 @@
+
 # dosefitr
 
-> Dose-Response Curve Fitting for NanoBRET and Cell Viability Assays
-
 <!-- badges: start -->
+
 [![Lifecycle:
 stable](https://img.shields.io/badge/lifecycle-stable-brightgreen.svg)](https://lifecycle.r-lib.org/articles/stages.html#stable)
 [![License:
@@ -10,197 +10,173 @@ MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/
 <!-- badges: end -->
 
 End-to-end dose-response analysis for **NanoBRET kinase binding assays**
-and **cell viability experiments**. **dosefitr** reads raw BMG
-PHERAstar plate-reader exports, computes BRET ratios, detects
-outliers (ROUT method), fits 3PL or 4PL logistic models, reports
-IC50 / pIC50 with confidence intervals, and exports
+and **cell viability experiments**. `dosefitr` reads raw BMG PHERAstar
+plate-reader exports, computes BRET ratios (or normalises luminescence),
+detects outliers with the ROUT method, fits 3PL / 4PL logistic models,
+reports IC50 / pIC50 with confidence intervals, and exports
 publication-ready plots, multi-sheet Excel workbooks, and
 Scarab-formatted submission tables.
 
+## Hero example
+
+``` r
+library(dosefitr)
+
+# Stage the two bundled NanoBRET plates into a working directory
+extdata_dir <- system.file("extdata", package = "dosefitr")
+work_dir    <- file.path(tempdir(), "dosefitr_demo")
+dir.create(work_dir, showWarnings = FALSE)
+file.copy(
+    list.files(extdata_dir, pattern = "^nanobret_", full.names = TRUE),
+    work_dir
+)
+
+# 1. Compute BRET ratios across both plates
+ratio_res <- batch_ratio_analysis(
+    directory        = work_dir,
+    info_file        = "nanobret_info.xlsx",
+    data_pattern     = "nanobret_plate_\\d+\\.xlsx$",
+    control_0perc    = "1",
+    control_100perc  = "24",
+    selected_columns = 1:24,
+    generate_reports = FALSE,
+    output_dir       = file.path(tempdir(), "dosefitr_ratio")
+)
+
+# 2. Fit 4PL curves and 3. save panel plots
+drc_res <- batch_drc_analysis(ratio_res, model = "4pl",
+                              generate_reports = FALSE,
+                              output_dir = file.path(tempdir(), "dosefitr_drc"))
+batch_save_all_drc_plots(drc_res,
+                         output_dir = file.path(tempdir(), "dosefitr_plots"))
+```
+
 ## Installation
 
-**dosefitr** is not yet on CRAN. Install the development version from
-GitHub:
+`dosefitr` is planned for submission to Bioconductor once the
+accompanying manuscript is published. Once accepted, install the release
+version with:
+
+``` r
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install("dosefitr")
+```
+
+The in-development version is on GitHub:
 
 ``` r
 # install.packages("remotes")
 remotes::install_github("AKKDataAnalysis/dosefitr")
 ```
 
-`dosefitr` requires R >= 4.1.0. All package dependencies (including
+System requirements: R (\>= 4.4.0). All package dependencies (including
 `OptimModel`, which provides the ROUT outlier test) are on CRAN and
 `remotes::install_github()` pulls them automatically.
 
-## Quick example
+## What it does
 
-The package ships with two small example plates and an info table in
-`inst/extdata/` so you can copy the example below straight into your
-own R session:
+`dosefitr` turns raw 384-well plate-reader exports into a full
+dose-response analysis package in one R session, without stitching
+together plate-parsing, curve-fitting, and export tools:
 
-``` r
-library(dosefitr)
+- **NanoBRET pipeline** (dual-channel donor/acceptor):
+  `batch_ratio_analysis` reads BMG PHERAstar exports, extracts donor and
+  acceptor matrices, computes BRET ratios per well, and normalises each
+  row by its DMSO / saturated controls.
+- **Viability pipeline** (single-channel luminescence,
+  e.g. CellTiter-Glo): `batch_viability_analysis` reads single-channel
+  exports, normalises to DMSO, and clamps the 0 % floor at the
+  compound-saturated wells. Two info-table layouts are supported via the
+  `version = "v1"` / `"v2"` switch.
+- **Shared downstream stack**: `rout_outliers_batch` flags outlier wells
+  with the ROUT method (Motulsky & Brown 2006); `batch_drc_analysis`
+  fits 3PL or 4PL models with assay-aware plausibility limits on Bottom,
+  Top, and Hill slope; `batch_save_all_drc_plots` writes one plot per
+  compound plus a patchwork-assembled per-plate panel;
+  `plot_multiple_compounds` overlays compounds in one figure;
+  `compare_plates_drc` compares the same compound across plates.
+- **Automatic QC**: Z-prime, assay window, signal-to-background, and
+  per-plate CV%, plus a `Curve_Quality` label per compound
+  (`Good curve`, `Wide logIC50 CI range`, `Top too low`, …) exposed on
+  the per-plate summary table.
+- **Export**: `scarab_table` (NanoBRET) and `scarab_viability` produce
+  Scarab-format submission tables for SGC-style kinase profiling
+  submission; `save_multiple_sheets` writes any number of data frames to
+  one Excel file.
 
-# Find and stage the bundled plates
-extdata_dir <- system.file("extdata", package = "dosefitr")
-work_dir    <- file.path(tempdir(), "dosefitr_demo")
-dir.create(work_dir, showWarnings = FALSE)
-file.copy(
-  list.files(extdata_dir, pattern = "^nanobret_", full.names = TRUE),
-  work_dir
-)
+## What it doesn’t do
 
-# 1. Compute BRET ratios across both plates
-ratio_res <- batch_ratio_analysis(
-  directory        = work_dir,
-  info_file        = "nanobret_info.xlsx",
-  data_pattern     = "nanobret_plate_\\d+\\.xlsx$",
-  control_0perc    = "1",
-  control_100perc  = "24",
-  selected_columns = 1:24,
-  generate_reports = FALSE,
-  output_dir       = file.path(tempdir(), "dosefitr_ratio")
-)
-
-# 2. Fit 4PL dose-response curves
-drc_res <- batch_drc_analysis(
-  batch_results    = ratio_res,
-  model            = "4pl",
-  generate_reports = FALSE,
-  output_dir       = file.path(tempdir(), "dosefitr_drc")
-)
-
-# 3. Inspect the per-compound summary
-drc_res$drc_results$plate_01$drc_result$summary_table[, c(
-  "Compound", "LogIC50", "HillSlope", "R_squared", "Curve_Quality"
-)]
-
-# 4. Save one plot per compound + a combined panel per plate
-batch_save_all_drc_plots(
-  batch_drc_results = drc_res,
-  output_dir        = file.path(tempdir(), "dosefitr_plots"),
-  verbose           = TRUE
-)
-
-# 5. Overlay several compounds in a single figure
-plot_multiple_compounds(
-  results          = drc_res,
-  compound_indices = 1:4,
-  plate            = "plate_01"
-)
-```
-
-For the full pipeline (outlier detection, multi-compound overlay,
-cross-plate comparison, export), see the pipeline vignettes.
+`dosefitr` does not read raw fluorescence images, does not perform
+competition-binding thermodynamics beyond IC50 / pIC50, and is not
+designed for combination-drug (Bliss / Loewe / HSA) analysis. For
+large-scale pharmacogenomic meta-analyses across cell-line panels and
+public screens, see `PharmacoGx` on Bioconductor.
 
 ## Pipeline overview
 
-```
-Raw Excel files
-      |
-      v
-batch_ratio_analysis()        <- NanoBRET:   reads plates, computes BRET ratios
-batch_viability_analysis()    <- Viability:  reads plates, normalises signal
-      |
-      v
-rout_outliers_batch()         <- detects and removes outliers (optional)
-      |
-      v
-batch_drc_analysis()          <- fits dose-response curves (3PL or 4PL)
-      |
-      |--> batch_save_all_drc_plots() <- saves one plot per compound + panel per plate
-      |--> plot_multiple_compounds()  <- overlays selected compounds in one figure
-      |--> compare_plates_drc()       <- compares same compound across plates
-      |--> scarab_table()             <- Scarab-format export (NanoBRET)
-      `--> scarab_viability()         <- Scarab-format export (viability)
-```
+    Raw Excel files
+          |
+          v
+    batch_ratio_analysis()        <- NanoBRET:   reads plates, computes BRET ratios
+    batch_viability_analysis()    <- Viability:  reads plates, normalises signal
+          |
+          v
+    rout_outliers_batch()         <- detects and removes outliers (optional)
+          |
+          v
+    batch_drc_analysis()          <- fits dose-response curves (3PL or 4PL)
+          |
+          |--> batch_save_all_drc_plots() <- one plot per compound + panel per plate
+          |--> plot_multiple_compounds()  <- overlays selected compounds
+          |--> compare_plates_drc()       <- same compound across plates
+          |--> scarab_table()             <- Scarab-format export (NanoBRET)
+          `--> scarab_viability()         <- Scarab-format export (viability)
 
-## Function reference
+## Function map
 
-Each function has its own help page; below is the grouped index.
+| Group | Functions |
+|----|----|
+| Reading / normalising | `batch_ratio_analysis` `batch_viability_analysis` `process_viability_data` `process_viability_data_v2` `ratio_dose_response` `ratio_dose_response_v2` `merge_plate_replicates` |
+| Quality control | `rout_outliers` `rout_outliers_batch` |
+| Fitting | `batch_drc_analysis` `fit_drc_4pl` `fit_drc_3pl` `reshape_dr_table` |
+| Plotting | `batch_save_all_drc_plots` `plot_multiple_compounds` `plot_dose_response` `plot_all_dose_responses` `compare_plates_drc` `plot_outliers_curves` `plot_outliers_batch_curves` `plot_drc_batch` |
+| Export | `scarab_table` `scarab_viability` `save_multiple_sheets` |
 
-### Reading and normalising raw data
+## Documentation
 
-| Function | Purpose |
-|----------|---------|
-| `batch_ratio_analysis()`     | Read NanoBRET plates and compute BRET ratios |
-| `batch_viability_analysis()` | Read viability plates and normalise signal (`version = "v1"` or `"v2"`) |
-| `process_viability_data()`   | Single-plate v1 viability processor |
-| `process_viability_data_v2()` | Single-plate v2 viability processor |
-| `ratio_dose_response()`      | Single-plate v1 NanoBRET ratio processor |
-| `ratio_dose_response_v2()`   | Single-plate v2 NanoBRET ratio processor |
-| `merge_plate_replicates()`   | Merge technical replicates across plates |
+Three vignettes ship with the package:
 
-### Quality control
+- **`vignette("dosefitr")`** — introduction, motivation, and comparison
+  with related dose-response packages.
+- **`vignette("dosefitr-nanobret")`** — end-to-end NanoBRET walkthrough
+  on the bundled example plates (BRET ratios, ROUT, 4PL fits, plotting,
+  Scarab export).
+- **`vignette("dosefitr-viability")`** — end-to-end viability
+  walkthrough on the bundled example plates (single-channel
+  normalisation, 4PL fits, Scarab export).
 
-| Function | Purpose |
-|----------|---------|
-| `rout_outliers()`       | ROUT outlier test on a single fitted curve |
-| `rout_outliers_batch()` | ROUT outlier test on all curves in a batch result |
-
-### Dose-response fitting
-
-| Function | Purpose |
-|----------|---------|
-| `batch_drc_analysis()` | Fit 3PL or 4PL models on all compounds in a batch |
-| `fit_drc_4pl()`        | Single-compound 4PL fit |
-| `fit_drc_3pl()`        | Single-compound 3PL fit |
-| `reshape_dr_table()`   | Reshape DRC results between wide and long forms |
-
-### Plotting
-
-| Function | Purpose |
-|----------|---------|
-| `batch_save_all_drc_plots()`  | Save one plot per compound and an assembled panel per plate (primary batch plotter) |
-| `plot_multiple_compounds()`   | Overlay several compounds in a single plot |
-| `plot_dose_response()`        | Single-compound plot |
-| `plot_all_dose_responses()`   | One plot per compound (returns a list) |
-| `compare_plates_drc()`        | Compare the same compound across plates |
-| `plot_outliers_curves()`      | Highlight ROUT-flagged wells on one plate |
-| `plot_outliers_batch_curves()`| Highlight ROUT-flagged wells across plates |
-| `plot_drc_batch()`            | Per-construct/compound fitted curve panels (legacy; superseded by `batch_save_all_drc_plots()`) |
-
-### Export
-
-| Function | Purpose |
-|----------|---------|
-| `scarab_table()`        | Scarab-format submission table (NanoBRET) |
-| `scarab_viability()`    | Scarab-format submission table (viability) |
-| `save_multiple_sheets()`| Write any number of data frames to one Excel file |
-
-## Vignettes
-
-Two pipeline vignettes walk through the full workflow on the bundled
-example data; both are fully evaluated at build time.
-
--   `vignette("dosefitr-nanobret", package = "dosefitr")` --
-    BRET-ratio computation, outlier detection, 4PL fitting, plotting,
-    and Scarab export for NanoBRET kinase binding assays.
--   `vignette("dosefitr-viability", package = "dosefitr")` --
-    Single-channel viability normalisation, 4PL fitting, plotting,
-    and Scarab export for cell viability experiments.
+Each exported function has its own help page; open the grouped index
+with `help(package = "dosefitr")`.
 
 ## Citation
 
-When using **dosefitr** in published work, please cite the package:
-
-``` r
-citation("dosefitr")
-```
-
-The ROUT outlier-detection algorithm used by `rout_outliers()` was
-developed by Motulsky & Brown (2006); please cite the original paper:
+Manuscript in preparation. Run `citation("dosefitr")` for the up-to-date
+record. The ROUT outlier-detection algorithm used by `rout_outliers()`
+was developed by Motulsky and Brown (2006); please cite the original
+paper:
 
 > Motulsky, H. J., & Brown, R. E. (2006). Detecting outliers when
-> fitting data with nonlinear regression -- a new method based on
-> robust nonlinear regression and the false discovery rate. *BMC
+> fitting data with nonlinear regression – a new method based on robust
+> nonlinear regression and the false discovery rate. *BMC
 > Bioinformatics*, 7, 123.
 > [doi:10.1186/1471-2105-7-123](https://doi.org/10.1186/1471-2105-7-123)
 
 ## Getting help
 
--   Browse the function index in the package help: `?dosefitr`
--   Report bugs or request features at
-    <https://github.com/AKKDataAnalysis/dosefitr/issues>
+- Function-level docs: `help(package = "dosefitr")`
+- Bug reports and feature requests:
+  <https://github.com/AKKDataAnalysis/dosefitr/issues>
 
 ## License
 

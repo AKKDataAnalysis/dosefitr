@@ -1,33 +1,67 @@
 ---
-title: "NanoBRET pipeline: dose-response analysis end-to-end"
+title: "NanoBRET pipeline"
+author:
+  - name: Thiago Loreto Matos
+    affiliation: |
+      Pharmacogenetics Laboratory, Drug Research and Development Center,
+      Department of Physiology and Pharmacology, Federal University of Ceará,
+      Fortaleza, 60430-160, Brazil
+    email: thiago-loreto@hotmail.com
+date: "`r Sys.Date()`"
+package: dosefitr
 output:
-  rmarkdown::html_vignette:
+  BiocStyle::html_document:
     toc: true
-    toc_depth: 2
+    toc_float: true
+    number_sections: true
 vignette: >
-  %\VignetteIndexEntry{NanoBRET pipeline: dose-response analysis end-to-end}
+  %\VignetteIndexEntry{NanoBRET pipeline}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
 
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(
-  collapse  = TRUE,
-  comment   = "#>",
+  collapse   = TRUE,
+  comment    = "#>",
   fig.width  = 7,
   fig.height = 4.5,
-  eval      = TRUE,
-  message   = FALSE,
-  warning   = FALSE
+  eval       = TRUE,
+  message    = FALSE,
+  warning    = FALSE
 )
 ```
 
-## Overview
+```{=html}
+<style>
+p.author-name       { font-size: 1.05em; margin-top: -0.5em; font-style: italic; font-weight: 700; }
+p.author-affiliation{ font-size: 0.88em; color: #444; margin-top: 0.2em; font-style: normal; font-weight: normal; }
+p.author-email      { font-size: 0.88em; margin-top: 0.2em; font-style: normal; font-weight: normal; }
+p.author-affiliation .affil-mark,
+p.author-email .affil-mark { font-style: normal; font-weight: normal; }
+
+h4.author           { font-size: 1.05em; margin: 0.9em 0 0.05em 0; font-style: italic; font-weight: 700; }
+address.author_afil { display: block; font-style: normal; margin: 0 0 0.1em 0; }
+address.author_afil p { font-size: 0.88em; color: #444; margin: 0 0 0.05em 0; }
+address.author_afil br { display: none; }
+a.author_email[href="mailto:#"] { display: none; }
+address.author_afil a.email { font-size: 0.88em; }
+h4.date             { font-size: 0.95em; margin-top: 1em; font-weight: 500; }
+</style>
+```
+
+# Introduction
 
 This vignette walks through the **NanoBRET** dose-response pipeline of
-**dosefitr**, end-to-end, on bundled example data. Every step runs at
-build time on two small plates included with the package, so you can
-copy any chunk straight into your own R session.
+`dosefitr`, end-to-end, on bundled example data. Every step runs at
+build time on two small plates included with the package, so any chunk
+copy-pastes into your own R session.
+
+For the package's motivation for inclusion in Bioconductor and a
+comparison with other CRAN and Bioconductor dose-response packages, see
+`vignette("dosefitr", package = "dosefitr")`. For the single-channel
+viability pipeline that shares the same plate layout, see
+`vignette("dosefitr-viability", package = "dosefitr")`.
 
 The eight stages of the pipeline:
 
@@ -46,7 +80,7 @@ The eight stages of the pipeline:
     (`scarab_table()`, `save_multiple_sheets()`).
 8.  Read the quality metrics.
 
-## 1. Setup
+# Setup
 
 ```{r libs}
 library(dosefitr)
@@ -65,7 +99,7 @@ list.files(extdata_dir, pattern = "^nanobret_")
 `batch_ratio_analysis()` scans a directory for plate files matching a
 regular expression, so we stage the relevant files into a working
 directory under `tempdir()`. Writing to `tempdir()` keeps the vignette
-compliant with CRAN policy (no writes outside the temporary directory):
+compliant with the "no writes outside `tempdir()`" policy:
 
 ```{r stage}
 work_dir <- file.path(tempdir(), "dosefitr_nanobret")
@@ -81,7 +115,7 @@ invisible(file.copy(
 list.files(work_dir)
 ```
 
-## 2. Plate layout and info table
+# Plate layout and info table
 
 Each plate is a 384-well PHERAstar export with two emission channels
 (donor 450-80 nm, acceptor 610-80 nm). The first 12 rows of the
@@ -110,7 +144,7 @@ targets (`KinaseA`, `KinaseB`, `KinaseC`); plate 02 has one
 (`KinaseD`) plus four "bridging" rows that repeat compounds from
 plate 01 to demonstrate the inter-plate comparison step.
 
-## 3. BRET ratio computation
+# BRET ratio computation
 
 `batch_ratio_analysis()` reads both plates, extracts the donor and
 acceptor matrices, computes the BRET ratio per well as
@@ -152,7 +186,7 @@ highest concentrations (tracer displaced). Looking at one compound:
 
 ```{r ratio-direction}
 data.frame(
-  log_conc = mrt[, 1],
+  log_conc  = mrt[, 1],
   Cpd1_rep1 = round(mrt[, "KinaseA:Cpd1"],   1),
   Cpd1_rep2 = round(mrt[, "KinaseA:Cpd1.2"], 1)
 )
@@ -161,7 +195,7 @@ data.frame(
 The control rows (first and last, with `NA` log-concentration) carry
 the 0 % and 100 % inhibition control means.
 
-## 4. Outlier detection (ROUT)
+# Outlier detection (ROUT)
 
 `rout_outliers_batch()` runs the ROUT test
 (Motulsky & Brown 2006, BMC Bioinformatics) on every fitted curve.
@@ -205,7 +239,7 @@ For most clean plates, ROUT flags single outliers in only a handful of
 compounds; large clusters of flags usually indicate a misfit rather
 than a true outlier.
 
-## 5. Dose-response curve fitting
+# Dose-response curve fitting
 
 `batch_drc_analysis()` fits each compound's BRET ratio with a 4PL
 model. By default it auto-detects the assay type from the ratio table
@@ -246,9 +280,9 @@ clean example data set, almost every compound earns "Good curve":
 table(sum_01$Curve_Quality)
 ```
 
-## 6. Visualisation
+# Visualisation
 
-### 6.1 Save one plot per compound (and a combined panel per plate)
+## Save one plot per compound (and a combined panel per plate)
 
 `batch_save_all_drc_plots()` is the workhorse plotting function for a
 batch result. It calls `plot_dose_response()` on every successful fit,
@@ -260,10 +294,10 @@ plots_dir <- file.path(tempdir(), "dosefitr_nanobret_plots")
 dir.create(plots_dir, showWarnings = FALSE)
 
 results2 <- batch_save_all_drc_plots(
-  batch_drc_results = drc_res,
-  output_dir        = plots_dir,
-  verbose           = FALSE,
-  dpi               = 120,            # lighter for the vignette
+  batch_drc_results    = drc_res,
+  output_dir           = plots_dir,
+  verbose              = FALSE,
+  dpi                  = 120,          # lighter for the vignette
   panel_width_per_col  = 4,
   panel_height_per_row = 4,
   panel_spacing        = 1.2
@@ -281,7 +315,7 @@ Here is the assembled panel for plate 01:
 knitr::include_graphics(results2$panel_files[1])
 ```
 
-### 6.2 Multiple compounds overlaid
+## Multiple compounds overlaid
 
 `plot_multiple_compounds()` overlays several curves to highlight
 differences in potency or shape:
@@ -297,7 +331,7 @@ plot_multiple_compounds(
 )
 ```
 
-### 6.3 The same compound across plates
+## The same compound across plates
 
 `compare_plates_drc()` makes one figure per construct-compound that
 appears on more than one plate, useful for cross-plate consistency
@@ -323,21 +357,21 @@ list.files(compare_out, pattern = "\\.png$")
 each one to disk; you can inspect them with any image viewer or load
 them inline.
 
-## 7. Export
+# Export
 
-### 7.1 Scarab-format submission tables
+## Scarab-format submission tables
 
 `scarab_table()` produces a wide submission table in the SGC Scarab
 format, one column per compound:
 
 ```{r scarab}
 sc_01 <- scarab_table(
-  results_list      = ratio_res,
-  drc_results_list  = drc_res,
-  plate_name        = "plate_01",
-  date              = format(Sys.Date(), "%y%m%d"),
+  results_list        = ratio_res,
+  drc_results_list    = drc_res,
+  plate_name          = "plate_01",
+  date                = format(Sys.Date(), "%y%m%d"),
   experimenter_abbrev = "DEMO",
-  save              = FALSE
+  save                = FALSE
 )
 
 dim(sc_01)
@@ -345,7 +379,7 @@ dim(sc_01)
 head(sc_01[, 1:5], 6)
 ```
 
-### 7.2 Multi-sheet Excel workbook
+## Multi-sheet Excel workbook
 
 `save_multiple_sheets()` writes any number of data frames to a single
 Excel file, one sheet per argument. Here we export both the ratio
@@ -364,7 +398,7 @@ save_multiple_sheets(
 file.exists(xlsx_out)
 ```
 
-## 8. Reading the quality metrics
+# Reading the quality metrics
 
 The result of `batch_ratio_analysis()` includes a per-plate quality
 block printed at run time. The key numbers to watch:
@@ -384,9 +418,17 @@ For a complete description of each fit-level quality label
 (`Good curve`, `Wide logIC50 CI range`, `Top too low`, etc.) see
 the help page of `batch_drc_analysis()`.
 
-## See also
+# See also
 
--   `vignette("dosefitr-viability", package = "dosefitr")` for the
-    viability/proliferation pipeline using the same plate layout.
+-   `vignette("dosefitr", package = "dosefitr")` -- introduction,
+    motivation, and comparison with related packages.
+-   `vignette("dosefitr-viability", package = "dosefitr")` -- the
+    viability / proliferation pipeline using the same plate layout.
 -   `?batch_ratio_analysis`, `?batch_drc_analysis`,
-    `?rout_outliers_batch` for parameter-level documentation.
+    `?rout_outliers_batch` -- parameter-level documentation.
+
+# Session info
+
+```{r session-info, echo=FALSE}
+sessionInfo()
+```

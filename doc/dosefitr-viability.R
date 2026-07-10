@@ -1,12 +1,12 @@
 ## ----setup, include = FALSE---------------------------------------------------
 knitr::opts_chunk$set(
-  collapse  = TRUE,
-  comment   = "#>",
+  collapse   = TRUE,
+  comment    = "#>",
   fig.width  = 7,
   fig.height = 4.5,
-  eval      = TRUE,
-  message   = FALSE,
-  warning   = FALSE
+  eval       = TRUE,
+  message    = FALSE,
+  warning    = FALSE
 )
 
 ## ----libs---------------------------------------------------------------------
@@ -99,10 +99,10 @@ plots_dir <- file.path(tempdir(), "dosefitr_viability_plots")
 dir.create(plots_dir, showWarnings = FALSE)
 
 results2 <- batch_save_all_drc_plots(
-  batch_drc_results = drc_res,
-  output_dir        = plots_dir,
-  verbose           = FALSE,
-  dpi               = 120,            # lighter for the vignette
+  batch_drc_results    = drc_res,
+  output_dir           = plots_dir,
+  verbose              = FALSE,
+  dpi                  = 120,          # lighter for the vignette
   panel_width_per_col  = 4,
   panel_height_per_row = 4,
   panel_spacing        = 1.2
@@ -139,12 +139,12 @@ list.files(compare_out, pattern = "\\.png$")
 
 ## ----scarab-------------------------------------------------------------------
 sc_01 <- scarab_viability(
-  results_list      = via_res,
-  drc_results_list  = drc_res,
-  plate_name        = "plate_01",
-  date              = format(Sys.Date(), "%y%m%d"),
+  results_list        = via_res,
+  drc_results_list    = drc_res,
+  plate_name          = "plate_01",
+  date                = format(Sys.Date(), "%y%m%d"),
   experimenter_abbrev = "DEMO",
-  save              = FALSE
+  save                = FALSE
 )
 
 dim(sc_01)
@@ -175,4 +175,7 @@ file.exists(xlsx_out)
 #   output_dir       = via_out,
 #   version          = "v2"
 # )
+
+## ----session-info, echo=FALSE-------------------------------------------------
+sessionInfo()
 
