@@ -128,46 +128,38 @@ Excel file (`batch_drc_analysis_report.xlsx`) is created, containing:
 * A **_summary** and **_final_summary** sheet per plate
 }
 \examples{
-\dontrun{
+stopifnot(requireNamespace("dosefitr", quietly = TRUE))
+\donttest{
+extdata_dir <- system.file("extdata", package = "dosefitr")
+work_dir    <- file.path(tempdir(), "dosefitr_ex_drc")
+dir.create(work_dir, showWarnings = FALSE, recursive = TRUE)
+invisible(file.copy(
+  list.files(extdata_dir, pattern = "^nanobret_", full.names = TRUE),
+  work_dir, overwrite = TRUE
+))
 
-# Assuming you already ran batch_ratio_analysis()
-ratio_results <- batch_ratio_analysis("experiment_folder")
-
-# Run DRC for all plates
-drc_results <- batch_drc_analysis(ratio_results)
-
-# Specify thresholds and output directory
-drc_results <- batch_drc_analysis(
-  batch_results = ratio_results,
-  r_sqr_threshold = 0.9,
-  bottom_threshold = 50,
-  output_dir = "drc_output"
+ratio_res <- batch_ratio_analysis(
+  directory        = work_dir,
+  info_file        = "nanobret_info.xlsx",
+  data_pattern     = "nanobret_plate_\\\\d+\\\\.xlsx$",
+  control_0perc    = "1",
+  control_100perc  = "24",
+  selected_columns = 1:24,
+  generate_reports = FALSE,
+  output_dir       = tempdir(),
+  verbose          = FALSE
 )
 
-# Skip generating the Excel report
-batch_drc_analysis(
-  batch_results = ratio_results,
-  generate_reports = FALSE
+drc_res <- batch_drc_analysis(
+  batch_results    = ratio_res,
+  model            = "4pl",
+  normalize        = FALSE,
+  output_dir       = tempdir(),
+  generate_reports = FALSE,
+  verbose          = FALSE
 )
+drc_res$drc_results$plate_01$drc_result$successful_fits
 }
-
-\dontrun{
-
-# Auto-detect hook effect for all compounds (2-SE threshold)
-drc_results <- batch_drc_analysis(
-  batch_results = ratio_results,
-  hook_effect    = TRUE,
-  hook_threshold = 2
-)
-
-# Apply hook detection only to specific compounds
-drc_results <- batch_drc_analysis(
-  batch_results = ratio_results,
-  hook_effect    = c("BRPF1B:LW501", "BRPF1B:LW454"),
-  hook_threshold = 2
-)
-}
-
 }
 \seealso{
 * [`fit_drc_3pl()`] - Fits the dose-response curve for a single plate.

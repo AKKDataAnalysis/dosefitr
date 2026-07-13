@@ -158,42 +158,32 @@ which uses a two-stage detection strategy:
 }
 
 \examples{
-\dontrun{
-# --- Fixed-value mode (v2, recommended) ---
-results <- batch_ratio_analysis(
-  directory        = "data/experiment_01/",
-  control_0perc    = 16,
-  control_100perc  = c(12, 24),
-  function_version = "v2",
-  split_replicates = TRUE
+stopifnot(requireNamespace("dosefitr", quietly = TRUE))
+\donttest{
+# Bundled example plates + info table live in inst/extdata/.
+extdata_dir <- system.file("extdata", package = "dosefitr")
+work_dir    <- file.path(tempdir(), "dosefitr_ex_ratio")
+dir.create(work_dir, showWarnings = FALSE, recursive = TRUE)
+invisible(file.copy(
+  list.files(extdata_dir, pattern = "^nanobret_", full.names = TRUE),
+  work_dir, overwrite = TRUE
+))
+
+ratio_res <- batch_ratio_analysis(
+  directory        = work_dir,
+  info_file        = "nanobret_info.xlsx",
+  data_pattern     = "nanobret_plate_\\\\d+\\\\.xlsx$",
+  control_0perc    = "1",
+  control_100perc  = "24",
+  selected_columns = 1:24,
+  generate_reports = FALSE,
+  output_dir       = tempdir(),
+  verbose          = FALSE
 )
 
-# Access the processed table for plate 1
-results$Sheet1$result$modified_ratio_table
-
-# --- Legacy column-name mode (v1) ---
-results_v1 <- batch_ratio_analysis(
-  directory        = "data/legacy/",
-  control_0perc    = "DMSO_Control",
-  control_100perc  = "Staurosporine",
-  function_version = "v1"
-)
-
-# --- Pipe into outlier detection ---
-results_clean <- rout_outliers_batch(results, Q = 0.01)
-
-# --- Explicit file mapping (when files cannot be renamed) ---
-results <- batch_ratio_analysis(
-  directory        = "data/experiment_01/",
-  control_0perc    = 16,
-  control_100perc  = c(12, 24),
-  file_map         = list(
-    "Sheet1" = "plate_experiment_A.xlsx",
-    "Sheet2" = "plate_experiment_B.xlsx"
-  )
-)
+names(ratio_res)
+head(ratio_res$plate_01$result$modified_ratio_table[, 1:4])
 }
-
 }
 \seealso{
 \code{\link{ratio_dose_response_v2}} for the single-plate ratio

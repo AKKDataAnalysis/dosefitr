@@ -55,16 +55,39 @@
 #' fitting.
 #'
 #' @examples
-#' \dontrun{
-#' out <- rout_outliers(dat, Q = 0.01)
+#' stopifnot(requireNamespace("dosefitr", quietly = TRUE))
+#' \donttest{
+#' extdata_dir <- system.file("extdata", package = "dosefitr")
+#' work_dir    <- file.path(tempdir(), "dosefitr_ex_poc")
+#' dir.create(work_dir, showWarnings = FALSE, recursive = TRUE)
+#' invisible(file.copy(
+#'   list.files(extdata_dir, pattern = "^nanobret_", full.names = TRUE),
+#'   work_dir, overwrite = TRUE
+#' ))
 #'
-#' # Display in RStudio viewer
-#' plot_outliers_curves(out, title = "Plate 01")
+#' ratio_res <- batch_ratio_analysis(
+#'   directory        = work_dir,
+#'   info_file        = "nanobret_info.xlsx",
+#'   data_pattern     = "nanobret_plate_\\d+\\.xlsx$",
+#'   control_0perc    = "1",
+#'   control_100perc  = "24",
+#'   selected_columns = 1:24,
+#'   generate_reports = FALSE,
+#'   output_dir       = tempdir(),
+#'   verbose          = FALSE
+#' )
 #'
-#' # Save to PNG
-#' plot_outliers_curves(out, title = "Plate 01", file = "plate_01_curves.png")
+#' rr <- rout_outliers(
+#'   data      = ratio_res$plate_01$result$modified_ratio_table,
+#'   Q         = 0.01,
+#'   n_param   = 4L,
+#'   direction = "inhibition",
+#'   verbose   = FALSE
+#' )
+#'
+#' p <- plot_outliers_curves(rout_output = rr, ncol = 4L)
+#' inherits(p, "gg") || inherits(p, "patchwork")
 #' }
-#'
 #' @seealso \code{\link{rout_outliers}},
 #'   \code{\link{plot_outliers_batch_curves}}
 #'

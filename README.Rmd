@@ -145,6 +145,7 @@ batch_drc_analysis()          <- fits dose-response curves (3PL or 4PL)
 | Group                | Functions                                                                                              |
 |----------------------|--------------------------------------------------------------------------------------------------------|
 | Reading / normalising| `batch_ratio_analysis` `batch_viability_analysis` `process_viability_data` `process_viability_data_v2` `ratio_dose_response` `ratio_dose_response_v2` `merge_plate_replicates` |
+| Import (pre-computed)| `batch_read_tables`                                                                                    |
 | Quality control      | `rout_outliers` `rout_outliers_batch`                                                                  |
 | Fitting              | `batch_drc_analysis` `fit_drc_4pl` `fit_drc_3pl` `reshape_dr_table`                                    |
 | Plotting             | `batch_save_all_drc_plots` `plot_multiple_compounds` `plot_dose_response` `plot_all_dose_responses` `compare_plates_drc` `plot_outliers_curves` `plot_outliers_batch_curves` `plot_drc_batch` |
@@ -152,19 +153,30 @@ batch_drc_analysis()          <- fits dose-response curves (3PL or 4PL)
 
 ## Documentation
 
-Three vignettes ship with the package:
+Four vignettes ship inside the package. After installing, browse the full
+list in your R session with:
 
-- **`vignette("dosefitr")`** — introduction, motivation, and comparison with
-  related dose-response packages.
+```{r browse-vignettes, eval = FALSE}
+browseVignettes("dosefitr")
+```
+
+Or open each one directly:
+
+- **`vignette("dosefitr")`** — introduction and package tour: motivation,
+  comparison with related dose-response packages, and pointers into the
+  pipeline vignettes.
 - **`vignette("dosefitr-nanobret")`** — end-to-end NanoBRET walkthrough on the
-  bundled example plates (BRET ratios, ROUT, 4PL fits, plotting, Scarab
+  bundled example plates (BRET ratios, ROUT, 3PL / 4PL fits, plotting, Scarab
   export).
-- **`vignette("dosefitr-viability")`** — end-to-end viability walkthrough on
-  the bundled example plates (single-channel normalisation, 4PL fits, Scarab
-  export).
+- **`vignette("dosefitr-viability")`** — end-to-end cell-viability walkthrough
+  on the bundled example plates (single-channel normalisation, 3PL / 4PL fits,
+  Scarab export).
+- **`vignette("dosefitr-protocol")`** — the day-to-day analysis script,
+  section by section, mirroring how you would run it against your own plates
+  (ratios, ROUT, replicate merging, DRC fits, plotting, Scarab metadata).
 
-Each exported function has its own help page; open the grouped index with
-`help(package = "dosefitr")`.
+Each exported function also has its own help page; open the grouped index
+with `help(package = "dosefitr")`.
 
 ## Citation
 

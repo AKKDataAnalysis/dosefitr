@@ -74,32 +74,32 @@
 #' - Maximum slope and ideal Hill slope
 #'
 #' @examples
-#' \dontrun{
-#' # Basic usage with example data
-#' results <- fit_dose_response(dose_response_data)
+#' stopifnot(requireNamespace("dosefitr", quietly = TRUE))
+#' \donttest{
+#' extdata_dir <- system.file("extdata", package = "dosefitr")
+#' work_dir    <- file.path(tempdir(), "dosefitr_ex_3pl")
+#' dir.create(work_dir, showWarnings = FALSE, recursive = TRUE)
+#' invisible(file.copy(
+#'   list.files(extdata_dir, pattern = "^nanobret_", full.names = TRUE),
+#'   work_dir, overwrite = TRUE
+#' ))
 #'
-#' # With normalization and output file
-#' results <- fit_dose_response(
-#'   data = my_data,
-#'   output_file = "results.xlsx",
-#'   normalize = TRUE
+#' ratio_res <- batch_ratio_analysis(
+#'   directory        = work_dir,
+#'   info_file        = "nanobret_info.xlsx",
+#'   data_pattern     = "nanobret_plate_\\d+\\.xlsx$",
+#'   control_0perc    = "1",
+#'   control_100perc  = "24",
+#'   selected_columns = 1:24,
+#'   generate_reports = FALSE,
+#'   output_dir       = tempdir(),
+#'   verbose          = FALSE
 #' )
 #'
-#' # With bottom threshold enforcement
-#' results <- fit_dose_response(
-#'   data = my_data,
-#'   enforce_bottom_threshold = TRUE,
-#'   bottom_threshold = 60
-#' )
-#'
-#' # Access results
-#' summary_table <- results$summary_table
-#' successful_fits <- results$successful_fits
-#'
-#' # View curve quality distribution
-#' table(results$summary_table$Curve_Quality)
+#' mrt  <- ratio_res$plate_01$result$modified_ratio_table
+#' fit3 <- fit_drc_3pl(data = mrt, normalize = FALSE, verbose = FALSE)
+#' head(fit3$summary_table[, c("Compound", "LogIC50", "R_squared")])
 #' }
-#'
 #' @section Data Format:
 #' The input data should be structured as follows:
 #' \preformatted{

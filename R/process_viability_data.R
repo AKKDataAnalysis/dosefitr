@@ -79,27 +79,25 @@
 #' }
 #'
 #' @examples
-#' \dontrun{
-#' # Basic usage
-#' result <- process_viability_data(data = raw_data)
-#'
-#' # With control columns
-#' result <- process_viability_data(
-#'   data = raw_data,
-#'   control_0perc = 1,
-#'   control_100perc = 24
+#' stopifnot(requireNamespace("dosefitr", quietly = TRUE))
+#' \donttest{
+#' extdata_dir <- system.file("extdata", package = "dosefitr")
+#' plate_file  <- file.path(extdata_dir, "viability_plate_01.xlsx")
+#' info_table  <- openxlsx::read.xlsx(
+#'   file.path(extdata_dir, "viability_info.xlsx"), sheet = 1
 #' )
+#' raw <- openxlsx::read.xlsx(plate_file, sheet = 1, colNames = FALSE)
 #'
-#' # With metadata and column selection
-#' result <- process_viability_data(
-#'   data = raw_data,
-#'   control_0perc = 1,
-#'   control_100perc = 24,
-#'   selected_columns = 2:23,
-#'   info_table = metadata
+#' out <- process_viability_data(
+#'   data             = raw,
+#'   control_0perc    = 1,
+#'   control_100perc  = 24,
+#'   info_table       = info_table,
+#'   selected_columns = 1:24,
+#'   verbose          = FALSE
 #' )
+#' dim(out$modified_ratio_table)
 #' }
-#'
 #' @seealso
 #' \code{\link{t}}, \code{\link{apply}}
 #'

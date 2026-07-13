@@ -41,42 +41,37 @@
 #' Curve_Quality, Degrees_of_Freedom}
 #'
 #' @examples
-#' \dontrun{
-#' # Perform dose-response analysis
-#' analysis_results <- fit_dose_response(my_data, normalize = TRUE)
+#' stopifnot(requireNamespace("dosefitr", quietly = TRUE))
+#' \donttest{
+#' extdata_dir <- system.file("extdata", package = "dosefitr")
+#' work_dir    <- file.path(tempdir(), "dosefitr_ex_rdr")
+#' dir.create(work_dir, showWarnings = FALSE, recursive = TRUE)
+#' invisible(file.copy(
+#'   list.files(extdata_dir, pattern = "^nanobret_", full.names = TRUE),
+#'   work_dir, overwrite = TRUE
+#' ))
 #'
-#' # Reshape the summary table
-#' reshaped_table <- reshape_dr_table(analysis_results$summary_table)
-#'
-#' # View the structured results
-#' print(reshaped_table)
-#'
-#' # Save to Excel with European decimal format
-#' reshape_dr_table(
-#'   analysis_results$summary_table,
-#'   output_file = "dose_response_structured.xlsx",
-#'   decimal_comma = TRUE
+#' ratio_res <- batch_ratio_analysis(
+#'   directory        = work_dir,
+#'   info_file        = "nanobret_info.xlsx",
+#'   data_pattern     = "nanobret_plate_\\d+\\.xlsx$",
+#'   control_0perc    = "1",
+#'   control_100perc  = "24",
+#'   selected_columns = 1:24,
+#'   generate_reports = FALSE,
+#'   output_dir       = tempdir(),
+#'   verbose          = FALSE
 #' )
 #'
-#' # Use with custom results
-#' custom_results <- data.frame(
-#'   Compound = c("Drug_A", "Drug_B", "Drug_C"),
-#'   Bottom = c(10.2, 15.6, 8.9),
-#'   Top = c(95.8, 92.3, 97.1),
-#'   LogIC50 = c(-7.23, -6.89, -7.45),
-#'   IC50 = c(5.89e-08, 1.29e-07, 3.55e-08),
-#'   Span = c(85.6, 76.7, 88.2),
-#'   R_squared = c(0.987, 0.956, 0.992),
-#'   Syx = c(2.34, 3.45, 1.89),
-#'   Max_Slope = c(-18.5, -16.2, -19.8),
-#'   Curve_Quality = c("Good curve", "Good curve", "Good curve"),
-#'   Degrees_of_Freedom = c(8, 8, 8)
+#' drc_res <- batch_drc_analysis(
+#'   batch_results = ratio_res, model = "4pl", normalize = FALSE,
+#'   generate_reports = FALSE, output_dir = tempdir(), verbose = FALSE
 #' )
 #'
-#' structured_table <- reshape_dr_table(custom_results)
-#' print(structured_table)
+#' sum_01 <- drc_res$drc_results$plate_01$drc_result$summary_table
+#' long   <- reshape_dr_table(results_table = sum_01)
+#' head(long)
 #' }
-#'
 #' @section Output Format:
 #' The reshaped table has the following characteristics:
 #' \itemize{

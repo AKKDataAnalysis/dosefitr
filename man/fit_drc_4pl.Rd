@@ -109,13 +109,30 @@ Curves are classified based on:
 }
 
 \examples{
-# Example with dummy data
-data <- data.frame(
-  log_inhibitor = c(-2, -1, 0, 1, 2),
-  compound1_rep1 = c(100, 80, 50, 30, 10),
-  compound1_rep2 = c(102, 82, 48, 28, 12)
-)
-result <- fit_drc_4pl(data, normalize = TRUE, verbose = TRUE)
-head(result$summary_table)
+stopifnot(requireNamespace("dosefitr", quietly = TRUE))
+\donttest{
+extdata_dir <- system.file("extdata", package = "dosefitr")
+work_dir    <- file.path(tempdir(), "dosefitr_ex_4pl")
+dir.create(work_dir, showWarnings = FALSE, recursive = TRUE)
+invisible(file.copy(
+  list.files(extdata_dir, pattern = "^nanobret_", full.names = TRUE),
+  work_dir, overwrite = TRUE
+))
 
+ratio_res <- batch_ratio_analysis(
+  directory        = work_dir,
+  info_file        = "nanobret_info.xlsx",
+  data_pattern     = "nanobret_plate_\\\\d+\\\\.xlsx$",
+  control_0perc    = "1",
+  control_100perc  = "24",
+  selected_columns = 1:24,
+  generate_reports = FALSE,
+  output_dir       = tempdir(),
+  verbose          = FALSE
+)
+
+mrt  <- ratio_res$plate_01$result$modified_ratio_table
+fit4 <- fit_drc_4pl(data = mrt, normalize = FALSE, verbose = FALSE)
+head(fit4$summary_table[, c("Compound", "LogIC50", "R_squared")])
+}
 }

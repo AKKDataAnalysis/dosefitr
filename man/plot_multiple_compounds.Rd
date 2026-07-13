@@ -413,78 +413,41 @@ if more colors are needed than the palette's maximum. When using viridis palette
 the function falls back to colorRampPalette if viridisLite is not installed.
 }
 \examples{
-\dontrun{
-# Example 1: Basic plot for all compounds
-p1 <- plot_multiple_compounds(results)
-print(p1)
+stopifnot(requireNamespace("dosefitr", quietly = TRUE))
+\donttest{
+extdata_dir <- system.file("extdata", package = "dosefitr")
+work_dir    <- file.path(tempdir(), "dosefitr_ex_pmc")
+dir.create(work_dir, showWarnings = FALSE, recursive = TRUE)
+invisible(file.copy(
+  list.files(extdata_dir, pattern = "^nanobret_", full.names = TRUE),
+  work_dir, overwrite = TRUE
+))
 
-# Example 2: Select specific compounds by index
-p2 <- plot_multiple_compounds(results, compound_indices = c(1, 3, 5))
-
-# Example 3: Enable automatic coloring and save the plot
-p3 <- plot_multiple_compounds(
-  results,
-  compound_indices = 1:4,
-  colors = TRUE,
-  save_plot = "plots/multi_colored_curves.png"
+ratio_res <- batch_ratio_analysis(
+  directory        = work_dir,
+  info_file        = "nanobret_info.xlsx",
+  data_pattern     = "nanobret_plate_\\\\d+\\\\.xlsx$",
+  control_0perc    = "1",
+  control_100perc  = "24",
+  selected_columns = 1:24,
+  generate_reports = FALSE,
+  output_dir       = tempdir(),
+  verbose          = FALSE
 )
 
-# Example 4: Customize legend labels and point shapes
-p4 <- plot_multiple_compounds(
-  results,
+drc_res <- batch_drc_analysis(
+  batch_results = ratio_res, model = "4pl", normalize = FALSE,
+  generate_reports = FALSE, output_dir = tempdir(), verbose = FALSE
+)
+
+p <- plot_multiple_compounds(
+  results          = drc_res,
   compound_indices = 1:3,
-  legend_labels = c("Compound A", "Compound B", "Compound C"),
-  point_shapes = c(15, 17, 19),
-  legend_title = "Treatments"
+  plate            = "plate_01",
+  verbose          = FALSE
 )
-
-# Example 5: Disable error bars and use black-and-white mode
-p5 <- plot_multiple_compounds(
-  results,
-  colors = FALSE,
-  show_error_bars = FALSE,
-  show_grid = TRUE,
-  plot_title = "Curves without error bars"
-)
-
-# Example 6: Place legend below the plot in multiple columns
-p6 <- plot_multiple_compounds(
-  results,
-  legend_position = "bottom",
-  legend_ncol = 3,
-  colors = TRUE
-)
-
-# Example 7: Plot without any legend
-p7 <- plot_multiple_compounds(results, show_legend = FALSE)
-
-# Example 8: Fine-tune fonts, limits, and title
-p8 <- plot_multiple_compounds(
-  results,
-  compound_indices = 1:2,
-  y_limits = c(0, 120),
-  axis_label_size = 16,
-  axis_text_size = 13,
-  plot_title = "Comparison of Two Compounds"
-)
-
-
-
-# Extract metadata for reproducibility
-meta <- attr(p, "metadata")
-cat("Plotted", meta$n_compounds, "compounds\n")
-cat("Point shapes:", meta$point_shapes, "\n")
-cat("X-axis range:", round(meta$x_limits, 2), "\n")
-
-# Save styling information
-styling_info <- data.frame(
-  Compound = meta$compound_names,
-  PointShape = meta$point_shapes,
-  Color = meta$colors
-)
-write.csv(styling_info, "plot_styling.csv", row.names = FALSE)
+inherits(p, "ggplot")
 }
-
 }
 \seealso{
 \code{\link{fit_drc_3pl}} for generating input data

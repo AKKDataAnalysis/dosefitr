@@ -61,6 +61,35 @@ sum_01[, c("Compound", "LogIC50", "HillSlope",
 ## ----quality------------------------------------------------------------------
 table(sum_01$Curve_Quality)
 
+## ----import-precomputed, eval = FALSE-----------------------------------------
+# # Minimal: directory defaults to getwd(), assay_source defaults to "nanobret",
+# # and the first column is taken as the log-concentration column regardless
+# # of its exact name.
+# imported <- batch_read_tables()
+# 
+# # Or, spelling every argument out (useful for viability, for a custom
+# # directory, or when the log-concentration column is not the first one).
+# imported <- batch_read_tables(
+#     directory         = "path/to/precomputed_tables",
+#     assay_source      = "viability",            # or "nanobret" (default)
+#     log_conc_col_name = "log(inhibitor).[M]"    # look up by name; if it is
+#                                                 # not already column 1 it
+#                                                 # will be moved there
+# )
+# 
+# drc_res <- batch_drc_analysis(
+#     batch_results = imported,
+#     model         = "3pl"                       # or "4pl"
+# )
+
+## ----import-file-map, eval = FALSE--------------------------------------------
+# # Explicit file list. `file_pattern` is ignored when `file_map` is set.
+# # Plates are named plate_01, plate_02, ... in the order given.
+# imported <- batch_read_tables(
+#     directory = "path/to/precomputed_tables",
+#     file_map  = c("run_A.xlsx", "run_B.xlsx", "run_C.xlsx")
+# )
+
 ## ----session-info, echo=FALSE-------------------------------------------------
 sessionInfo()
 

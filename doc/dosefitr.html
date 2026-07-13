@@ -10,7 +10,7 @@
 
 
 
-<meta name="date" content="2026-07-10" />
+<meta name="date" content="2026-07-13" />
 
 <title>dosefitr walkthrough</title>
 
@@ -1832,7 +1832,7 @@ Department of Physiology and Pharmacology, Federal University of Ceará,
 Fortaleza, 60430-160, Brazil
 </p>
 <p class="author-email"><span class="affil-mark">*</span><a href="mailto:thiago-loreto@hotmail.com">thiago-loreto@hotmail.com</a></p>
-<h4 class="date">2026-07-10</h4>
+<h4 class="date">2026-07-13</h4>
 <h4 class="package">Package</h4>
 <p>dosefitr 1.0.0</p>
 
@@ -2068,11 +2068,62 @@ ROUT, 4PL fits, plotting, Scarab export.</li>
 viability normalisation, 4PL fits, Scarab export.</li>
 </ul>
 </div>
-<div id="where-to-next" class="section level1" number="4">
-<h1><span class="header-section-number">4</span> Where to next</h1>
+<div id="importing-pre-computed-ratio-tables" class="section level1" number="4">
+<h1><span class="header-section-number">4</span> Importing pre-computed ratio tables</h1>
+<p>If your ratio and normalisation step was already done outside <code>dosefitr</code>
+(for example in Prism or in a legacy script), you can skip
+<code>batch_ratio_analysis()</code> / <code>batch_viability_analysis()</code> entirely and
+jump straight into the <code>batch_drc_analysis()</code> pipeline by importing the
+pre-computed tables with <code>batch_read_tables()</code>. Each <code>.xlsx</code> file must
+carry a log-concentration column (the first column by default, whatever
+it is named) followed by one column per <code>construct:compound</code>
+combination; replicate columns get a <code>.2</code>, <code>.3</code>, … suffix (matching
+the shape produced by <code>merge_plate_replicates()</code>).</p>
+<p>The two most common calls are:</p>
+<pre class="r"><code># Minimal: directory defaults to getwd(), assay_source defaults to &quot;nanobret&quot;,
+# and the first column is taken as the log-concentration column regardless
+# of its exact name.
+imported &lt;- batch_read_tables()
+
+# Or, spelling every argument out (useful for viability, for a custom
+# directory, or when the log-concentration column is not the first one).
+imported &lt;- batch_read_tables(
+    directory         = &quot;path/to/precomputed_tables&quot;,
+    assay_source      = &quot;viability&quot;,            # or &quot;nanobret&quot; (default)
+    log_conc_col_name = &quot;log(inhibitor).[M]&quot;    # look up by name; if it is
+                                                # not already column 1 it
+                                                # will be moved there
+)
+
+drc_res &lt;- batch_drc_analysis(
+    batch_results = imported,
+    model         = &quot;3pl&quot;                       # or &quot;4pl&quot;
+)</code></pre>
+<p>If your files do not follow a common pattern, or if you want to pick a
+specific subset in a specific order, pass <code>file_map</code> instead of relying
+on the pattern-based discovery. <code>file_map</code> accepts either a character
+vector or a list (matching the shape used by <code>batch_ratio_analysis()</code>),
+its entries are resolved relative to <code>directory</code> unless absolute, and
+list names — if any — are silently ignored:</p>
+<pre class="r"><code># Explicit file list. `file_pattern` is ignored when `file_map` is set.
+# Plates are named plate_01, plate_02, ... in the order given.
+imported &lt;- batch_read_tables(
+    directory = &quot;path/to/precomputed_tables&quot;,
+    file_map  = c(&quot;run_A.xlsx&quot;, &quot;run_B.xlsx&quot;, &quot;run_C.xlsx&quot;)
+)</code></pre>
+<p>Because the raw plate reads are gone, Z-prime, signal-to-background,
+and the Luciferase signal comment cannot be filled in downstream. When
+<code>scarab_table()</code> is called on an imported batch those QC cells will be
+blank. <code>scarab_viability()</code> and every plotting / curve-fitting function
+are unaffected.</p>
+</div>
+<div id="where-to-next" class="section level1" number="5">
+<h1><span class="header-section-number">5</span> Where to next</h1>
 <ul>
 <li><code>?batch_ratio_analysis</code> and <code>?batch_viability_analysis</code> — the two
 entry points, one per pipeline.</li>
+<li><code>?batch_read_tables</code> — third entry point for pre-computed ratio /
+viability tables that were produced outside <code>dosefitr</code>.</li>
 <li><code>?batch_drc_analysis</code> — parameter reference for the shared fitting
 step, including the assay-aware plausibility limits and the full list
 of <code>Curve_Quality</code> labels.</li>
@@ -2083,8 +2134,8 @@ tables for NanoBRET and viability respectively.</li>
 <li>GitHub: <a href="https://github.com/AKKDataAnalysis/dosefitr" class="uri">https://github.com/AKKDataAnalysis/dosefitr</a></li>
 </ul>
 </div>
-<div id="session-info" class="section level1" number="5">
-<h1><span class="header-section-number">5</span> Session info</h1>
+<div id="session-info" class="section level1" number="6">
+<h1><span class="header-section-number">6</span> Session info</h1>
 <pre><code>#&gt; R version 4.4.2 (2024-10-31 ucrt)
 #&gt; Platform: x86_64-w64-mingw32/x64
 #&gt; Running under: Windows 11 x64 (build 26200)

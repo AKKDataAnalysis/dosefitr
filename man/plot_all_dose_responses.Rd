@@ -102,58 +102,45 @@ The function creates a structured output system:
 }
 
 \examples{
-\dontrun{
-# Example 1: Generate plots for all compounds with default settings
-analysis_results <- fit_dose_response(my_data, normalize = TRUE)
+stopifnot(requireNamespace("dosefitr", quietly = TRUE))
+\donttest{
+extdata_dir <- system.file("extdata", package = "dosefitr")
+work_dir    <- file.path(tempdir(), "dosefitr_ex_padr")
+dir.create(work_dir, showWarnings = FALSE, recursive = TRUE)
+invisible(file.copy(
+  list.files(extdata_dir, pattern = "^nanobret_", full.names = TRUE),
+  work_dir, overwrite = TRUE
+))
 
-# Create plots for all compounds
-plot_all_dose_responses(analysis_results)
-
-# Example 2: Generate high-resolution TIFF files for publication
-plot_all_dose_responses(
-  results = analysis_results,
-  output_dir = "publication_figures",
-  file_extension = "tiff",
-  plot_dpi = 600,
-  axis_label_cex = 1.6
+ratio_res <- batch_ratio_analysis(
+  directory        = work_dir,
+  info_file        = "nanobret_info.xlsx",
+  data_pattern     = "nanobret_plate_\\\\d+\\\\.xlsx$",
+  control_0perc    = "1",
+  control_100perc  = "24",
+  selected_columns = 1:24,
+  generate_reports = FALSE,
+  output_dir       = tempdir(),
+  verbose          = FALSE
 )
 
-# Example 3: Plot specific compounds with custom styling
-plot_all_dose_responses(
-  results = analysis_results,
-  compounds = c(1, 3, 5, 7, 9),
-  output_dir = "selected_compounds",
-  file_prefix = "selected_dr",
-  point_color = "darkblue",
-  line_color = "red",
-  show_grid = TRUE,
-  y_limits = c(0, 200)
+drc_res <- batch_drc_analysis(
+  batch_results = ratio_res, model = "4pl", normalize = FALSE,
+  generate_reports = FALSE, output_dir = tempdir(), verbose = FALSE
 )
 
-# Example 4: PDF format for editable vector graphics
-plot_all_dose_responses(
-  results = analysis_results,
-  output_dir = "vector_figures",
-  file_extension = "pdf",
-  plot_width = 8,
-  plot_height = 6
-)
-
-# Example 5: Custom compound subset with advanced formatting
-interesting_compounds <- which(analysis_results$summary_table$IC50 < 1e-6)
+fit1    <- drc_res$drc_results$plate_01$drc_result
+out_dir <- file.path(tempdir(), "dosefitr_ex_padr_out")
+dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
 
 plot_all_dose_responses(
-  results = analysis_results,
-  compounds = interesting_compounds,
-  output_dir = "potent_compounds",
-  file_prefix = "potent_dr",
-  point_size = 1.5,
-  line_width = 2.5,
-  show_ic50_line = TRUE,
-  show_legend = TRUE
+  results        = fit1,
+  compounds      = 1:2,
+  output_dir     = out_dir,
+  file_extension = "png"
 )
+length(list.files(out_dir))
 }
-
 }
 \seealso{
 \code{\link{plot_dose_response}} for individual plot customization

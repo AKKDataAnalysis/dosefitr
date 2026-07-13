@@ -153,21 +153,37 @@ These are recorded in \code{skipped_summary}.
 }
 
 \examples{
-\dontrun{
-batch_clean <- rout_outliers_batch(
-  batch_results = my_batch,
-  Q = 0.01,
-  n_param = 4,
-  direction = "inhibition"
+stopifnot(requireNamespace("dosefitr", quietly = TRUE))
+\donttest{
+extdata_dir <- system.file("extdata", package = "dosefitr")
+work_dir    <- file.path(tempdir(), "dosefitr_ex_routb")
+dir.create(work_dir, showWarnings = FALSE, recursive = TRUE)
+invisible(file.copy(
+  list.files(extdata_dir, pattern = "^nanobret_", full.names = TRUE),
+  work_dir, overwrite = TRUE
+))
+
+ratio_res <- batch_ratio_analysis(
+  directory        = work_dir,
+  info_file        = "nanobret_info.xlsx",
+  data_pattern     = "nanobret_plate_\\\\d+\\\\.xlsx$",
+  control_0perc    = "1",
+  control_100perc  = "24",
+  selected_columns = 1:24,
+  generate_reports = FALSE,
+  output_dir       = tempdir(),
+  verbose          = FALSE
 )
 
-# Access summary of all outliers
-batch_clean$outlier_summary
-
-# Access cleaned table for a specific plate
-batch_clean$Plate1$result$modified_ratio_table
+rout_res <- rout_outliers_batch(
+  batch_results = ratio_res,
+  Q             = 0.01,
+  n_param       = 4L,
+  direction     = "inhibition",
+  verbose       = FALSE
+)
+names(rout_res$plate_01)
 }
-
 }
 \seealso{
 \code{rout_outliers}, \code{ratio_dose_response_v2}

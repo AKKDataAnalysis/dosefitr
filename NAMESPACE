@@ -2,6 +2,7 @@
 
 export(batch_drc_analysis)
 export(batch_ratio_analysis)
+export(batch_read_tables)
 export(batch_save_all_drc_plots)
 export(batch_viability_analysis)
 export(compare_plates_drc)

@@ -157,64 +157,44 @@
 #' \code{\link{batch_drc_analysis}} for generating the input drc_results_list.
 #'
 #' @examples
-#' \dontrun{
-#' # First, run the analysis functions to get the required lists
-#' results <- batch_ratio_analysis("path/to/data")
-#' drc_results <- batch_drc_analysis(results)
+#' stopifnot(requireNamespace("dosefitr", quietly = TRUE))
+#' \donttest{
+#' extdata_dir <- system.file("extdata", package = "dosefitr")
+#' work_dir    <- file.path(tempdir(), "dosefitr_ex_scarab_n")
+#' dir.create(work_dir, showWarnings = FALSE, recursive = TRUE)
+#' invisible(file.copy(
+#'   list.files(extdata_dir, pattern = "^nanobret_", full.names = TRUE),
+#'   work_dir, overwrite = TRUE
+#' ))
 #'
-#' # Basic usage with default values
-#' table1 <- scarab_table(results, drc_results, plate_name = "plate_01")
-#'
-#' # Customize experimental parameters
-#' table2 <- scarab_table(
-#'   results,
-#'   drc_results,
-#'   plate_name = "plate_02",
-#'   date = "240101",
-#'   experimenter_abbrev = "MT",
-#'   sgc_global_compound_id = "K0000697e",
-#'   cell_line = "HEK293"
+#' ratio_res <- batch_ratio_analysis(
+#'   directory        = work_dir,
+#'   info_file        = "nanobret_info.xlsx",
+#'   data_pattern     = "nanobret_plate_\\d+\\.xlsx$",
+#'   control_0perc    = "1",
+#'   control_100perc  = "24",
+#'   selected_columns = 1:24,
+#'   generate_reports = FALSE,
+#'   output_dir       = tempdir(),
+#'   verbose          = FALSE
 #' )
 #'
-#' # Specify different orientations for different kinases
-#'
-#' ## Option 1: Single string (all kinases same)
-#' table3 <- scarab_table(results, drc_results, nLuc_orientation = "N")
-#'
-#' ## Option 2: Named vector (specific per kinase)
-#' table4 <- scarab_table(
-#'   results,
-#'   drc_results,
-#'   nLuc_orientation = c(LRRK2 = "C", AAK1 = "N")
+#' drc_res <- batch_drc_analysis(
+#'   batch_results = ratio_res, model = "4pl", normalize = FALSE,
+#'   generate_reports = FALSE, output_dir = tempdir(), verbose = FALSE
 #' )
 #'
-#' ## Option 3: Unnamed vector (in order of unique kinases)
-#' ## If unique kinases are: LRRK2, AAK1, OTHER
-#' table5 <- scarab_table(
-#'   results,
-#'   drc_results,
-#'   nLuc_orientation = c("C", "N", "C")
+#' outfile <- tempfile(fileext = ".xlsx")
+#' sc <- scarab_table(
+#'   results_list      = ratio_res,
+#'   drc_results_list  = drc_res,
+#'   plate_name        = "plate_01",
+#'   save              = TRUE,
+#'   file_name         = outfile,
+#'   decimal_separator = "."
 #' )
-#'
-#' # Use comma as decimal separator (for European format)
-#' table6 <- scarab_table(
-#'   results,
-#'   drc_results,
-#'   decimal_separator = ","
-#' )
-#'
-#' # Save with custom filename
-#' table7 <- scarab_table(
-#'   results,
-#'   drc_results,
-#'   save = TRUE,
-#'   file_name = "my_experiment_results"
-#' )
-#'
-#' # Return table without saving
-#' table8 <- scarab_table(results, drc_results, save = FALSE)
+#' file.exists(outfile)
 #' }
-#'
 #' @importFrom openxlsx write.xlsx
 #' @export
 

@@ -156,27 +156,49 @@ Compound and construct names are automatically parsed from input strings
 Filenames are sanitized to remove invalid filesystem characters.
 }
 \examples{
-\dontrun{
-# Run batch DRC analysis first
-results <- batch_drc_analysis(data_list)
+stopifnot(requireNamespace("dosefitr", quietly = TRUE))
+\donttest{
+# Copy only one plate + info to keep the example under 5s.
+extdata_dir <- system.file("extdata", package = "dosefitr")
+work_dir    <- file.path(tempdir(), "dosefitr_ex_bsapl")
+dir.create(work_dir, showWarnings = FALSE, recursive = TRUE)
+invisible(file.copy(
+  file.path(extdata_dir,
+            c("nanobret_info.xlsx", "nanobret_plate_01.xlsx")),
+  work_dir, overwrite = TRUE
+))
 
-# Save all plots organized by plate
-batch_save_all_drc_plots(results)
-
-# Save only selected compounds
-batch_save_all_drc_plots(
-  results,
-  compounds_to_plot = c("DrugA", "DrugB")
+ratio_res <- batch_ratio_analysis(
+  directory        = work_dir,
+  info_file        = "nanobret_info.xlsx",
+  data_pattern     = "nanobret_plate_\\\\d+\\\\.xlsx$",
+  control_0perc    = "1",
+  control_100perc  = "24",
+  selected_columns = 1:24,
+  generate_reports = FALSE,
+  output_dir       = tempdir(),
+  verbose          = FALSE
 )
 
-# Organize plots by compound
-batch_save_all_drc_plots(
-  results,
-  organize_by = "compound",
-  format = "pdf"
+drc_res <- batch_drc_analysis(
+  batch_results = ratio_res, model = "4pl", normalize = FALSE,
+  generate_reports = FALSE, output_dir = tempdir(), verbose = FALSE
 )
+
+out_dir <- file.path(tempdir(), "dosefitr_ex_bsapl_out")
+dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
+
+# Restrict to two compounds; compounds_to_plot matches the part after ":".
+res <- batch_save_all_drc_plots(
+  batch_drc_results = drc_res,
+  output_dir        = out_dir,
+  compounds_to_plot = c("Cpd1", "Cpd2"),
+  dpi               = 72,
+  save_panel        = FALSE,
+  verbose           = FALSE
+)
+res$successes
 }
-
 }
 \seealso{
 \code{\link{batch_drc_analysis}},

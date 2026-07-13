@@ -114,32 +114,31 @@
 #' }
 #'
 #' @examples
-#' \dontrun{
-#' # Basic usage
-#' results <- batch_viability_analysis(
-#'   control_0perc   = 13,
-#'   control_100perc = 12,
-#'   selected_columns = c(2:23)
+#' stopifnot(requireNamespace("dosefitr", quietly = TRUE))
+#' \donttest{
+#' extdata_dir <- system.file("extdata", package = "dosefitr")
+#' work_dir    <- file.path(tempdir(), "dosefitr_ex_via")
+#' dir.create(work_dir, showWarnings = FALSE, recursive = TRUE)
+#' invisible(file.copy(
+#'   list.files(extdata_dir, pattern = "^viability_", full.names = TRUE),
+#'   work_dir, overwrite = TRUE
+#' ))
+#'
+#' via_res <- batch_viability_analysis(
+#'   directory        = work_dir,
+#'   info_file        = "viability_info.xlsx",
+#'   data_pattern     = "viability_plate_\\d+\\.xlsx$",
+#'   control_0perc    = 1,
+#'   control_100perc  = 24,
+#'   selected_columns = 1:24,
+#'   generate_reports = FALSE,
+#'   output_dir       = tempdir(),
+#'   verbose          = FALSE
 #' )
 #'
-#' # Custom directory and no report generation
-#' results <- batch_viability_analysis(
-#'   directory = "data/",
-#'   generate_reports = FALSE
-#' )
-#'
-#' # --- Explicit file mapping (when files cannot be renamed) ---
-#' results <- batch_viability_analysis(
-#'   directory       = "data/",
-#'   control_0perc   = 13,
-#'   control_100perc = 12,
-#'   file_map        = list(
-#'     "Sheet1" = "viability_plate_A.xlsx",
-#'     "Sheet2" = "viability_plate_B.xlsx"
-#'   )
-#' )
+#' names(via_res)
+#' head(via_res$plate_01$result$modified_ratio_table[, 1:4])
 #' }
-#'
 #' @seealso \code{\link{process_viability_data}}
 #'
 #' @export

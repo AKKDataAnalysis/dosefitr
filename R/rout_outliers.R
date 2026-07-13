@@ -65,13 +65,38 @@
 #' }
 #'
 #' @examples
-#' \dontrun{
-#' result <- rout_outliers(data = my_data)
+#' stopifnot(requireNamespace("dosefitr", quietly = TRUE))
+#' \donttest{
+#' extdata_dir <- system.file("extdata", package = "dosefitr")
+#' work_dir    <- file.path(tempdir(), "dosefitr_ex_rout")
+#' dir.create(work_dir, showWarnings = FALSE, recursive = TRUE)
+#' invisible(file.copy(
+#'   list.files(extdata_dir, pattern = "^nanobret_", full.names = TRUE),
+#'   work_dir, overwrite = TRUE
+#' ))
 #'
-#' result$outlier_table
-#' result$cleaned_table
+#' ratio_res <- batch_ratio_analysis(
+#'   directory        = work_dir,
+#'   info_file        = "nanobret_info.xlsx",
+#'   data_pattern     = "nanobret_plate_\\d+\\.xlsx$",
+#'   control_0perc    = "1",
+#'   control_100perc  = "24",
+#'   selected_columns = 1:24,
+#'   generate_reports = FALSE,
+#'   output_dir       = tempdir(),
+#'   verbose          = FALSE
+#' )
+#'
+#' mrt <- ratio_res$plate_01$result$modified_ratio_table
+#' rr  <- rout_outliers(
+#'   data      = mrt,
+#'   Q         = 0.01,
+#'   n_param   = 4L,
+#'   direction = "inhibition",
+#'   verbose   = FALSE
+#' )
+#' names(rr)
 #' }
-#'
 #' @references
 #' Motulsky HJ, Brown RE (2006).
 #' Detecting outliers when fitting data with nonlinear regression.

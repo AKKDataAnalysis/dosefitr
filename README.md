@@ -1,4 +1,3 @@
-
 # dosefitr
 
 <!-- badges: start -->
@@ -19,37 +18,35 @@ Scarab-formatted submission tables.
 
 ## Hero example
 
-``` r
-library(dosefitr)
+    library(dosefitr)
 
-# Stage the two bundled NanoBRET plates into a working directory
-extdata_dir <- system.file("extdata", package = "dosefitr")
-work_dir    <- file.path(tempdir(), "dosefitr_demo")
-dir.create(work_dir, showWarnings = FALSE)
-file.copy(
-    list.files(extdata_dir, pattern = "^nanobret_", full.names = TRUE),
-    work_dir
-)
+    # Stage the two bundled NanoBRET plates into a working directory
+    extdata_dir <- system.file("extdata", package = "dosefitr")
+    work_dir    <- file.path(tempdir(), "dosefitr_demo")
+    dir.create(work_dir, showWarnings = FALSE)
+    file.copy(
+        list.files(extdata_dir, pattern = "^nanobret_", full.names = TRUE),
+        work_dir
+    )
 
-# 1. Compute BRET ratios across both plates
-ratio_res <- batch_ratio_analysis(
-    directory        = work_dir,
-    info_file        = "nanobret_info.xlsx",
-    data_pattern     = "nanobret_plate_\\d+\\.xlsx$",
-    control_0perc    = "1",
-    control_100perc  = "24",
-    selected_columns = 1:24,
-    generate_reports = FALSE,
-    output_dir       = file.path(tempdir(), "dosefitr_ratio")
-)
+    # 1. Compute BRET ratios across both plates
+    ratio_res <- batch_ratio_analysis(
+        directory        = work_dir,
+        info_file        = "nanobret_info.xlsx",
+        data_pattern     = "nanobret_plate_\\d+\\.xlsx$",
+        control_0perc    = "1",
+        control_100perc  = "24",
+        selected_columns = 1:24,
+        generate_reports = FALSE,
+        output_dir       = file.path(tempdir(), "dosefitr_ratio")
+    )
 
-# 2. Fit 4PL curves and 3. save panel plots
-drc_res <- batch_drc_analysis(ratio_res, model = "4pl",
-                              generate_reports = FALSE,
-                              output_dir = file.path(tempdir(), "dosefitr_drc"))
-batch_save_all_drc_plots(drc_res,
-                         output_dir = file.path(tempdir(), "dosefitr_plots"))
-```
+    # 2. Fit 4PL curves and 3. save panel plots
+    drc_res <- batch_drc_analysis(ratio_res, model = "4pl",
+                                  generate_reports = FALSE,
+                                  output_dir = file.path(tempdir(), "dosefitr_drc"))
+    batch_save_all_drc_plots(drc_res,
+                             output_dir = file.path(tempdir(), "dosefitr_plots"))
 
 ## Installation
 
@@ -57,22 +54,18 @@ batch_save_all_drc_plots(drc_res,
 accompanying manuscript is published. Once accepted, install the release
 version with:
 
-``` r
-if (!require("BiocManager", quietly = TRUE))
-    install.packages("BiocManager")
-BiocManager::install("dosefitr")
-```
+    if (!require("BiocManager", quietly = TRUE))
+        install.packages("BiocManager")
+    BiocManager::install("dosefitr")
 
 The in-development version is on GitHub:
 
-``` r
-# install.packages("remotes")
-remotes::install_github("AKKDataAnalysis/dosefitr")
-```
+    # install.packages("remotes")
+    remotes::install_github("AKKDataAnalysis/dosefitr")
 
-System requirements: R (\>= 4.4.0). All package dependencies (including
-`OptimModel`, which provides the ROUT outlier test) are on CRAN and
-`remotes::install_github()` pulls them automatically.
+System requirements: R (&gt;= 4.4.0). All package dependencies
+(including `OptimModel`, which provides the ROUT outlier test) are on
+CRAN and `remotes::install_github()` pulls them automatically.
 
 ## What it does
 
@@ -135,29 +128,81 @@ public screens, see `PharmacoGx` on Bioconductor.
 
 ## Function map
 
-| Group | Functions |
-|----|----|
-| Reading / normalising | `batch_ratio_analysis` `batch_viability_analysis` `process_viability_data` `process_viability_data_v2` `ratio_dose_response` `ratio_dose_response_v2` `merge_plate_replicates` |
-| Quality control | `rout_outliers` `rout_outliers_batch` |
-| Fitting | `batch_drc_analysis` `fit_drc_4pl` `fit_drc_3pl` `reshape_dr_table` |
-| Plotting | `batch_save_all_drc_plots` `plot_multiple_compounds` `plot_dose_response` `plot_all_dose_responses` `compare_plates_drc` `plot_outliers_curves` `plot_outliers_batch_curves` `plot_drc_batch` |
-| Export | `scarab_table` `scarab_viability` `save_multiple_sheets` |
+<table>
+<colgroup>
+<col style="width: 17%" />
+<col style="width: 82%" />
+</colgroup>
+<thead>
+<tr>
+<th>Group</th>
+<th>Functions</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Reading / normalising</td>
+<td><code>batch_ratio_analysis</code>
+<code>batch_viability_analysis</code>
+<code>process_viability_data</code>
+<code>process_viability_data_v2</code> <code>ratio_dose_response</code>
+<code>ratio_dose_response_v2</code>
+<code>merge_plate_replicates</code></td>
+</tr>
+<tr>
+<td>Import (pre-computed)</td>
+<td><code>batch_read_tables</code></td>
+</tr>
+<tr>
+<td>Quality control</td>
+<td><code>rout_outliers</code> <code>rout_outliers_batch</code></td>
+</tr>
+<tr>
+<td>Fitting</td>
+<td><code>batch_drc_analysis</code> <code>fit_drc_4pl</code>
+<code>fit_drc_3pl</code> <code>reshape_dr_table</code></td>
+</tr>
+<tr>
+<td>Plotting</td>
+<td><code>batch_save_all_drc_plots</code>
+<code>plot_multiple_compounds</code> <code>plot_dose_response</code>
+<code>plot_all_dose_responses</code> <code>compare_plates_drc</code>
+<code>plot_outliers_curves</code>
+<code>plot_outliers_batch_curves</code> <code>plot_drc_batch</code></td>
+</tr>
+<tr>
+<td>Export</td>
+<td><code>scarab_table</code> <code>scarab_viability</code>
+<code>save_multiple_sheets</code></td>
+</tr>
+</tbody>
+</table>
 
 ## Documentation
 
-Three vignettes ship with the package:
+Four vignettes ship inside the package. After installing, browse the
+full list in your R session with:
 
-- **`vignette("dosefitr")`** — introduction, motivation, and comparison
-  with related dose-response packages.
+    browseVignettes("dosefitr")
+
+Or open each one directly:
+
+- **`vignette("dosefitr")`** — introduction and package tour:
+  motivation, comparison with related dose-response packages, and
+  pointers into the pipeline vignettes.
 - **`vignette("dosefitr-nanobret")`** — end-to-end NanoBRET walkthrough
-  on the bundled example plates (BRET ratios, ROUT, 4PL fits, plotting,
-  Scarab export).
-- **`vignette("dosefitr-viability")`** — end-to-end viability
+  on the bundled example plates (BRET ratios, ROUT, 3PL / 4PL fits,
+  plotting, Scarab export).
+- **`vignette("dosefitr-viability")`** — end-to-end cell-viability
   walkthrough on the bundled example plates (single-channel
-  normalisation, 4PL fits, Scarab export).
+  normalisation, 3PL / 4PL fits, Scarab export).
+- **`vignette("dosefitr-protocol")`** — the day-to-day analysis script,
+  section by section, mirroring how you would run it against your own
+  plates (ratios, ROUT, replicate merging, DRC fits, plotting, Scarab
+  metadata).
 
-Each exported function has its own help page; open the grouped index
-with `help(package = "dosefitr")`.
+Each exported function also has its own help page; open the grouped
+index with `help(package = "dosefitr")`.
 
 ## Citation
 

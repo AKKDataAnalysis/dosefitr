@@ -113,29 +113,37 @@ a \code{drc_quality/} sub-folder of the current working directory
 }
 
 \examples{
-\dontrun{
-results <- batch_ratio_analysis(
-  control_0perc   = 24,
-  control_100perc = 12
+stopifnot(requireNamespace("dosefitr", quietly = TRUE))
+\donttest{
+extdata_dir <- system.file("extdata", package = "dosefitr")
+work_dir    <- file.path(tempdir(), "dosefitr_ex_mpr")
+dir.create(work_dir, showWarnings = FALSE, recursive = TRUE)
+invisible(file.copy(
+  list.files(extdata_dir, pattern = "^nanobret_", full.names = TRUE),
+  work_dir, overwrite = TRUE
+))
+
+ratio_res <- batch_ratio_analysis(
+  directory        = work_dir,
+  info_file        = "nanobret_info.xlsx",
+  data_pattern     = "nanobret_plate_\\\\d+\\\\.xlsx$",
+  control_0perc    = "1",
+  control_100perc  = "24",
+  selected_columns = 1:24,
+  generate_reports = FALSE,
+  output_dir       = tempdir(),
+  verbose          = FALSE
 )
 
-# Merge all plates (default)
-merged <- merge_plate_replicates(results)
-
-# Merge only two specific plates
-merged <- merge_plate_replicates(results,
-  plates      = c("Sheet1", "Sheet2"),
-  merged_name = "plates_1_2"
+merged <- merge_plate_replicates(
+  results          = ratio_res,
+  plates           = c("plate_01", "plate_02"),
+  merged_name      = "combined",
+  generate_reports = FALSE,
+  verbose          = FALSE
 )
-
-# Feed directly into batch_drc_analysis
-drc_results <- batch_drc_analysis(
-  batch_results = merged,
-  normalize     = TRUE,
-  output_dir    = "./drc_results"
-)
+names(merged)
 }
-
 }
 \seealso{
 \code{\link{batch_ratio_analysis}} for the upstream function whose output

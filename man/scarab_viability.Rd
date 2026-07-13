@@ -126,26 +126,44 @@ Compounds or constructs whose name is \code{NA}, \code{NA_2}, \code{NA:NA},
 or similar NA-derived placeholders are automatically excluded from the output.
 }
 \examples{
-\dontrun{
-# Basic usage
-table1 <- scarab_viability(results, drc_results, plate_name = "plate_01")
+stopifnot(requireNamespace("dosefitr", quietly = TRUE))
+\donttest{
+extdata_dir <- system.file("extdata", package = "dosefitr")
+work_dir    <- file.path(tempdir(), "dosefitr_ex_scarab_v")
+dir.create(work_dir, showWarnings = FALSE, recursive = TRUE)
+invisible(file.copy(
+  list.files(extdata_dir, pattern = "^viability_", full.names = TRUE),
+  work_dir, overwrite = TRUE
+))
 
-# With experimental metadata
-table2 <- scarab_viability(
-  results, drc_results,
-  plate_name          = "plate_01",
-  date                = "260521",
-  experimenter_abbrev = "TL",
-  cell_line           = "HCT116",
-  cell_type           = "adherent",
-  treatment_time      = "72h",
-  measurement_method  = "CellTiter-Glo"
+via_res <- batch_viability_analysis(
+  directory        = work_dir,
+  info_file        = "viability_info.xlsx",
+  data_pattern     = "viability_plate_\\\\d+\\\\.xlsx$",
+  control_0perc    = 1,
+  control_100perc  = 24,
+  selected_columns = 1:24,
+  generate_reports = FALSE,
+  output_dir       = tempdir(),
+  verbose          = FALSE
 )
 
-# European decimal format
-table3 <- scarab_viability(results, drc_results, decimal_separator = ",")
-}
+drc_res <- batch_drc_analysis(
+  batch_results = via_res, model = "4pl", normalize = TRUE,
+  generate_reports = FALSE, output_dir = tempdir(), verbose = FALSE
+)
 
+outfile <- tempfile(fileext = ".xlsx")
+sc <- scarab_viability(
+  results_list      = via_res,
+  drc_results_list  = drc_res,
+  plate_name        = "plate_01",
+  save              = TRUE,
+  file_name         = outfile,
+  decimal_separator = "."
+)
+file.exists(outfile)
+}
 }
 \seealso{
 \code{\link{batch_viability_analysis}} for generating the input \code{results_list},

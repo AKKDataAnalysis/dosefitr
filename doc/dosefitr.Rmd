@@ -244,10 +244,70 @@ export, and quality metrics — see:
 - `vignette("dosefitr-viability", package = "dosefitr")` — single-channel
   viability normalisation, 4PL fits, Scarab export.
 
+# Importing pre-computed ratio tables
+
+If your ratio and normalisation step was already done outside `dosefitr`
+(for example in Prism or in a legacy script), you can skip
+`batch_ratio_analysis()` / `batch_viability_analysis()` entirely and
+jump straight into the `batch_drc_analysis()` pipeline by importing the
+pre-computed tables with `batch_read_tables()`. Each `.xlsx` file must
+carry a log-concentration column (the first column by default, whatever
+it is named) followed by one column per `construct:compound`
+combination; replicate columns get a `.2`, `.3`, ... suffix (matching
+the shape produced by `merge_plate_replicates()`).
+
+The two most common calls are:
+
+```{r import-precomputed, eval = FALSE}
+# Minimal: directory defaults to getwd(), assay_source defaults to "nanobret",
+# and the first column is taken as the log-concentration column regardless
+# of its exact name.
+imported <- batch_read_tables()
+
+# Or, spelling every argument out (useful for viability, for a custom
+# directory, or when the log-concentration column is not the first one).
+imported <- batch_read_tables(
+    directory         = "path/to/precomputed_tables",
+    assay_source      = "viability",            # or "nanobret" (default)
+    log_conc_col_name = "log(inhibitor).[M]"    # look up by name; if it is
+                                                # not already column 1 it
+                                                # will be moved there
+)
+
+drc_res <- batch_drc_analysis(
+    batch_results = imported,
+    model         = "3pl"                       # or "4pl"
+)
+```
+
+If your files do not follow a common pattern, or if you want to pick a
+specific subset in a specific order, pass `file_map` instead of relying
+on the pattern-based discovery. `file_map` accepts either a character
+vector or a list (matching the shape used by `batch_ratio_analysis()`),
+its entries are resolved relative to `directory` unless absolute, and
+list names — if any — are silently ignored:
+
+```{r import-file-map, eval = FALSE}
+# Explicit file list. `file_pattern` is ignored when `file_map` is set.
+# Plates are named plate_01, plate_02, ... in the order given.
+imported <- batch_read_tables(
+    directory = "path/to/precomputed_tables",
+    file_map  = c("run_A.xlsx", "run_B.xlsx", "run_C.xlsx")
+)
+```
+
+Because the raw plate reads are gone, Z-prime, signal-to-background,
+and the Luciferase signal comment cannot be filled in downstream. When
+`scarab_table()` is called on an imported batch those QC cells will be
+blank. `scarab_viability()` and every plotting / curve-fitting function
+are unaffected.
+
 # Where to next
 
 - `?batch_ratio_analysis` and `?batch_viability_analysis` — the two
   entry points, one per pipeline.
+- `?batch_read_tables` — third entry point for pre-computed ratio /
+  viability tables that were produced outside `dosefitr`.
 - `?batch_drc_analysis` — parameter reference for the shared fitting
   step, including the assay-aware plausibility limits and the full list
   of `Curve_Quality` labels.

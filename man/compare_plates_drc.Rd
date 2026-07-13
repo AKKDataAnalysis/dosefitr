@@ -217,24 +217,49 @@ is `Construct__Compound.png`.  Mean +- SD data points and error bars are
 included by default.
 }
 \examples{
-\dontrun{
-# Run batch ratio + DRC analysis first
-ratio_res <- batch_ratio_analysis("data/")
-drc_res   <- batch_drc_analysis(ratio_res)
+stopifnot(requireNamespace("dosefitr", quietly = TRUE))
+\donttest{
+extdata_dir <- system.file("extdata", package = "dosefitr")
+work_dir    <- file.path(tempdir(), "dosefitr_ex_cpd")
+dir.create(work_dir, showWarnings = FALSE, recursive = TRUE)
+invisible(file.copy(
+  list.files(extdata_dir, pattern = "^nanobret_", full.names = TRUE),
+  work_dir, overwrite = TRUE
+))
 
-# Title shows compound name (default)
-compare_plates_drc(drc_res, compare_by = "compound",
-                   output_dir = "comparison_plots")
+ratio_res <- batch_ratio_analysis(
+  directory        = work_dir,
+  info_file        = "nanobret_info.xlsx",
+  data_pattern     = "nanobret_plate_\\\\d+\\\\.xlsx$",
+  control_0perc    = "1",
+  control_100perc  = "24",
+  selected_columns = 1:24,
+  generate_reports = FALSE,
+  output_dir       = tempdir(),
+  verbose          = FALSE
+)
 
-# Title shows construct name instead
-compare_plates_drc(drc_res, compare_by = "construct",
-                   output_dir = "comparison_plots")
+drc_res <- batch_drc_analysis(
+  batch_results = ratio_res, model = "4pl", normalize = FALSE,
+  generate_reports = FALSE, output_dir = tempdir(), verbose = FALSE
+)
 
-# Only compare specific entities
-compare_plates_drc(drc_res, compare_by = "compound",
-                   selected_entities = c("Staurosporine", "Compound_A"))
+out_dir <- file.path(tempdir(), "dosefitr_ex_cpd_out")
+dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
+
+cmp <- compare_plates_drc(
+  batch_drc_result  = drc_res,
+  compare_by        = "compound",
+  output_dir        = out_dir,
+  # Only two bridging compounds ("construct:compound" keys) so the example
+  # stays under 5s.
+  selected_entities = c("KinaseA:Cpd1", "KinaseB:Cpd9"),
+  min_plates        = 2,
+  plot_dpi          = 72,
+  verbose           = FALSE
+)
+length(cmp)
 }
-
 }
 \seealso{
 * [`batch_drc_analysis()`] - upstream function whose output is consumed here.

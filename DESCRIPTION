@@ -1,6 +1,7 @@
 Package: dosefitr
 Type: Package
-Title: Dose-Response Curve Fitting for 'NanoBRET' and Cell Viability Assays
+Title: Dose-Response Curve Fitting for 'NanoBRET' and Cell Viability
+        Assays
 Version: 1.0.0
 Authors@R: 
     person("Thiago", "Loreto Matos", 
@@ -19,40 +20,20 @@ Description: End-to-end dose-response analysis pipeline for 'NanoBRET' kinase
 License: MIT + file LICENSE
 Encoding: UTF-8
 Language: en-US
-LazyData: true
-Depends:
-    R (>= 4.4.0)
-Imports: 
-    ggplot2,
-    stats,
-    grDevices,
-    utils,
-    dplyr,
-    openxlsx,
-    RColorBrewer,
-    scales,
-    ggsci,
-    viridisLite,
-    OptimModel,
-    ggprism,
-    ggrepel,
-    patchwork
-Suggests: 
-    BiocStyle,
-    knitr,
-    rmarkdown,
-    testthat (>= 3.0.0)
+Depends: R (>= 4.4.0)
+Imports: ggplot2, stats, grDevices, utils, dplyr, openxlsx,
+        RColorBrewer, scales, ggsci, viridisLite, OptimModel, ggprism,
+        ggrepel, patchwork
+Suggests: BiocStyle, knitr, rmarkdown, testthat (>= 3.0.0)
 URL: https://github.com/AKKDataAnalysis/dosefitr
 BugReports: https://github.com/AKKDataAnalysis/dosefitr/issues
-biocViews:
-    Software,
-    CellBasedAssays,
-    MicrotitrePlateAssay,
-    Cheminformatics,
-    QualityControl,
-    Regression,
-    Visualization,
-    DataImport
+biocViews: Software, CellBasedAssays, MicrotitrePlateAssay,
+        Cheminformatics, QualityControl, Regression, Visualization,
+        DataImport
 VignetteBuilder: knitr
 Config/testthat/edition: 3
 Config/roxygen2/version: 8.0.0
+NeedsCompilation: no
+Packaged: 2026-07-10 19:31:18 UTC; root
+Author: Thiago Loreto Matos [aut, cre, cph]
+Maintainer: Thiago Loreto Matos <thiago-loreto@hotmail.com>

@@ -106,70 +106,37 @@
 #' and can handle both normalized and raw BRET ratio data automatically.
 #'
 #' @examples
-#' \dontrun{
-#' # 1. Basic usage: Plot specific compound by name
-#' plot_drc_batch(results, construct_compound = "PAK3:IPA-3")
+#' stopifnot(requireNamespace("dosefitr", quietly = TRUE))
+#' \donttest{
+#' extdata_dir <- system.file("extdata", package = "dosefitr")
+#' work_dir    <- file.path(tempdir(), "dosefitr_ex_pdb")
+#' dir.create(work_dir, showWarnings = FALSE, recursive = TRUE)
+#' invisible(file.copy(
+#'   list.files(extdata_dir, pattern = "^nanobret_", full.names = TRUE),
+#'   work_dir, overwrite = TRUE
+#' ))
 #'
-#' # 2. Search fuzzy match and use JAMA colors
-#' plot_drc_batch(results, construct_compound = "IPA-3", colors = "jama")
+#' ratio_res <- batch_ratio_analysis(
+#'   directory        = work_dir,
+#'   info_file        = "nanobret_info.xlsx",
+#'   data_pattern     = "nanobret_plate_\\d+\\.xlsx$",
+#'   control_0perc    = "1",
+#'   control_100perc  = "24",
+#'   selected_columns = 1:24,
+#'   generate_reports = FALSE,
+#'   output_dir       = tempdir(),
+#'   verbose          = FALSE
+#' )
 #'
-#' # 3. Plot by position (e.g., the 5th compound found)
-#' plot_drc_batch(results, position = 5)
+#' drc_res <- batch_drc_analysis(
+#'   batch_results = ratio_res, model = "4pl", normalize = FALSE,
+#'   generate_reports = FALSE, output_dir = tempdir(), verbose = FALSE
+#' )
 #'
-#' # 4. Facet by compound (compare multiple compounds side-by-side)
-#' plot_drc_batch(results,
-#' construct_compound = "PAK3",
-#' facet_by = "compound",
-#' facet_ncol = 3)
-#'
-#' # 5. Custom styling with y-limits and viridis palette
-#' plot_drc_batch(results,
-#' construct_compound = "ConstructA:CompB",
-#' colors = "viridis",
-#' y_limits = c(0, 150),
-#' font_family = "serif",
-#' show_grid = FALSE)
-#'
-#' # 6. Save plot automatically
-#' plot_drc_batch(results,
-#' construct_compound = "PAK4:MRIA-9",
-#' save_plot = "PAK4_MRIA9_DRC.png",
-#' plot_width = 10,
-#' plot_height = 6)
-#'
-#' # 7. Plot specific plates only
-#' plot_drc_batch(results,
-#' construct_compound = "Target:CompoundX",
-#' plates = c("plate_01", "plate_03"))
-#'
-#' # 8. Show replicates with different shapes
-#' plot_drc_batch(results,
-#' construct_compound = "PAK3:IPA-3",
-#' shape_by_duplicate = TRUE,
-#' show_error_bars = TRUE)
-#'
-#' # 9. Hide legend and use custom axis styling
-#' plot_drc_batch(results,
-#' construct_compound = "ConstructA:CompoundB",
-#' show_legend = FALSE,
-#' axis_text_color = "darkblue",
-#' axis_title_color = "navy")
-#'
-#' # 10. Combine multiple parameters for publication-ready plot
-#' plot_drc_batch(results,
-#' construct_compound = "PAK3:IPA-3",
-#' colors = "jama",
-#' y_limits = c(0, 120),
-#' show_error_bars = TRUE,
-#' shape_by_duplicate = TRUE,
-#' font_family = "serif",
-#' show_grid = FALSE,
-#' save_plot = "Figure1_PAK3_IPA3.png",
-#' plot_width = 8,
-#' plot_height = 6,
-#' plot_dpi = 300)
+#' cc <- drc_res$drc_results$plate_01$drc_result$summary_table$Compound[1]
+#' p  <- plot_drc_batch(drc_res, construct_compound = cc, verbose = FALSE)
+#' inherits(p, "ggplot")
 #' }
-#'
 #' @seealso
 #' \code{\link{batch_drc_analysis}} for generating batch DRC results
 #' \code{\link{batch_save_all_drc_plots}} for automatically saving all DRC plots

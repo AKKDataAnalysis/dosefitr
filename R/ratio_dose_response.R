@@ -83,27 +83,25 @@
 #' }
 #'
 #' @examples
-#' \dontrun{
-#' # Typical workflow starting with raw experimental data
-#' # Load raw data directly from plate reader export
-#' raw_plate_data <- read.csv("plate_reader_export.csv")
-#'
-#' # Process raw data with control definitions
-#' processed_data <- ratio_dose_response(
-#'   data = raw_plate_data,  # Raw experimental data
-#'   control_0perc = "DMSO_Ctrl",      # Background control from raw data
-#'   control_100perc = "Stauro_Ctrl",  # Positive control from raw data
-#'   info_table = sample_design,       # Experimental design metadata
-#'   save_to_excel = "processed_data.xlsx"
+#' stopifnot(requireNamespace("dosefitr", quietly = TRUE))
+#' \donttest{
+#' extdata_dir <- system.file("extdata", package = "dosefitr")
+#' plate_file  <- file.path(extdata_dir, "nanobret_plate_01.xlsx")
+#' info_table  <- openxlsx::read.xlsx(
+#'   file.path(extdata_dir, "nanobret_info.xlsx"), sheet = 1
 #' )
+#' raw <- openxlsx::read.xlsx(plate_file, sheet = 1, colNames = FALSE)
 #'
-#' # The output is now ready for curve fitting analysis
-#' analysis_ready_data <- processed_data$modified_ratio_table
-#'
-#' # Proceed to dose-response curve fitting
-#' dr_results <- fit_drc_3pl(analysis_ready_data, normalize = TRUE)
+#' out <- ratio_dose_response(
+#'   data             = raw,
+#'   control_0perc    = "1",
+#'   control_100perc  = "24",
+#'   info_table       = info_table,
+#'   selected_columns = 1:24,
+#'   verbose          = FALSE
+#' )
+#' dim(out$modified_ratio_table)
 #' }
-#'
 #' @section Raw Data Requirements:
 #' The input data should be **raw experimental measurements** with:
 #' \itemize{

@@ -39,58 +39,27 @@
 #' }
 #'
 #' @examples
-#' \dontrun{
-#' # Example 1: Exporting comprehensive dose-response analysis results
-#' # Perform analysis first
-#' analysis_results <- fit_drc_3pl(my_data, normalize = TRUE)
+#' stopifnot(requireNamespace("dosefitr", quietly = TRUE))
+#' \donttest{
+#' summary_df <- data.frame(
+#'   Compound = c("A", "B"),
+#'   IC50     = c(0.10, 1.50)
+#' )
+#' fits_df <- data.frame(
+#'   Compound = c("A", "B"),
+#'   R2       = c(0.95, 0.88)
+#' )
 #'
-#' # Export complete results with European decimal format
+#' outfile <- tempfile(fileext = ".xlsx")
 #' save_multiple_sheets(
-#'   "dose_response_complete_analysis.xlsx",
-#'   Summary_Table = analysis_results$summary_table,
-#'   Detailed_Parameters = analysis_results$detailed_results[[1]]$parameters,
-#'   Quality_Assessment = analysis_results$interval_means,
-#'   Raw_Data = analysis_results$processed_data,
-#'   decimal_comma = TRUE,
+#'   file_name      = outfile,
+#'   Summary        = summary_df,
+#'   Fits           = fits_df,
+#'   decimal_comma  = FALSE,
 #'   decimal_places = 3
 #' )
-#'
-#' # Example 2: International format with selective rounding
-#' save_multiple_sheets(
-#'   "international_format.xlsx",
-#'   IC50_Results = ic50_data,           # Round to 2 decimal places
-#'   Kinetic_Parameters = kinetics_data, # No rounding for precision
-#'   Statistical_Analysis = stats_data,  # Round to 2 decimal places
-#'   decimal_comma = FALSE,              # Use point for international journals
-#'   decimal_places = 2,
-#'   round_sheets = c(1, 3)              # Round only sheets 1 and 3
-#' )
-#'
-#' # Example 3: High-precision scientific data
-#' save_multiple_sheets(
-#'   "high_precision_data.xlsx",
-#'   Binding_Constants = kd_data,        # High precision, no rounding
-#'   Dose_Response = dr_data,            # Standard precision
-#'   decimal_comma = TRUE,
-#'   decimal_places = 4,
-#'   round_sheets = 2                    # Round only dose-response data
-#' )
-#'
-#' # Example 4: Multiple analysis batches
-#' # Analyze different experimental conditions
-#' control_results <- fit_drc_3pl(control_data)
-#' treated_results <- fit_drc_3pl(treated_data)
-#'
-#' save_multiple_sheets(
-#'   "experimental_conditions.xlsx",
-#'   Control_Condition = control_results$summary_table,
-#'   Treated_Condition = treated_results$summary_table,
-#'   Comparison_Analysis = comparison_stats,
-#'   decimal_comma = TRUE,
-#'   decimal_places = 3
-#' )
+#' file.exists(outfile)
 #' }
-#'
 #' @section Row Name Handling:
 #' The function automatically preserves row names through:
 #' \itemize{
@@ -132,22 +101,6 @@
 #'   \item "The International System of Units (SI)" - Decimal separator conventions
 #'   \item Nature Research Reporting Guidelines
 #'   \item Journal of Pharmacology and Experimental Therapeutics data standards
-#' }
-#' @examples
-#' \dontrun{
-#' # Example 1: Exporting dose-response analysis results
-#' # Perform analysis first
-#' analysis_results <- fit_dose_response(my_data, normalize = TRUE)
-#'
-#' # Export comprehensive results
-#' save_multiple_sheets(
-#'   "dose_response_complete.xlsx",
-#'   Summary_Table = analysis_results$summary_table,
-#'   Detailed_Results = analysis_results$detailed_results[[1]]$parameters,
-#'   Quality_Metrics = analysis_results$interval_means,
-#'   decimal_comma = TRUE,
-#'   decimal_places = 3
-#' )
 #' }
 
 

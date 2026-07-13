@@ -179,48 +179,37 @@
 #' }
 #'
 #' @examples
-#' \dontrun{
-#' # Perform dose-response analysis first
-#' analysis_results <- fit_drc_3pl(my_data, normalize = TRUE)
+#' stopifnot(requireNamespace("dosefitr", quietly = TRUE))
+#' \donttest{
+#' extdata_dir <- system.file("extdata", package = "dosefitr")
+#' work_dir    <- file.path(tempdir(), "dosefitr_ex_pdr")
+#' dir.create(work_dir, showWarnings = FALSE, recursive = TRUE)
+#' invisible(file.copy(
+#'   list.files(extdata_dir, pattern = "^nanobret_", full.names = TRUE),
+#'   work_dir, overwrite = TRUE
+#' ))
 #'
-#' # Basic plot for first compound
-#' p <- plot_dose_response(analysis_results)
-#' print(p)
-#'
-#' # Customized plot with specific styling
-#' p <- plot_dose_response(
-#'   results = analysis_results,
-#'   compound_index = 2,
-#'   point_color = "blue",
-#'   line_color = "darkred",
-#'   show_grid = TRUE,
-#'   y_limits = c(0, 200)
-#' )
-#' print(p)
-#'
-#' # Save plot automatically with compound name
-#' p <- plot_dose_response(
-#'   results = analysis_results,
-#'   compound_index = 1,
-#'   save_plot = TRUE  # Saves as "dose_response_CompoundName.png"
+#' ratio_res <- batch_ratio_analysis(
+#'   directory        = work_dir,
+#'   info_file        = "nanobret_info.xlsx",
+#'   data_pattern     = "nanobret_plate_\\d+\\.xlsx$",
+#'   control_0perc    = "1",
+#'   control_100perc  = "24",
+#'   selected_columns = 1:24,
+#'   generate_reports = FALSE,
+#'   output_dir       = tempdir(),
+#'   verbose          = FALSE
 #' )
 #'
-#' # Save plot to specific file with custom dimensions
-#' p <- plot_dose_response(
-#'   results = analysis_results,
-#'   save_plot = "my_plot.pdf",
-#'   plot_width = 8,
-#'   plot_height = 6
+#' drc_res <- batch_drc_analysis(
+#'   batch_results = ratio_res, model = "4pl", normalize = FALSE,
+#'   generate_reports = FALSE, output_dir = tempdir(), verbose = FALSE
 #' )
 #'
-#' # Access plot metadata
-#' p <- plot_dose_response(analysis_results, compound_index = 3)
-#' meta <- attr(p, "metadata")
-#' print(meta$compound_name)
-#' print(meta$data_points)
-#' print(meta$log_ic50)
+#' fit1 <- drc_res$drc_results$plate_01$drc_result
+#' p    <- plot_dose_response(fit1, compound_index = 1, verbose = FALSE)
+#' inherits(p, "ggplot")
 #' }
-#'
 #' @section Plot Customization:
 #' The function provides extensive customization options while maintaining professional quality:
 #' \itemize{

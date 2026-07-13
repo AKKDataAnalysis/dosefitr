@@ -164,20 +164,25 @@ When both controls and `info_table` are provided, the function computes:
 }
 
 \examples{
-\dontrun{
-result <- ratio_dose_response_v2(
-  data = my_data,
-  control_0perc = 0,
-  control_100perc = c(1, 2),
-  info_table = metadata,
-  split_replicates = TRUE,
-  save_to_excel = "output.xlsx"
+stopifnot(requireNamespace("dosefitr", quietly = TRUE))
+\donttest{
+extdata_dir <- system.file("extdata", package = "dosefitr")
+plate_file  <- file.path(extdata_dir, "nanobret_plate_01.xlsx")
+info_table  <- openxlsx::read.xlsx(
+  file.path(extdata_dir, "nanobret_info.xlsx"), sheet = 1
 )
+raw <- openxlsx::read.xlsx(plate_file, sheet = 1, colNames = FALSE)
 
-# Access processed table
-result$modified_ratio_table
+out <- ratio_dose_response_v2(
+  data             = raw,
+  control_0perc    = "1",
+  control_100perc  = "24",
+  info_table       = info_table,
+  selected_columns = 1:24,
+  verbose          = FALSE
+)
+dim(out$modified_ratio_table)
 }
-
 }
 \seealso{
 Useful for downstream dose-response modeling and outlier detection pipelines.

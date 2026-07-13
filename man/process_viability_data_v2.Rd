@@ -100,21 +100,51 @@ convention. In v2:
 }
 }
 \examples{
-\dontrun{
-# See vignette('dosefitr_workflow') for end-to-end usage; this function
-# consumes raw plate-reader exports plus an info_table describing the
-# plate layout, both of which are too complex to mock inside an example.
-result <- process_viability_data_v2(
-  data            = my_raw_plate_data,
-  control_0perc   = 1,
-  control_100perc = 12,
-  info_table      = my_info_table,
-  selected_columns = 1:12,
-  verbose         = FALSE
+stopifnot(requireNamespace("dosefitr", quietly = TRUE))
+\donttest{
+# v2 targets a 96-well plate (rows A-H, cols 1-12) with row-based replicates.
+# The bundled fixtures are 384-well, so we build a small synthetic plate here.
+n_hdr <- 12L
+header_rows <- as.data.frame(
+  matrix("", nrow = n_hdr, ncol = 13L), stringsAsFactors = FALSE
 )
+col_label_row <- as.data.frame(
+  matrix(c("", as.character(1:12)), nrow = 1L), stringsAsFactors = FALSE
+)
+set.seed(1L)
+data_rows <- as.data.frame(
+  matrix("", nrow = 8L, ncol = 13L), stringsAsFactors = FALSE
+)
+logc <- seq(-9, -5, length.out = 10L)
+for (i in seq_len(8L)) {
+  data_rows[i, 1L] <- LETTERS[i]
+  frac <- 1 / (1 + 10^((logc - (-7))))
+  vals <- 40 + (800 - 40) * frac + rnorm(10L, 0, 5)
+  data_rows[i, 2L]     <- as.character(round(800 + rnorm(1L, 0, 3)))
+  data_rows[i, 3L:12L] <- as.character(round(vals))
+  data_rows[i, 13L]    <- as.character(round(40 + rnorm(1L, 0, 3)))
 }
+raw_plate <- rbind(header_rows, col_label_row, data_rows)
+colnames(raw_plate) <- paste0("V", seq_len(ncol(raw_plate)))
 
+info_table <- data.frame(
+  log_conc  = c(NA, logc, NA),
+  Plate_Row = c(LETTERS[1:8], NA, NA, NA, NA),
+  Target    = c(rep("KinaseZ", 8L), NA, NA, NA, NA),
+  Compound  = c(paste0("Cpd", 1:8), NA, NA, NA, NA),
+  stringsAsFactors = FALSE
+)
 
+out <- process_viability_data_v2(
+  data             = raw_plate,
+  control_0perc    = 1,
+  control_100perc  = 12,
+  info_table       = info_table,
+  selected_columns = 1:12,
+  verbose          = FALSE
+)
+dim(out$modified_table)
+}
 }
 \seealso{
 \code{\link{process_viability_data}} (v1, two-replicates-per-row

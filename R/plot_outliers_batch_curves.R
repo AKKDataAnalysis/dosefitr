@@ -84,32 +84,62 @@
 #' this function).
 #'
 #' @examples
-#' \dontrun{
-#' # Full pipeline
-#' batch <- batch_ratio_analysis(
-#'   directory        = "data/",
-#'   control_0perc    = 16,
-#'   control_100perc  = c(12, 24),
-#'   function_version = "v2"
-#' )
-#' batch_clean <- rout_outliers_batch(batch, Q = 0.01)
+#' stopifnot(requireNamespace("dosefitr", quietly = TRUE))
+#' \donttest{
+#' # Copy only one plate + info to keep the example under 5s.
+#' extdata_dir <- system.file("extdata", package = "dosefitr")
+#' work_dir    <- file.path(tempdir(), "dosefitr_ex_pobc")
+#' dir.create(work_dir, showWarnings = FALSE, recursive = TRUE)
+#' invisible(file.copy(
+#'   file.path(extdata_dir,
+#'             c("nanobret_info.xlsx", "nanobret_plate_01.xlsx")),
+#'   work_dir, overwrite = TRUE
+#' ))
 #'
-#' # Plot all plates to a results folder
-#' plot_outliers_batch_curves(
-#'   batch_rout_output = batch_clean,
-#'   output_dir        = "results/figures/",
-#'   ncol              = 4L,
-#'   dpi               = 300
+#' ratio_res <- batch_ratio_analysis(
+#'   directory        = work_dir,
+#'   info_file        = "nanobret_info.xlsx",
+#'   data_pattern     = "nanobret_plate_\\d+\\.xlsx$",
+#'   control_0perc    = "1",
+#'   control_100perc  = "24",
+#'   selected_columns = 1:24,
+#'   generate_reports = FALSE,
+#'   output_dir       = tempdir(),
+#'   verbose          = FALSE
 #' )
 #'
-#' # Plot only selected plates
-#' plot_outliers_batch_curves(
-#'   batch_rout_output = batch_clean,
-#'   plates            = c("Sheet1", "Sheet3"),
-#'   output_dir        = "results/figures/"
-#' )
+#' # Suppress benign nls "false convergence" and NaN warnings.
+#' rout_res <- suppressWarnings(rout_outliers_batch(
+#'   batch_results = ratio_res, Q = 0.01, n_param = 4L,
+#'   direction = "inhibition", verbose = FALSE
+#' ))
+#'
+#' # Trim the batch object to two compounds so plotting stays under 5s.
+#' keep_cmpds <- c("KinaseA:Cpd1", "KinaseA:Cpd2")
+#' rr         <- rout_res$plate_01$result$rout_results$results
+#' rout_res$plate_01$result$rout_results$results <- rr[rr$compound %in% keep_cmpds, ]
+#'
+#' mrt        <- rout_res$plate_01$result$modified_ratio_table
+#' keep_cols  <- c(1L, grep("KinaseA:Cpd1|KinaseA:Cpd2", colnames(mrt)))
+#' rout_res$plate_01$result$modified_ratio_table <- mrt[, keep_cols, drop = FALSE]
+#' if (!is.null(rout_res$plate_01$result$modified_ratio_table_original)) {
+#'   mrto        <- rout_res$plate_01$result$modified_ratio_table_original
+#'   keep_cols_o <- c(1L, grep("KinaseA:Cpd1|KinaseA:Cpd2", colnames(mrto)))
+#'   rout_res$plate_01$result$modified_ratio_table_original <-
+#'     mrto[, keep_cols_o, drop = FALSE]
 #' }
 #'
+#' out_dir <- file.path(tempdir(), "dosefitr_ex_pobc_out")
+#' dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
+#'
+#' res <- plot_outliers_batch_curves(
+#'   batch_rout_output = rout_res,
+#'   output_dir        = out_dir,
+#'   dpi               = 72,
+#'   verbose           = FALSE
+#' )
+#' names(res)
+#' }
 #' @seealso
 #' \code{\link{plot_outliers_curves}} for the single-plate plotting
 #' engine.
