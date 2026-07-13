@@ -246,15 +246,20 @@ export, and quality metrics — see:
 
 # Importing pre-computed ratio tables
 
-If your ratio and normalisation step was already done outside `dosefitr`
-(for example in Prism or in a legacy script), you can skip
+If your **ratio** step was already done outside `dosefitr` (for example
+in Prism or in a legacy script), you can skip
 `batch_ratio_analysis()` / `batch_viability_analysis()` entirely and
 jump straight into the `batch_drc_analysis()` pipeline by importing the
-pre-computed tables with `batch_read_tables()`. Each `.xlsx` file must
-carry a log-concentration column (the first column by default, whatever
-it is named) followed by one column per `construct:compound`
-combination; replicate columns get a `.2`, `.3`, ... suffix (matching
-the shape produced by `merge_plate_replicates()`).
+pre-computed ratio tables with `batch_read_tables()`. The values in the
+compound columns may be either raw ratios or already control-normalised
+percentages — `batch_drc_analysis()` can do the control-based
+normalisation itself via `normalize = TRUE`, so pre-normalising outside
+`dosefitr` is optional.
+
+Each `.xlsx` file must carry a log-concentration column (the first
+column by default, whatever it is named) followed by one column per
+`construct:compound` combination; replicate columns get a `.2`, `.3`,
+... suffix (matching the shape produced by `merge_plate_replicates()`).
 
 The two most common calls are:
 
@@ -276,7 +281,9 @@ imported <- batch_read_tables(
 
 drc_res <- batch_drc_analysis(
     batch_results = imported,
-    model         = "3pl"                       # or "4pl"
+    model         = "3pl",                      # or "4pl"
+    normalize     = TRUE                        # set FALSE if your table is
+                                                # already control-normalised
 )
 ```
 

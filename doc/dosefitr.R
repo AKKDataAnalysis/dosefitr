@@ -79,7 +79,9 @@ table(sum_01$Curve_Quality)
 # 
 # drc_res <- batch_drc_analysis(
 #     batch_results = imported,
-#     model         = "3pl"                       # or "4pl"
+#     model         = "3pl",                      # or "4pl"
+#     normalize     = TRUE                        # set FALSE if your table is
+#                                                 # already control-normalised
 # )
 
 ## ----import-file-map, eval = FALSE--------------------------------------------

@@ -2070,15 +2070,19 @@ viability normalisation, 4PL fits, Scarab export.</li>
 </div>
 <div id="importing-pre-computed-ratio-tables" class="section level1" number="4">
 <h1><span class="header-section-number">4</span> Importing pre-computed ratio tables</h1>
-<p>If your ratio and normalisation step was already done outside <code>dosefitr</code>
-(for example in Prism or in a legacy script), you can skip
+<p>If your <strong>ratio</strong> step was already done outside <code>dosefitr</code> (for example
+in Prism or in a legacy script), you can skip
 <code>batch_ratio_analysis()</code> / <code>batch_viability_analysis()</code> entirely and
 jump straight into the <code>batch_drc_analysis()</code> pipeline by importing the
-pre-computed tables with <code>batch_read_tables()</code>. Each <code>.xlsx</code> file must
-carry a log-concentration column (the first column by default, whatever
-it is named) followed by one column per <code>construct:compound</code>
-combination; replicate columns get a <code>.2</code>, <code>.3</code>, … suffix (matching
-the shape produced by <code>merge_plate_replicates()</code>).</p>
+pre-computed ratio tables with <code>batch_read_tables()</code>. The values in the
+compound columns may be either raw ratios or already control-normalised
+percentages — <code>batch_drc_analysis()</code> can do the control-based
+normalisation itself via <code>normalize = TRUE</code>, so pre-normalising outside
+<code>dosefitr</code> is optional.</p>
+<p>Each <code>.xlsx</code> file must carry a log-concentration column (the first
+column by default, whatever it is named) followed by one column per
+<code>construct:compound</code> combination; replicate columns get a <code>.2</code>, <code>.3</code>,
+… suffix (matching the shape produced by <code>merge_plate_replicates()</code>).</p>
 <p>The two most common calls are:</p>
 <pre class="r"><code># Minimal: directory defaults to getwd(), assay_source defaults to &quot;nanobret&quot;,
 # and the first column is taken as the log-concentration column regardless
@@ -2097,7 +2101,9 @@ imported &lt;- batch_read_tables(
 
 drc_res &lt;- batch_drc_analysis(
     batch_results = imported,
-    model         = &quot;3pl&quot;                       # or &quot;4pl&quot;
+    model         = &quot;3pl&quot;,                      # or &quot;4pl&quot;
+    normalize     = TRUE                        # set FALSE if your table is
+                                                # already control-normalised
 )</code></pre>
 <p>If your files do not follow a common pattern, or if you want to pick a
 specific subset in a specific order, pass <code>file_map</code> instead of relying
