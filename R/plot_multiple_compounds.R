@@ -117,6 +117,24 @@
 #'   the attribute and is never overridden by this argument. This separation
 #'   ensures that changing the display separator does not break title or legend
 #'   logic, which was a bug in the previous single-separator design.
+#' @param legend_label Character string controlling the text shown in the
+#'   side-legend entries.  One of:
+#'   \describe{
+#'     \item{\code{"auto"} (default)}{Smart shortening: if every entry
+#'       shares the same construct (target), show only the compound part;
+#'       if every entry shares the same compound, show only the construct
+#'       part; otherwise show the full \code{construct:compound} label.}
+#'     \item{\code{"compound"}}{Always show only the compound part,
+#'       regardless of whether constructs differ.}
+#'     \item{\code{"construct"}}{Always show only the construct (target)
+#'       part, regardless of whether compounds differ.}
+#'     \item{\code{"full"}}{Always show the full
+#'       \code{construct:compound} label, even when auto would
+#'       shorten it.}
+#'   }
+#'   Labels that do not contain the display separator (bare compound
+#'   names) are passed through unchanged in every mode.  Line-wrapping
+#'   via \code{legend_label_wrap} is applied after this choice.
 #' @param plot_margin Margin or NULL. Plot margin applied via
 #'   \code{theme(plot.margin = )}. Accepts a \code{ggplot2::margin()} object.
 #'   \code{NULL} (default) uses the built-in margin
@@ -370,6 +388,7 @@ plot_multiple_compounds <- function(results,
                                     aspect_ratio = NULL,
                                     byrow = FALSE,
                                     label_sep = NULL,
+                                    legend_label = "auto",
                                     legend_width = NULL,
                                     ic50_linetype = "dashed",
                                     ic50_linewidth = 0.5,
@@ -404,6 +423,17 @@ plot_multiple_compounds <- function(results,
     }
   }
   data_sep <- attr(results, "label_sep") %||% ":"
+
+  # Validate legend_label. Kept close to label_sep since they share
+  # responsibility for how construct/compound is displayed in legends.
+  LEGEND_LABEL_MODES <- c("auto", "compound", "construct", "full")
+  if (length(legend_label) != 1L || !is.character(legend_label) ||
+      is.na(legend_label) || !legend_label %in% LEGEND_LABEL_MODES) {
+    stop("`legend_label` must be one of: ",
+         paste0("\"", LEGEND_LABEL_MODES, "\"", collapse = ", "),
+         ". Got: ", paste(deparse(legend_label), collapse = " "),
+         call. = FALSE)
+  }
 
   # ============================================================================
   # 0. PLATE EXTRACTION (when batch_drc_analysis result is supplied)
@@ -1501,6 +1531,37 @@ plot_multiple_compounds <- function(results,
   compound_labels <- unique(plot_data$curves$compound)
 
   smart_legend_names <- generate_smart_legend_labels(compound_labels, unique_targets, unique_compounds)
+
+  # If the user picked an explicit mode, override the smart shortening.
+  # Labels lacking `label_sep` are passed through unchanged (bare compound
+  # names never had a construct half to strip).
+  if (legend_label != "auto") {
+    split_labels <- function(labels) {
+      # Returns a list of length(labels), each element list(target=, compound=)
+      lapply(labels, function(lbl) {
+        if (grepl(label_sep, lbl, fixed = TRUE)) {
+          parts <- strsplit(lbl, label_sep, fixed = TRUE)[[1L]]
+          list(
+            target   = parts[[1L]],
+            compound = if (length(parts) >= 2L) paste(parts[-1L], collapse = label_sep) else parts[[1L]]
+          )
+        } else {
+          list(target = lbl, compound = lbl)
+        }
+      })
+    }
+    parts_list <- split_labels(compound_labels)
+
+    smart_legend_names <- switch(legend_label,
+      compound  = vapply(parts_list, `[[`, character(1L), "compound"),
+      construct = vapply(parts_list, `[[`, character(1L), "target"),
+      full      = compound_labels
+    )
+    if (isTRUE(verbose)) {
+      message("Legend strategy: legend_label = '", legend_label,
+              "' -> overriding auto shortening")
+    }
+  }
 
   wrapped_labels <- smart_label_wrap(smart_legend_names, legend_label_wrap)
 

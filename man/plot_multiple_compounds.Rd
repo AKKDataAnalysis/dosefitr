@@ -54,6 +54,7 @@ plot_multiple_compounds(
   aspect_ratio = NULL,
   byrow = FALSE,
   label_sep = NULL,
+  legend_label = "auto",
   legend_width = NULL,
   ic50_linetype = "dashed",
   ic50_linewidth = 0.5,
@@ -224,6 +225,25 @@ The data separator (used for parsing compound names) is always read from
 the attribute and is never overridden by this argument. This separation
 ensures that changing the display separator does not break title or legend
 logic, which was a bug in the previous single-separator design.}
+
+\item{legend_label}{Character string controlling the text shown in the
+side-legend entries.  One of:
+\describe{
+  \item{\code{"auto"} (default)}{Smart shortening: if every entry
+    shares the same construct (target), show only the compound part;
+    if every entry shares the same compound, show only the construct
+    part; otherwise show the full \code{construct:compound} label.}
+  \item{\code{"compound"}}{Always show only the compound part,
+    regardless of whether constructs differ.}
+  \item{\code{"construct"}}{Always show only the construct (target)
+    part, regardless of whether compounds differ.}
+  \item{\code{"full"}}{Always show the full
+    \code{construct:compound} label, even when auto would
+    shorten it.}
+}
+Labels that do not contain the display separator (bare compound
+names) are passed through unchanged in every mode.  Line-wrapping
+via \code{legend_label_wrap} is applied after this choice.}
 
 \item{legend_width}{Numeric, \code{"auto"}, or NULL. Target width (in cm) for the legend
 column, including the legend keys, labels, and any internal margins.
