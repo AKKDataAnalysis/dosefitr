@@ -38,8 +38,8 @@
 #'   attribute is absent. This only affects what the user sees — the internal
 #'   data separator used for parsing compound names is always read from the
 #'   attribute and is never changed. For example, \code{label_sep = "/"} renders
-#'   \code{"EPHA1/KK135"} in the title while the data still stores
-#'   \code{"EPHA1:KK135"} internally.
+#'   \code{"Kinase/Compound"} in the title while the data still stores
+#'   \code{"Kinase:Compound"} internally.
 #' @param axis_line_width Numeric. Line width of the manually drawn x/y axis
 #'   lines (default: 0.8).
 #' @param axis_vjust Numeric or NULL. Vertical justification (\code{vjust}) of
@@ -328,10 +328,7 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
   validate_inputs(results, compound_index)
   
 # Resolve label_sep: the separator used for DISPLAY purposes (titles, labels,
-# filenames). The internal data separator (used for parsing compound names)
-# is always ":" or whatever attr(results, "label_sep") reports; label_sep
-# here controls only what the user SEES.
-# Priority: explicit argument > attribute on results > default ":"
+# filenames). 
 if (is.null(label_sep)) {
   label_sep <- attr(results, "label_sep")
   if (is.null(label_sep) || !is.character(label_sep) ||
@@ -408,11 +405,7 @@ if (is.null(label_sep)) {
   compound_name_display <- strsplit(result$compound, " \\| ")[[1]][1]
 
   # Create a display version of the compound name where the internal
-  # separator is replaced with the user-facing label_sep. We don't rely on
-  # attr(results, "label_sep") here because plot_dose_response is often
-  # called with a single plate's drc_result (which lacks the attribute).
-  # Instead, we split on the first occurrence of a known separator and
-  # re-join with label_sep — robust regardless of the data separator.
+  # separator is replaced with the user-facing label_sep. 
   .find_data_sep <- function(name) {
     # Try the attribute first (most reliable when available)
     attr_sep <- attr(results, "label_sep")
@@ -625,10 +618,6 @@ if (is.null(label_sep)) {
   }
   
   # Draw axis lines manually so they stop exactly at the data limits.
-  # ggplot2's axis.line element always spans the full panel edge regardless of
-  # coord_cartesian / expand, so we blank it above and draw our own here.
-  # geom_segment with explicit data is more robust than annotate() under
-  # coord_cartesian.
   x_range_data <- range(summary_data$log_inhibitor, na.rm = TRUE)
   x_lo <- x_range_data[1] - diff(x_range_data) * 0.02   # mirrors expand mult
   x_hi <- x_range_data[2] + diff(x_range_data) * 0.02

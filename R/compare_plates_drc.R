@@ -337,7 +337,6 @@ compare_plates_drc <- function(batch_drc_result,
   
   # Always group by the full construct:compound pair so that the same compound
   # tested on different constructs always produces separate plots.
-  # The plot title is always 'Construct - Compound'.
   group_key <- function(entry) {
     paste0(entry$construct, ":", entry$compound)
   }
@@ -385,14 +384,7 @@ compare_plates_drc <- function(batch_drc_result,
   # ============================================================================
   # 5. BUILD A SYNTHETIC fit_drc RESULT FOR plot_multiple_compounds()
   # ============================================================================
-  # plot_multiple_compounds() expects:
-  #   results$detailed_results  - list of individual fit objects
-  #   results$normalized        - logical
-  #
-  # We construct one such object per entity, where each element of
-  # detailed_results is one plate's fit for that entity.  We rename the
-  # compound label to the plate name so the legend reads "Plate X".
-  
+
   build_synthetic_result <- function(entries) {
     # Use the plate-level normalisation flag collected during data gathering
     is_norm <- any(sapply(entries, function(e) isTRUE(e$is_norm)))
@@ -400,9 +392,6 @@ compare_plates_drc <- function(batch_drc_result,
     synthetic_detailed <- lapply(entries, function(e) {
       r <- e$result
       # Relabel compound so the legend shows only the plate name.
-      # plot_multiple_compounds() splits on ":" to get target vs compound;
-      # using "plate:<plate_name>" ensures the legend reads just the plate name
-      # (the smart-label logic drops the shared "plate" prefix automatically).
       r$compound <- paste0("plate:", e$plate_name)
       r
     })
@@ -417,12 +406,6 @@ compare_plates_drc <- function(batch_drc_result,
   # ============================================================================
   # 6. PLOT LOOP
   # ============================================================================
-  #
-  # legend_width handling:
-  #   NULL       -> single pass, no padding (default)
-  #   numeric    -> single pass, pad each legend to this width
-  #   "auto"     -> two-pass: first measure all legend widths, then re-render
-  #                every plot padded to the maximum measured width
 
   # -- Pre-compute per-entity metadata (title, filename, y-axis title) ----------
   entity_meta <- list()
@@ -477,8 +460,6 @@ compare_plates_drc <- function(batch_drc_result,
   total <- length(entity_map)
 
   # -- Helper: call plot_multiple_compounds for one entity ----------------------
-  # capture.output() swallows the print(p) call inside plot_multiple_compounds()
-  # while still allowing the ggplot return value to be captured via side-effect.
   plot_one_entity <- function(entity_name, lw, save_file) {
     meta      <- entity_meta[[entity_name]]
     synthetic <- meta$synthetic

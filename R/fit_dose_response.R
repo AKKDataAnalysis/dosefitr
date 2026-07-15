@@ -256,17 +256,6 @@ fit_drc_3pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
     ctype   <- detect_curve_type(df_clean)
     
     # Parameter limits depend on assay type AND whether data are normalized.
-    #
-    # "nanobret"            : BRET ratio scale; wide limits to accommodate the
-    #                         full dynamic range of NanoBRET assays. Applied
-    #                         regardless of normalize, since NanoBRET data are
-    #                         always on a ratio scale.
-    # "viability" + normalized=TRUE  : 0-100% scale with small over/undershoot
-    #                         tolerance (Bottom: -20 to 60, Top: 50 to 130).
-    # "viability" + normalized=FALSE : raw counts -- no absolute limits are
-    #                         meaningful (scale is instrument-dependent), so
-    #                         the check is disabled entirely.
-    # anything else         : check disabled.
     if (assay_type == "viability" && !normalize)
       return(list(needs_correction = FALSE))
     
@@ -563,8 +552,6 @@ fit_drc_3pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
   if (verbose) message("Starting dose-response analysis...")
   
   # Group data columns by base compound name (strip trailing .2, .3, ... suffix).
-  # This supports any number of replicates: 2 replicates (original behaviour),
-  # 4 replicates (two merged plates), 6 replicates (three merged plates), etc.
   c_names   <- colnames(analysis_data)[-1]          # data column names only
   base_names <- sub("\\.\\d+$", "", c_names)         # strip .2 / .3 / .4 ...
   compound_order <- unique(base_names)               # preserve first-appearance order

@@ -129,8 +129,8 @@ from \code{attr(results, "label_sep")}; falls back to \code{":"} if the
 attribute is absent. This only affects what the user sees — the internal
 data separator used for parsing compound names is always read from the
 attribute and is never changed. For example, \code{label_sep = "/"} renders
-\code{"EPHA1/KK135"} in the title while the data still stores
-\code{"EPHA1:KK135"} internally.}
+\code{"Kinase/Compound"} in the title while the data still stores
+\code{"Kinase:Compound"} internally.}
 
 \item{axis_line_width}{Numeric. Line width of the manually drawn x/y axis
 lines (default: 0.8).}

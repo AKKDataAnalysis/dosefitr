@@ -61,9 +61,9 @@ Takes two or more plates from a \code{\link{batch_ratio_analysis}} (or
 \code{\link{batch_viability_analysis}}) result list and combines their
 \code{modified_ratio_table}s into a single merged plate entry.  Replicates
 from each plate are renumbered sequentially so that, for example, two plates
-each contributing two replicates of \code{LRRK2:MDKM34} produce four
-columns labelled \code{LRRK2:MDKM34}, \code{LRRK2:MDKM34.2},
-\code{LRRK2:MDKM34.3}, and \code{LRRK2:MDKM34.4}.
+each contributing two replicates of \code{Kinase:Compound} produce four
+columns labelled \code{Kinase:Compound}, \code{Kinase:Compound.2},
+\code{Kinase:Compound.3}, and \code{Kinase:Compound.4}.
 }
 \details{
 The merged entry replaces the individual plate entries in the returned list
@@ -83,7 +83,7 @@ artefacts and you want to suppress the check.
 \section{Column renumbering}{
 
 Within each plate, replicate columns are already named with a \code{.2}
-suffix (e.g. \code{LRRK2:MDKM34} and \code{LRRK2:MDKM34.2}).  When
+suffix (e.g. \code{Kinase:Compound} and \code{Kinase:Compound.2}).  When
 merging, the function strips all existing numeric suffixes, groups columns
 by base name, and re-assigns suffixes \code{.2}, \code{.3}, \code{.4}, ...
 across plates in the order the plates are supplied.  The first replicate
@@ -146,8 +146,8 @@ names(merged)
 }
 }
 \seealso{
-\code{\link{batch_ratio_analysis}} for the upstream function whose output
-this function consumes.
+\code{\link{batch_ratio_analysis}} or \code{\link{batch_viability_analysis}} 
+for the upstream function whose output this function consumes.
 
 \code{\link{batch_drc_analysis}} for the downstream function that accepts
 the merged result.

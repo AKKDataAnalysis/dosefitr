@@ -4,9 +4,9 @@
 #' \code{\link{batch_viability_analysis}}) result list and combines their
 #' \code{modified_ratio_table}s into a single merged plate entry.  Replicates
 #' from each plate are renumbered sequentially so that, for example, two plates
-#' each contributing two replicates of \code{LRRK2:MDKM34} produce four
-#' columns labelled \code{LRRK2:MDKM34}, \code{LRRK2:MDKM34.2},
-#' \code{LRRK2:MDKM34.3}, and \code{LRRK2:MDKM34.4}.
+#' each contributing two replicates of \code{Kinase:Compound} produce four
+#' columns labelled \code{Kinase:Compound}, \code{Kinase:Compound.2},
+#' \code{Kinase:Compound.3}, and \code{Kinase:Compound.4}.
 #'
 #' The merged entry replaces the individual plate entries in the returned list
 #' and is fully compatible with all downstream functions
@@ -22,7 +22,7 @@
 #'
 #' @section Column renumbering:
 #' Within each plate, replicate columns are already named with a \code{.2}
-#' suffix (e.g. \code{LRRK2:MDKM34} and \code{LRRK2:MDKM34.2}).  When
+#' suffix (e.g. \code{Kinase:Compound} and \code{Kinase:Compound.2}).  When
 #' merging, the function strips all existing numeric suffixes, groups columns
 #' by base name, and re-assigns suffixes \code{.2}, \code{.3}, \code{.4}, ...
 #' across plates in the order the plates are supplied.  The first replicate
@@ -119,8 +119,8 @@
 #' names(merged)
 #' }
 #' @seealso
-#' \code{\link{batch_ratio_analysis}} for the upstream function whose output
-#' this function consumes.
+#' \code{\link{batch_ratio_analysis}} or \code{\link{batch_viability_analysis}} 
+#' for the upstream function whose output this function consumes.
 #'
 #' \code{\link{batch_drc_analysis}} for the downstream function that accepts
 #' the merged result.
@@ -191,7 +191,6 @@ merge_plate_replicates <- function(results,
   }
   
   # -- Warn if concentration column names differ across plates ----------------
-  # Column 1 is always the concentration column regardless of its name.
   conc_col_names <- vapply(tables, function(tbl) colnames(tbl)[1L], character(1L))
   if (length(unique(conc_col_names)) > 1L) {
     warning(
@@ -229,9 +228,6 @@ merge_plate_replicates <- function(results,
   }
   
   # -- Helper: strip trailing numeric suffix from a column name ---------------
-  # "LRRK2:MDKM34"    -> "LRRK2:MDKM34"
-  # "LRRK2:MDKM34.2"  -> "LRRK2:MDKM34"
-  # "LRRK2:MDKM34.10" -> "LRRK2:MDKM34"
   strip_suffix <- function(nm) {
     sub("\\.\\d+$", "", nm)
   }
@@ -322,8 +318,6 @@ merge_plate_replicates <- function(results,
   
   # -- Build the merged result entry -----------------------------------------
   # Mirror the structure of a single batch_ratio_analysis() plate entry.
-  # Fields that are plate-specific or cannot be meaningfully merged are set
-  # to NULL or to a descriptive character string.
   merged_entry <- list(
     data_file        = paste(vapply(plates, function(p)
       results[[p]]$data_file %||% p,
@@ -334,7 +328,7 @@ merge_plate_replicates <- function(results,
     control_0perc    = results[[plates[1L]]]$control_0perc,
     control_100perc  = results[[plates[1L]]]$control_100perc,
     selected_columns = results[[plates[1L]]]$selected_columns,
-    merged_from      = plates,   # extra field - records provenance
+    merged_from      = plates,  
     result           = list(
       modified_ratio_table  = merged_df,
       original_ratio_table  = NULL,   # no single "original" for a merge

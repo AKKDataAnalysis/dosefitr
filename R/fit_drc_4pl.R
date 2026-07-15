@@ -138,9 +138,7 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
   
   # Detect curve type based on data pattern.
   # Uses a relative threshold (max(15, range * 0.15)) on the head/tail
-  # mean difference -- identical to fit_drc_3pl. This scales correctly
-  # for both raw count data (large dynamic range) and normalized 0-100%
-  # data, avoiding the fixed-threshold misclassification of flat curves.
+  # mean difference -- identical to fit_drc_3pl.
   detect_curve_type <- function(data) {
     if (nrow(data) < 4) return("unknown")
     sorted_df <- data[order(data$log_inhibitor), ]
@@ -267,10 +265,7 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
   }
   
   # Check biological plausibility and apply corrections if needed.
-  # Limits depend on assay_type and normalize, matching fit_drc_3pl behaviour:
-  #   "nanobret"                  : BRET ratio scale; wide limits always applied.
-  #   "viability" + normalize=TRUE: 0-100% scale with small over/undershoot tolerance.
-  #   "viability" + normalize=FALSE: raw counts -- no absolute limits, check disabled.
+  # Limits depend on assay_type and normalize, matching fit_drc_3pl behaviour.
   #   anything else               : check disabled.
   check_biological_plausibility <- function(params, data) {
     if (assay_type == "viability" && !normalize)
@@ -492,7 +487,6 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       if (abs(span) < 20) quality_flags <- c(quality_flags, "Small span")
       if (gof_results$R_squared < r_sqr_threshold) quality_flags <- c(quality_flags, "Low R2")
       
-      # NOVA VERIFICACAO: Intervalo de confianca do LogIC50 muito amplo
       if (!is.null(logIC50_ci) && !any(is.na(logIC50_ci))) {
         ci_range <- abs(logIC50_ci[2] - logIC50_ci[1])
         if (ci_range > 0.666) {
@@ -504,11 +498,7 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
         quality_flags <- c(quality_flags, "Parameters corrected (biologically implausible)")
       }
       
-      # Flag extreme Hill slopes, direction-aware:
-      #   Inhibition curves: HillSlope is negative (e.g. -1 is standard)
-      #     steep = HillSlope < -3  |  shallow = HillSlope > -0.3
-      #   Activation curves: HillSlope is positive (e.g. +1 is standard)
-      #     steep = HillSlope > 3   |  shallow = HillSlope < 0.3
+      # Flag extreme Hill slopes, direction-aware
       if (!is.na(hill_slope)) {
         if (hill_slope < 0) {
           # Inhibition curve
@@ -574,7 +564,6 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
     
     # If correct_parameter_order() flipped the HillSlope sign, the CI bounds
     # were computed on the original (wrong-sign) fit and must be negated.
-    # The interval width is still valid; only the sign and order change.
     if (order_correction$was_corrected &&
         grepl("Hill Slope inconsistent", order_correction$correction_reason %||% "")) {
       hs_ci <- ci_results$HillSlope
@@ -649,8 +638,6 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
   
   # Main analysis loop
   # Group data columns by base compound name (strip trailing .2, .3, ... suffix).
-  # This supports any number of replicates: 2 replicates (original behaviour),
-  # 4 replicates (two merged plates), 6 replicates (three merged plates), etc.
   if (verbose) cat("Starting 4-parameter dose-response analysis...\n")
   
   c_names_data  <- colnames(data)[-1]               # data column names only
@@ -853,10 +840,10 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
     }
   }
   
-  # Return results object - MODIFICADA
+  # Return results object
   list(
     summary_table = summary_table,
-    final_summary_table = final_summary_table,  # NOVA TABELA
+    final_summary_table = final_summary_table,
     detailed_results = all_results,
     n_compounds = n_compounds,
     successful_fits = sum(!is.na(summary_table$IC50)),

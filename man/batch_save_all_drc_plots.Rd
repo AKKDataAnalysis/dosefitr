@@ -74,7 +74,7 @@ If \code{NULL}, all plates are processed.}
 
 \item{y_limits}{Numeric vector of length 2 specifying the y-axis limits
 (e.g. \code{c(0, 100)}).  If \code{NULL} (default), each plot auto-scales
-to its own data range.  Passed directly to \code{plot_dose_response()}.}
+to its own data range.  Passed directly to \code{\link{plot_dose_response}}.}
 
 \item{y_axis_title}{Character string for the y-axis label.  If \code{NULL}
 (default), auto-detected from the batch result: \code{"Cell Viability (\%)"}
@@ -111,7 +111,7 @@ to \code{":"} if the attribute is absent. This only affects what the user
 sees — the internal data separator used for parsing compound names is
 always read from the attribute. For example, \code{label_sep = "/"} renders
 \code{"EPHA1/KK135"} in titles while the data stores \code{"EPHA1:KK135"}.
-Also forwarded to \code{plot_dose_response()} via \code{...} when not
+Also forwarded to \code{\link{plot_dose_response}} via \code{...} when not
 explicitly set there.}
 
 \item{...}{Additional arguments passed to \code{\link{plot_dose_response}}.}
@@ -137,7 +137,7 @@ flexible directory organization and customizable aesthetics.
 }
 \details{
 This function scans all plates, identifies successfully fitted compounds,
-and generates publication-quality plots using \code{plot_dose_response()}.
+and generates publication-quality plots using \code{\link{plot_dose_response}}.
 
 
 The function performs the following steps:

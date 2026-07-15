@@ -65,7 +65,7 @@
 #' @param version Character. \code{"v1"} (default) dispatches to
 #'   \code{\link{process_viability_data}} (two replicates per row, columns
 #'   define the replicate). \code{"v2"} dispatches to
-#'   \code{process_viability_data_v2()} (one replicate per row; replicate
+#'   \code{\link{process_viability_data_v2}} (one replicate per row; replicate
 #'   rows share \code{Target}+\code{Compound} in the info table; output
 #'   column names get \code{.2}, \code{.3}, ... suffixes).
 #'   When \code{version = "v2"} and \code{split_replicates = TRUE}, the
@@ -188,9 +188,6 @@ batch_viability_analysis <- function(directory           = getwd(),
   }
 
   # -- Helper: number of unique compounds in a result table -------------------
-  # In v1 each compound appears as a .2 pair, so dividing by 2 is correct.
-  # In v2 each replicate is its own column with .2/.3/.../ suffix, so we count
-  # unique base names instead.
   n_unique_compounds <- function(modified_tbl) {
     if (is.null(modified_tbl)) return(0L)
     if (version == "v2") {
@@ -260,13 +257,6 @@ batch_viability_analysis <- function(directory           = getwd(),
   # -- Internal helper: compute per-construct quality metrics -----------------
   # Viability-appropriate metrics for raw (non-normalized) data.
   #
-  # Overall_Quality is driven exclusively by CV% of each control, which are
-  # scale-independent and directly reflect normalization anchor reliability.
-  # Signal_to_Background is retained as a descriptive number only -- it carries
-  # no quality comment and does not contribute to Overall_Quality, because its
-  # absolute value depends on instrument/assay signal levels and is not
-  # interpretable without context when data are not yet normalized.
-  #
   # Metrics computed per construct:
   #   Mean_Background        : mean of 0% control replicates
   #   SD_Background          : SD of 0% control replicates
@@ -322,7 +312,6 @@ batch_viability_analysis <- function(directory           = getwd(),
         !ctrl100_col %in% colnames(viability_data)) return(NULL)
     
     # CV% uses inverted thresholds: lower CV = better quality.
-    # Classify by checking upper bounds from best to worst.
     cv_quality_level <- function(cv_val) {
       if (is.na(cv_val)) return("insufficient (NA)")
       if (cv_val <= 10)  return("high (<=10%)")
