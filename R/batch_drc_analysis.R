@@ -2,7 +2,8 @@
 #'
 #' @description
 #' `batch_drc_analysis()` performs automated dose-response curve (DRC) fitting
-#' across multiple plates previously processed by `batch_ratio_analysis()`.
+#' across multiple plates previously processed by `batch_ratio_analysis()`, 
+#' `batch_viability_analysis()` or `batch_read_tables.R`.
 #'
 #' It extracts the `modified_ratio_table` from each plate, applies a
 #' 3-parameter logistic regression via [`fit_drc_3pl()`] (default) or a
@@ -23,7 +24,7 @@
 #' @param enforce_bottom_threshold Logical. If `TRUE`, forces the lower plateau of
 #'   the fitted curve to stay above `bottom_threshold`.
 #' @param bottom_threshold Numeric. Minimum acceptable bottom asymptote value.
-#' @param r_sqr_threshold Minimum acceptable R-squared for accepting a curve fit.
+#' @param r_sqr_threshold Numeric. Minimum acceptable R-squared for accepting a curve fit.
 #' @param model Character. Which dose-response model to use for fitting.
 #'   `"3pl"` (default) calls [`fit_drc_3pl()`] (3-parameter logistic, Hill
 #'   slope fixed at \eqn{\pm 1}).  `"4pl"` calls [`fit_drc_4pl()`]
@@ -54,7 +55,7 @@
 #'   }
 #'   Detected hook points are excluded from fitting but still plotted as red
 #'   \eqn{\times} symbols in `plot_dose_response()`.
-#' @param hook_threshold Positive numeric. Number of residual standard errors
+#' @param hook_threshold Numeric. Number of residual standard errors
 #'   (Syx) above the fitted curve that a candidate point must exceed to be
 #'   classified as a hook. Default `2` (approximately a 2-SE exceedance).
 #'   Only used when `hook_effect` is not `FALSE`.
@@ -232,7 +233,6 @@ batch_drc_analysis <- function(batch_results,
   .apply_hook <- function(base_name) {
     if (isFALSE(hook_effect)) return(FALSE)
     if (isTRUE(hook_effect))  return(TRUE)
-    # character vector: check membership
     base_name %in% hook_effect
   }
 
@@ -247,10 +247,6 @@ batch_drc_analysis <- function(batch_results,
   }
 
   # Detect and exclude hook-effect points for one compound result.
-  # Returns a list:
-  #   $result      - updated detailed_result (second-pass fit if hooks found)
-  #   $data_full   - data.frame(log_inhibitor, response, excluded)
-  #   $excluded_conc - numeric vector of excluded log10 concentrations (may be length 0)
   .detect_and_refit_hook <- function(result, data_table, model, normalize,
                                      enforce_bottom_threshold, bottom_threshold,
                                      r_sqr_threshold, assay_type) {
@@ -412,7 +408,6 @@ batch_drc_analysis <- function(batch_results,
       if (nrow(drc_summary) == 0) next
       
       # --- Access full data table (with replicates) ---
-      # Use the table used for fitting (Raw or Normalized) to maintain scale consistency
       used_norm <- plate_res_obj$data_tables$fitting_normalization %||% FALSE
       
       full_data_df <- if (used_norm) {
@@ -441,8 +436,6 @@ batch_drc_analysis <- function(batch_results,
       drc_summary_copy$Plate <- plate_name
       cols_order <- c("Plate", setdiff(names(drc_summary_copy), "Plate"))
       drc_summary_copy <- drc_summary_copy[, cols_order, drop = FALSE]
-      # Coerce mixed-type columns to character so bind_rows works across plates
-      # (plates with N/D compounds have character; plates without have numeric)
       mixed_cols <- c("LogIC50", "IC50",
                       "LogIC50_Lower_95CI", "LogIC50_Upper_95CI",
                       "IC50_Lower_95CI", "IC50_Upper_95CI")
@@ -465,12 +458,6 @@ batch_drc_analysis <- function(batch_results,
       if (!is.list(detailed_res)) detailed_res <- list()
       
       # Build a per-compound outlier count lookup for this plate.
-      # outliers_replaced is an attribute on modified_ratio_table set by
-      # rout_outliers_batch(). It lives on batch_results (the input to
-      # batch_drc_analysis), not on drc_results (the DRC fit output).
-      # Its $column field holds the full column name (e.g. "KinaseA:Cpd1.2");
-      # we strip the replicate suffix to get the base compound name and count
-      # rows per base name. When outlier detection was not run -> all 0.
       mrt_for_outliers <- batch_results[[plate_name]]$result$modified_ratio_table
       or_attr <- attr(mrt_for_outliers, "outliers_replaced")
       outlier_counts <- if (!is.null(or_attr) && nrow(or_attr) > 0L) {
@@ -485,8 +472,7 @@ batch_drc_analysis <- function(batch_results,
         for (i in seq_along(detailed_res)) {
           res <- detailed_res[[i]]
           if (is.null(res$success) || !isTRUE(res$success)) next
-          
-          # Name parsing
+
           clean_name <- gsub("\\.\\d+$", "", res$compound %||% "Unknown")
           parts <- strsplit(clean_name, " \\| |:")[[1]]
           parts <- trimws(parts)
@@ -559,8 +545,6 @@ batch_drc_analysis <- function(batch_results,
           if (!is.null(full_data_df) && nrow(full_data_df) >= 2) {
             
             # Locate all replicate columns for this compound by base name.
-            # This works for any number of replicates (2, 4, 6, ...) produced
-            # by merge_plate_replicates() or a standard single-plate run.
             data_col_names <- colnames(full_data_df)[-1]          # exclude conc col
             base_col_names <- sub("\\.\\d+$", "", data_col_names)  # strip .2/.3/.4
             compound_base  <- res$compound %||% ""
@@ -608,14 +592,12 @@ batch_drc_analysis <- function(batch_results,
           if (is.na(pic50_diff_lower) || is.na(pic50_diff_upper)) {
             exclusion_collector <- c(exclusion_collector, "Undefined CI")
           } else {
-            # 3-fold = log10(3) = 0.47712
-            # 5-fold = log10(5) = 0.69897
             ci_warnings <- character()
             ci_exclusions <- character()
             
-            if (pic50_diff_lower > 0.69897) {
+            if (pic50_diff_lower > 0.69897) {  # 5-fold = log10(5) = 0.69897
               ci_exclusions <- c(ci_exclusions, sprintf("Lower CI >5-fold (%.3f)", pic50_diff_lower))
-            } else if (pic50_diff_lower > 0.47712) {
+            } else if (pic50_diff_lower > 0.47712) {  # 3-fold = log10(3) = 0.47712
               ci_warnings <- c(ci_warnings, sprintf("Lower CI >3-fold (%.3f)", pic50_diff_lower))
             }
             
@@ -663,7 +645,6 @@ batch_drc_analysis <- function(batch_results,
           }
           
           # Assay Quality Metrics (from batch_results interval_means)
-          # interval_means is stored transposed: rows = metrics, cols = constructs.
           # If any of the three quality comments is "insufficient", flag it.
           {
             im <- batch_results[[plate_name]]$result$interval_means
@@ -741,7 +722,6 @@ batch_drc_analysis <- function(batch_results,
           ci_nM_upper <- if (!is.na(ci_log_upper_bound)) round(10^ci_log_upper_bound * 1e9, 3) else NA_real_
 
           # Format IC50 (uM) with CI: "0.128 (0.080 - 0.204)"
-          # Note: lower LogIC50 -> higher IC50, so min(ci_uM_lower, ci_uM_upper) is the true lower bound
           ic50_uM_ci_display <- if (is_nd) {
             "N/D"
           } else if (ic50_above_range) {
@@ -974,9 +954,6 @@ batch_drc_analysis <- function(batch_results,
       })
       
       # -- Normalise summary_table columns for downstream compatibility ------
-      # 3PL produces `Ideal_Hill_Slope`; 4PL produces `HillSlope`.
-      # Add an `Ideal_Hill_Slope` alias in the 4PL case so that the report
-      # generator (which references that column by name) works for both models.
       if (model == "4pl" &&
           !is.null(plate_drc_result$summary_table) &&
           nrow(plate_drc_result$summary_table) > 0 &&
@@ -1088,7 +1065,6 @@ batch_drc_analysis <- function(batch_results,
             .cpd_name <- strsplit(.res2$compound %||% "", " \\| ")[[1]][1]
             .row_idx  <- which(plate_drc_result$summary_table$Compound == .cpd_name)
             if (length(.row_idx) == 0L) next
-            # Update key columns from second-pass parameters
             .p <- .res2$parameters$Value
             if (!is.null(.p) && length(.p) >= 5L) {
               plate_drc_result$summary_table$Bottom[.row_idx]   <- round(.p[1], 3)

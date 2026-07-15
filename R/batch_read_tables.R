@@ -1,5 +1,5 @@
 # ============================================================================
-# Internal helper (not exported, not documented in man/)
+# Internal helper 
 # ----------------------------------------------------------------------------
 # TRUE for each path that is absolute on the current platform.  Handles
 # POSIX ("/..."), tilde ("~/..."), Windows drives ("C:\..." / "C:/..."),
@@ -22,7 +22,7 @@
 #' downstream plotter or reporter in the package.
 #'
 #' @description
-#' Use this function when the ratio and normalisation steps were already
+#' Use this function when the dose-response table steps were already
 #' performed outside \pkg{dosefitr}.  Each Excel file is expected to
 #' contain exactly one dose-response table on the first sheet with:
 #' \itemize{
@@ -107,14 +107,14 @@
 #'
 #' \tabular{lll}{
 #'   \strong{Downstream function} \tab \strong{Status} \tab \strong{Notes} \cr
-#'   \code{batch_drc_analysis}                      \tab full    \tab assay auto-detected from attribute \cr
-#'   \code{batch_save_all_drc_plots}                \tab full    \tab consumes DRC output only \cr
-#'   \code{plot_multiple_compounds}                 \tab full    \tab consumes DRC output only \cr
-#'   \code{compare_plates_drc}                      \tab full    \tab consumes DRC output only \cr
-#'   \code{rout_outliers_batch}                     \tab partial \tab ROUT is applied to normalised percentages, not raw counts \cr
-#'   \code{scarab_table} (NanoBRET)                 \tab partial \tab QC cells (Positive / Background means, Luciferase comment) will be blank \cr
-#'   \code{scarab_viability}                        \tab full    \tab does not read \code{interval_means} \cr
-#'   \code{merge_plate_replicates}                  \tab full    \tab operates on shape only \cr
+#'   \code{\link{batch_drc_analysis}}                      \tab full    \tab assay auto-detected from attribute \cr
+#'   \code{\link{batch_save_all_drc_plots}}                \tab full    \tab consumes DRC output only \cr
+#'   \code{\link{plot_multiple_compounds}}                 \tab full    \tab consumes DRC output only \cr
+#'   \code{\link{compare_plates_drc}}                      \tab full    \tab consumes DRC output only \cr
+#'   \code{\link{rout_outliers_batch}}                     \tab partial \tab ROUT is applied to normalised percentages, not raw counts \cr
+#'   \code{\link{scarab_table}} (NanoBRET)                 \tab partial \tab QC cells (Positive / Background means, Luciferase comment) will be blank \cr
+#'   \code{\link{scarab_viability}}                        \tab full    \tab does not read \code{interval_means} \cr
+#'   \code{\link{merge_plate_replicates}}                  \tab full    \tab operates on shape only \cr
 #' }
 #'
 #' \strong{Column header rules}
@@ -240,8 +240,6 @@ batch_read_tables <- function(directory         = getwd(),
     # --- Normalise file_map to a character vector (or NULL) ----------------
     if (!is.null(file_map)) {
         if (is.list(file_map)) {
-            # Reject nested / non-scalar-string entries early with a
-            # crisp message rather than letting them fall through.
             ok <- vapply(file_map,
                          function(x) is.character(x) && length(x) == 1L &&
                                      !is.na(x) && nzchar(x),
@@ -278,9 +276,7 @@ batch_read_tables <- function(directory         = getwd(),
                  ") found in directory: ", directory, call. = FALSE)
         }
     } else {
-        # file_map: absolute paths kept as-is; relative paths joined to
-        # `directory`.  Order is preserved (NOT sorted) so callers keep
-        # control of plate ordering.
+        # file_map: absolute paths kept as-is; relative paths joined to`directory`.
         is_abs   <- .file_path_is_absolute(file_map)
         resolved <- ifelse(is_abs, file_map, file.path(directory, file_map))
         missing  <- resolved[!file.exists(resolved)]
@@ -394,10 +390,10 @@ batch_read_tables <- function(directory         = getwd(),
                 ".\n",
                 "Column names must follow the 'construct:compound' pattern ",
                 "with an\noptional replicate suffix. Examples:\n",
-                "  - LRRK2:DDD02453312            (first replicate, no suffix)\n",
-                "  - LRRK2:DDD02453312.2          (second replicate)\n",
-                "  - LRRK2:DDD02453312.3          (third replicate)\n",
-                "  - LRRK2:DDD02453312.4          (fourth replicate, etc.)",
+                "  - Kinase:Compound            (first replicate, no suffix)\n",
+                "  - Kinase:Compound.2          (second replicate)\n",
+                "  - Kinase:Compound.3          (third replicate)\n",
+                "  - Kinase:Compound2.4          (fourth replicate, etc.)",
                 call. = FALSE
             )
         }

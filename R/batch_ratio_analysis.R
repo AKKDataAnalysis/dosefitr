@@ -1,9 +1,8 @@
 #' Batch NanoBRET Ratio Dose-Response Analysis
 #'
 #' Processes an entire directory of raw BMG PHERAstar Excel files in one
-#' call: reads each plate, computes BRET ratios via
-#' \code{\link{ratio_dose_response_v2}} (or the legacy
-#' \code{ratio_dose_response}), and optionally writes per-plate and
+#' call: reads each plate, computes BRET ratios via  \code{\link{ratio_dose_response}} 
+#' or \code{\link{ratio_dose_response_v2}}, and optionally writes per-plate and
 #' summary Excel reports.
 #'
 #' @description
@@ -75,7 +74,7 @@
 #'   \code{batch_analysis_report.xlsx} (default \code{TRUE}).
 #'
 #' @param function_version Character.  \code{"v1"} to call the legacy
-#'   \code{ratio_dose_response()} or \code{"v2"} (default) to call
+#'   \code{\link{ratio_dose_response}} or \code{"v2"} (default) to call
 #'   \code{\link{ratio_dose_response_v2}}.
 #'
 #' @param verbose Logical.  Print progress messages (default \code{TRUE}).
@@ -109,7 +108,8 @@
 #'     \item{\code{selected_columns}}{Value passed as
 #'       \code{selected_columns}.}
 #'     \item{\code{result}}{The full return value of the ratio function
-#'       (see \code{\link{ratio_dose_response_v2}} for the structure).}
+#'       (see \code{\link{ratio_dose_response}} or 
+#'       \code{\link{ratio_dose_response_v2}} for the structure).}
 #'   }
 #'   Plates that fail processing are omitted from the list and a warning is
 #'   issued.  If no plates succeed, a warning is issued and an empty list
@@ -155,6 +155,9 @@
 #' head(ratio_res$plate_01$result$modified_ratio_table[, 1:4])
 #' }
 #' @seealso
+#' 
+#' \code{\link{ratio_dose_response}}
+#' 
 #' \code{\link{ratio_dose_response_v2}} for the single-plate ratio
 #' function called internally.
 #'
@@ -238,8 +241,6 @@ batch_ratio_analysis <- function(directory = getwd(),
     } else {
       # 3. Fallback path: scan for a row whose integers form a consecutive
       #    sequence starting at 1 (e.g. 1,2,...,8 or 1,2,...,24).
-      #    This handles partial plates of any width while rejecting data rows
-      #    with random small integers.
       if (verbose)
         message("  [read fallback] no 'Raw Data' title found in '",
                 basename(path), "' - trying generic plate-layout detection.")
@@ -282,9 +283,7 @@ batch_ratio_analysis <- function(directory = getwd(),
     
     # 5. Content-based validation of the two A-H/A-P data blocks
     if (validate) {
-      
-      # Determine plate format: honour plate_format override if supplied,
-      # otherwise infer from the number of column-header integers.
+
       hdr_vals    <- suppressWarnings(as.integer(as.character(result[1L, ])))
       n_data_cols <- sum(!is.na(hdr_vals) & hdr_vals >= 1L & hdr_vals <= 24L)
       expected_labels <- if (!is.null(plate_format)) {
@@ -454,8 +453,8 @@ batch_ratio_analysis <- function(directory = getwd(),
     }
   }   # end .generate_batch_report
   
-  # ========== MAIN FUNCTION BODY ==========
   
+  # ========== MAIN FUNCTION BODY ==========
   
   
   if (is.null(output_dir)) {
@@ -535,9 +534,7 @@ batch_ratio_analysis <- function(directory = getwd(),
       
       info_table <- openxlsx::read.xlsx(info_path, sheet = info_sheet)
       
-      # Parse raw data - primary PHERAstar path with generic fallback;
-      # validates row labels using content-based detection before passing
-      # to the ratio function.
+      # Parse raw data - primary PHERAstar path with generic fallback
       data <- .read_nanobret_raw(data_path,
                                  plate_format = plate_format,
                                  validate     = TRUE,
@@ -576,8 +573,6 @@ batch_ratio_analysis <- function(directory = getwd(),
         excel_path <- file.path(output_dir, paste0("results_", sheet_number, ".xlsx"))
         wb <- openxlsx::createWorkbook()
         
-        # BUG_7 fix: define header_style once here so it is always in scope,
-        # regardless of whether result$interval_means is NULL.
         header_style <- openxlsx::createStyle(
           fontColour = "#FFFFFF", fgFill = "#4F81BD", halign = "center",
           textDecoration = "Bold", border = "TopBottom", borderColour = "#4F81BD"

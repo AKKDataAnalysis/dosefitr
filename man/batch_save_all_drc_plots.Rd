@@ -34,7 +34,7 @@ batch_save_all_drc_plots(
 \arguments{
 \item{batch_drc_results}{A list of DRC results. Can be either:
 \itemize{
-  \item Output from \code{batch_drc_analysis()} (with \code{$drc_results})
+  \item Output from \code{\link{batch_drc_analysis}} (with \code{$drc_results})
   \item A direct list of plate-level DRC results
 }}
 
@@ -114,7 +114,7 @@ always read from the attribute. For example, \code{label_sep = "/"} renders
 Also forwarded to \code{plot_dose_response()} via \code{...} when not
 explicitly set there.}
 
-\item{...}{Additional arguments passed to \code{plot_dose_response()}.}
+\item{...}{Additional arguments passed to \code{\link{plot_dose_response}}.}
 }
 \value{
 Invisibly returns a list with summary information:
@@ -146,7 +146,7 @@ The function performs the following steps:
   \item Identifies compounds with successful model fits
   \item Optionally filters by plate and/or compound
   \item Creates directory structure for output
-  \item Generates plots using \code{plot_dose_response()}
+  \item Generates plots using \code{\link{plot_dose_response}}
   \item Saves plots to disk with safe filenames
 }
 

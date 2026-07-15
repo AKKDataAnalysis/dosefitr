@@ -31,7 +31,7 @@ the fitted curve to stay above `bottom_threshold`.}
 
 \item{bottom_threshold}{Numeric. Minimum acceptable bottom asymptote value.}
 
-\item{r_sqr_threshold}{Minimum acceptable R-squared for accepting a curve fit.}
+\item{r_sqr_threshold}{Numeric. Minimum acceptable R-squared for accepting a curve fit.}
 
 \item{output_dir}{Directory where individual plate results and consolidated
 batch reports will be saved. Defaults to the working directory.}
@@ -69,7 +69,7 @@ Accepted values:
 Detected hook points are excluded from fitting but still plotted as red
 \eqn{\times} symbols in `plot_dose_response()`.}
 
-\item{hook_threshold}{Positive numeric. Number of residual standard errors
+\item{hook_threshold}{Numeric. Number of residual standard errors
 (Syx) above the fitted curve that a candidate point must exceed to be
 classified as a hook. Default `2` (approximately a 2-SE exceedance).
 Only used when `hook_effect` is not `FALSE`.}
@@ -92,7 +92,8 @@ If `generate_reports = TRUE`, also saves:
 }
 \description{
 `batch_drc_analysis()` performs automated dose-response curve (DRC) fitting
-across multiple plates previously processed by `batch_ratio_analysis()`.
+across multiple plates previously processed by `batch_ratio_analysis()`, 
+`batch_viability_analysis()` or `batch_read_tables.R`.
 
 It extracts the `modified_ratio_table` from each plate, applies a
 3-parameter logistic regression via [`fit_drc_3pl()`] (default) or a

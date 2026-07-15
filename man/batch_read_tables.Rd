@@ -86,7 +86,7 @@ A named list of plate results.  \code{names(result)} are the
   The class is \code{c("dosefitr_batch_result", "list")}.
 }
 \description{
-Use this function when the ratio and normalisation steps were already
+Use this function when the dose-response table steps were already
 performed outside \pkg{dosefitr}.  Each Excel file is expected to
 contain exactly one dose-response table on the first sheet with:
 \itemize{
@@ -124,14 +124,14 @@ comment) are unavailable because the raw plate reads are not present.
 
 \tabular{lll}{
   \strong{Downstream function} \tab \strong{Status} \tab \strong{Notes} \cr
-  \code{batch_drc_analysis}                      \tab full    \tab assay auto-detected from attribute \cr
-  \code{batch_save_all_drc_plots}                \tab full    \tab consumes DRC output only \cr
-  \code{plot_multiple_compounds}                 \tab full    \tab consumes DRC output only \cr
-  \code{compare_plates_drc}                      \tab full    \tab consumes DRC output only \cr
-  \code{rout_outliers_batch}                     \tab partial \tab ROUT is applied to normalised percentages, not raw counts \cr
-  \code{scarab_table} (NanoBRET)                 \tab partial \tab QC cells (Positive / Background means, Luciferase comment) will be blank \cr
-  \code{scarab_viability}                        \tab full    \tab does not read \code{interval_means} \cr
-  \code{merge_plate_replicates}                  \tab full    \tab operates on shape only \cr
+  \code{\link{batch_drc_analysis}}                      \tab full    \tab assay auto-detected from attribute \cr
+  \code{\link{batch_save_all_drc_plots}}                \tab full    \tab consumes DRC output only \cr
+  \code{\link{plot_multiple_compounds}}                 \tab full    \tab consumes DRC output only \cr
+  \code{\link{compare_plates_drc}}                      \tab full    \tab consumes DRC output only \cr
+  \code{\link{rout_outliers_batch}}                     \tab partial \tab ROUT is applied to normalised percentages, not raw counts \cr
+  \code{\link{scarab_table}} (NanoBRET)                 \tab partial \tab QC cells (Positive / Background means, Luciferase comment) will be blank \cr
+  \code{\link{scarab_viability}}                        \tab full    \tab does not read \code{interval_means} \cr
+  \code{\link{merge_plate_replicates}}                  \tab full    \tab operates on shape only \cr
 }
 
 \strong{Column header rules}

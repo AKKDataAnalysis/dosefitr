@@ -9,7 +9,7 @@
 #'
 #' @param batch_drc_results A list of DRC results. Can be either:
 #'   \itemize{
-#'     \item Output from \code{batch_drc_analysis()} (with \code{$drc_results})
+#'     \item Output from \code{\link{batch_drc_analysis}} (with \code{$drc_results})
 #'     \item A direct list of plate-level DRC results
 #'   }
 #' @param output_dir Character. Directory where plots will be saved.
@@ -66,7 +66,7 @@
 #'   \code{"EPHA1/KK135"} in titles while the data stores \code{"EPHA1:KK135"}.
 #'   Also forwarded to \code{plot_dose_response()} via \code{...} when not
 #'   explicitly set there.
-#' @param ... Additional arguments passed to \code{plot_dose_response()}.
+#' @param ... Additional arguments passed to \code{\link{plot_dose_response}}.
 #'
 #' @details
 #' The function performs the following steps:
@@ -75,7 +75,7 @@
 #'   \item Identifies compounds with successful model fits
 #'   \item Optionally filters by plate and/or compound
 #'   \item Creates directory structure for output
-#'   \item Generates plots using \code{plot_dose_response()}
+#'   \item Generates plots using \code{\link{plot_dose_response}}
 #'   \item Saves plots to disk with safe filenames
 #' }
 #'
@@ -181,9 +181,7 @@ batch_save_all_drc_plots <- function(batch_drc_results,
   `%||%` <- function(a, b) if (is.null(a) || length(a) == 0 || all(is.na(a))) b else a
 
 # Resolve label_sep: the separator used for DISPLAY purposes (titles, labels,
-  # filenames). The internal data separator (used for parsing compound names)
-  # is auto-detected from attr(batch_drc_results, "label_sep").
-  # Priority: explicit argument > attribute on batch_drc_results > default ":"
+  # filenames). 
   if (is.null(label_sep)) {
     label_sep <- attr(batch_drc_results, "label_sep")
     if (is.null(label_sep) || !is.character(label_sep) ||
@@ -193,7 +191,6 @@ batch_save_all_drc_plots <- function(batch_drc_results,
   }
 
   # Data separator: used for PARSING compound names from the internal data.
-  # This is whatever batch_ratio_analysis stamped on the results.
   data_sep <- attr(batch_drc_results, "label_sep") %||% ":"
 
   # Check if required packages are installed
@@ -335,8 +332,6 @@ batch_save_all_drc_plots <- function(batch_drc_results,
     )
   }
   
-  # Resolved at scan-time (after compounds_list is built):
-  # single_construct_batch and effective_subplot_mode are set below.
   
   # ============================================================================
   # 2. SCAN FOR VALID COMPOUNDS ACROSS ALL PLATES
@@ -470,7 +465,6 @@ batch_save_all_drc_plots <- function(batch_drc_results,
   total <- length(compounds_list)
   
   # Use a local environment for mutable state inside tryCatch handlers.
-  # This avoids <<- leaking variables into the caller's global environment.
   state <- new.env(parent = emptyenv())
   state$successes     <- 0L
   state$failures      <- 0L
@@ -506,8 +500,6 @@ batch_save_all_drc_plots <- function(batch_drc_results,
     
     tryCatch({
       # Individual plot - respects the user's plot_title setting.
-      # When plot_title = TRUE, auto-detect: use compound-only if the whole
-      # batch has a single construct, otherwise use the full Construct:Compound.
       indiv_title <- if (isTRUE(plot_title)) {
         .label_for_mode(info$compound_full, auto_mode)
       } else {

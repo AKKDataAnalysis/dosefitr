@@ -60,7 +60,7 @@ exist.}
 \code{batch_analysis_report.xlsx} (default \code{TRUE}).}
 
 \item{function_version}{Character.  \code{"v1"} to call the legacy
-\code{ratio_dose_response()} or \code{"v2"} (default) to call
+\code{\link{ratio_dose_response}} or \code{"v2"} (default) to call
 \code{\link{ratio_dose_response_v2}}.}
 
 \item{verbose}{Logical.  Print progress messages (default \code{TRUE}).}
@@ -95,7 +95,8 @@ A named list with one element per successfully processed plate.
     \item{\code{selected_columns}}{Value passed as
       \code{selected_columns}.}
     \item{\code{result}}{The full return value of the ratio function
-      (see \code{\link{ratio_dose_response_v2}} for the structure).}
+      (see \code{\link{ratio_dose_response}} or 
+      \code{\link{ratio_dose_response_v2}} for the structure).}
   }
   Plates that fail processing are omitted from the list and a warning is
   issued.  If no plates succeed, a warning is issued and an empty list
@@ -111,9 +112,8 @@ named list suitable for passing directly to
 }
 \details{
 Processes an entire directory of raw BMG PHERAstar Excel files in one
-call: reads each plate, computes BRET ratios via
-\code{\link{ratio_dose_response_v2}} (or the legacy
-\code{ratio_dose_response}), and optionally writes per-plate and
+call: reads each plate, computes BRET ratios via  \code{\link{ratio_dose_response}} 
+or \code{\link{ratio_dose_response_v2}}, and optionally writes per-plate and
 summary Excel reports.
 }
 \section{File matching}{
@@ -186,6 +186,8 @@ head(ratio_res$plate_01$result$modified_ratio_table[, 1:4])
 }
 }
 \seealso{
+\code{\link{ratio_dose_response}}
+
 \code{\link{ratio_dose_response_v2}} for the single-plate ratio
 function called internally.
 
