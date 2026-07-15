@@ -46,8 +46,8 @@ Can also accept a wrapper object from \code{batch_drc_analysis()} which contains
 \item{construct_compound}{Character string. The specific construct/compound to plot.
 Supports two formats:
 \itemize{
-\item \strong{"Construct:Compound"}: Performs an exact match (e.g., "PAK3:IPA-3").
-\item \strong{"SearchString"}: Performs a fuzzy search across constructs and compounds (e.g., "IPA-3").
+\item \strong{"Construct:Compound"}: Performs an exact match (e.g., "Kinase:Compound").
+\item \strong{"SearchString"}: Performs a fuzzy search across constructs and compounds (e.g., "Compound).
 }
 Ignored if \code{position} is provided.}
 

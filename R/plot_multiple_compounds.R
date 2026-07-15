@@ -5,7 +5,7 @@
 #' comparison between different responses. It provides extensive customization
 #' options for colors, shapes, titles, legends, gridlines, and file export.
 #'
-#' @param results The list returned by [`batch_drc_analysis()`].
+#' @param results The list returned by \code{\link{batch_drc_analysis}}.
 #'   Must contain a `drc_results` element (one entry per plate), each with
 #'   a `drc_result` sub-list that holds `detailed_results`.
 #' @param compound_indices Numeric vector specifying which compounds to include in the plot
@@ -113,10 +113,6 @@
 #' @param label_sep Character string. Separator used for DISPLAY purposes in
 #'   titles, legends, and filenames. When \code{NULL} (default), auto-detected
 #'   from \code{attr(results, "label_sep")}; falls back to \code{":"}.
-#'   The data separator (used for parsing compound names) is always read from
-#'   the attribute and is never overridden by this argument. This separation
-#'   ensures that changing the display separator does not break title or legend
-#'   logic, which was a bug in the previous single-separator design.
 #' @param legend_label Character string controlling the text shown in the
 #'   side-legend entries.  One of:
 #'   \describe{
@@ -156,8 +152,7 @@
 #'   \code{show_grid = TRUE} (default: \code{"grey95"}).
 #' @param grid_linewidth Numeric. Line width of the major grid lines
 #'   (default: 0.5).
-#' @param axis_expand Numeric vector of length 2. Expansion constants for the
-#'   continuous axis scales, passed to \code{scale_*_continuous(expand = )}.
+#' @param axis_expand Numeric vector of length 2.
 #'   Default \code{c(0, 0)} removes all padding between data and axis edge.
 #' @param legend_key_fill Character string. Fill colour of the legend key
 #'   backgrounds (default: \code{"white"}).
@@ -195,7 +190,7 @@
 #'
 #' @details
 #' This function overlays fitted dose-response curves (based on nonlinear models)
-#' together with empirical mean +- SD values for each concentration, allowing
+#' together with empirical mean +/- SD values for each concentration, allowing
 #' direct visual comparison across multiple compounds or experimental conditions.
 #'
 #' \strong{Key Features:}
@@ -331,8 +326,7 @@
 #' inherits(p, "ggplot")
 #' }
 #' @seealso
-#' \code{\link{fit_drc_3pl}} for generating input data
-#' \code{\link{fit_drc_4pl}} for generating input data
+#' \code{\link{batch_drc_analysis}} for generating input data
 #' \code{\link[ggplot2]{ggplot}} for underlying plotting functionality
 #'
 #' @export
@@ -606,8 +600,6 @@ plot_multiple_compounds <- function(results,
 
   smart_label_wrap <- function(labels, width = legend_label_wrap) {
     # Wrap a single word that contains hyphens/underscores by splitting on them.
-    # Used as a fallback for individual words that are still too long after
-    # space-based wrapping. Returns the word unchanged if no good split exists.
     wrap_hyphenated_word <- function(word, w) {
       if (nchar(word) <= w) return(word)
       if (!grepl("[-_]", word)) return(word)
@@ -631,8 +623,7 @@ plot_multiple_compounds <- function(results,
     sapply(labels, function(label) {
       if (is.na(label) || nchar(label) <= width) return(label)
 
-      # Strategy 1: space-based wrapping (handles "PF-05236216 HYDROCHLORIDE"
-      # correctly by treating "PF-05236216" as one token).
+      # Strategy 1: space-based wrapping 
       words <- strsplit(label, " ")[[1]]
       if (length(words) > 1) {
         lines <- character(0)
@@ -1580,9 +1571,6 @@ plot_multiple_compounds <- function(results,
   # ============================================================================
 
   # Point shape selection
-  # point_shapes = TRUE  → default optimal shapes, one per compound
-  # point_shapes = NULL  → all points use shape 16 (filled circle), no per-compound mapping
-  # point_shapes = <vec> → custom shapes, recycled to cover all compounds
   optimal_shapes <- c(16, 17, 15, 18, 8, 1, 2, 0, 5, 6, 7, 10, 11, 12, 13, 14)
 
   if (isTRUE(point_shapes)) {
@@ -1824,9 +1812,6 @@ plot_multiple_compounds <- function(results,
   )
 
   # Configure legend guide
-  # NOTE: row-vs-column fill order (`byrow`) is applied via theme(legend.byrow=)
-  # below, not here -- ggplot2 >= 4.0 removed the `byrow` argument from
-  # guide_legend() and ignores it silently.
   guide_args <- list(
     ncol = legend_ncol,
     override.aes = list(
@@ -1903,8 +1888,7 @@ plot_multiple_compounds <- function(results,
 
   p <- p + base_theme
 
-  # Optional theme tweaks (only applied when explicitly set, so the defaults
-  # leave the appearance unchanged).
+  # Optional theme tweaks
   if (!is.null(aspect_ratio)) {
     p <- p + ggplot2::theme(aspect.ratio = aspect_ratio)
   }
@@ -1916,10 +1900,6 @@ plot_multiple_compounds <- function(results,
   }
 
   # Draw axis lines manually so they stop exactly at the data limits.
-  # ggplot2's axis.line elements always span the full panel edge regardless of
-  # coord_cartesian / expand, so we blank them above and draw our own here.
-  # geom_segment with explicit data is more robust than annotate() under
-  # coord_cartesian.
   axis_segs_mc <- data.frame(
     x    = c(x_limits_final[1],   x_limits_final[1]),
     xend = c(x_limits_final[2],   x_limits_final[1]),
@@ -1938,10 +1918,6 @@ plot_multiple_compounds <- function(results,
   # ============================================================================
 
   # --- Legend width alignment ---
-  # Measure the rendered legend width and pad to a target so that
-  # multiple plots with different label lengths have identical panel sizes.
-  # Only right- and left-positioned legends affect panel width;
-  # bottom/top legends span the full panel width and need no padding.
   legend_width_cm <- measure_legend_width(p)
 
   if (is.character(legend_width) && legend_width == "auto") {

@@ -75,7 +75,7 @@ plot_multiple_compounds(
 )
 }
 \arguments{
-\item{results}{The list returned by [`batch_drc_analysis()`].
+\item{results}{The list returned by \code{\link{batch_drc_analysis}}.
 Must contain a `drc_results` element (one entry per plate), each with
 a `drc_result` sub-list that holds `detailed_results`.}
 
@@ -220,11 +220,7 @@ was removed in ggplot2 4.0).}
 
 \item{label_sep}{Character string. Separator used for DISPLAY purposes in
 titles, legends, and filenames. When \code{NULL} (default), auto-detected
-from \code{attr(results, "label_sep")}; falls back to \code{":"}.
-The data separator (used for parsing compound names) is always read from
-the attribute and is never overridden by this argument. This separation
-ensures that changing the display separator does not break title or legend
-logic, which was a bug in the previous single-separator design.}
+from \code{attr(results, "label_sep")}; falls back to \code{":"}.}
 
 \item{legend_label}{Character string controlling the text shown in the
 side-legend entries.  One of:
@@ -280,8 +276,7 @@ for valid values. Ignored when \code{point_shapes} is provided.}
 \item{grid_linewidth}{Numeric. Line width of the major grid lines
 (default: 0.5).}
 
-\item{axis_expand}{Numeric vector of length 2. Expansion constants for the
-continuous axis scales, passed to \code{scale_*_continuous(expand = )}.
+\item{axis_expand}{Numeric vector of length 2.
 Default \code{c(0, 0)} removes all padding between data and axis edge.}
 
 \item{legend_key_fill}{Character string. Fill colour of the legend key
@@ -333,7 +328,7 @@ options for colors, shapes, titles, legends, gridlines, and file export.
 }
 \details{
 This function overlays fitted dose-response curves (based on nonlinear models)
-together with empirical mean +- SD values for each concentration, allowing
+together with empirical mean +/- SD values for each concentration, allowing
 direct visual comparison across multiple compounds or experimental conditions.
 
 \strong{Key Features:}
@@ -470,7 +465,6 @@ inherits(p, "ggplot")
 }
 }
 \seealso{
-\code{\link{fit_drc_3pl}} for generating input data
-\code{\link{fit_drc_4pl}} for generating input data
+\code{\link{batch_drc_analysis}} for generating input data
 \code{\link[ggplot2]{ggplot}} for underlying plotting functionality
 }
