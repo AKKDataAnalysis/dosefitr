@@ -77,12 +77,12 @@ A list containing:
 The returned object is invisible (assign it to a variable to use it).
 }
 \description{
-Applies ROUT-based outlier detection (via \code{rout_outliers()}) across
+Applies ROUT-based outlier detection (via \code{\link{rout_outliers}}) across
 multiple plates contained in a batch object. Each plate is processed
 independently, and results are aggregated into summary tables.
 
-This function is designed to operate on outputs from
-\code{ratio_dose_response_v2()}, specifically the
+This function is designed to operate on outputs from \code{\link{ratio_dose_response}},
+\code{\link{ratio_dose_response_v2}} or \code{\link{batch_read_tables}}, specifically the
 \code{modified_ratio_table} element stored within each plate.
 }
 \details{
@@ -186,5 +186,6 @@ names(rout_res$plate_01)
 }
 }
 \seealso{
-\code{rout_outliers}, \code{ratio_dose_response_v2}
+\code{\link{rout_outliers}}, \code{\link{ratio_dose_response_v2}}, 
+\code{\link{ratio_dose_response}} and \code{\link{batch_read_tables}}
 }

@@ -118,7 +118,6 @@ out <- process_viability_data(
 )
 dim(out$modified_ratio_table)
 }
-}
-\seealso{
-\code{\link{t}}, \code{\link{apply}}
+
+
 }

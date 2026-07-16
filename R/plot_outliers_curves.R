@@ -30,8 +30,8 @@
 #'   \code{ceiling(n_compounds / ncol) * 3.0 + 0.6}.
 #' @param label_sep Character separator used in display labels between
 #'   construct and compound names.  Defaults to \code{":"}.  Change to
-#'   e.g. \code{"/"} to show \code{"EPHA1/KK135"} instead of
-#'   \code{"EPHA1:KK135"} in plot titles and legends.  The internal data
+#'   e.g. \code{"/"} to show \code{"Kinase/Cpd1"} instead of
+#'   \code{"Kinase:Cpd1"} in plot titles and legends.  The internal data
 #'   always uses \code{":"}; this parameter only affects display.
 #'
 #' @return Invisibly returns the combined \pkg{patchwork} ggplot object.
@@ -264,9 +264,6 @@ plot_outliers_curves <- function(rout_output,
         panel.border    = ggplot2::element_blank(),
         plot.margin     = ggplot2::margin(t = 10, r = 8, b = 4, l = 6, unit = "pt"))
     
-    # Draw axis lines manually so they stop exactly at the data limits.
-    # geom_segment with explicit data is more robust than annotate() under
-    # coord_cartesian.
     x_range_oc <- range(df[[conc_col_name]], na.rm = TRUE)
     axis_segs_oc <- data.frame(
       x    = c(x_range_oc[1],  x_range_oc[1]),

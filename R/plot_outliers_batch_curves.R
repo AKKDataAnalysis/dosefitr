@@ -207,7 +207,6 @@ plot_outliers_batch_curves <- function(batch_rout_output,
     if (verbose) message(sprintf("Created output folder: %s", plot_dir))
   }
   
-  # BUG_1 fix: define %||% BEFORE any use of it.
   `%||%` <- function(a, b) if (is.null(a) || length(a) == 0L || all(is.na(a))) b else a
   
   # Extract ROUT parameters used during batch processing
@@ -254,8 +253,6 @@ plot_outliers_batch_curves <- function(batch_rout_output,
       cmpd_part <- strsplit(nm, ":")[[1L]][1L]
       if (grepl("^NA", cmpd_part)) return(FALSE)
       vals <- tbl[[j]]
-      # BUG_5 fix: is.nan() is only valid on numeric vectors; guard before calling it
-      # to avoid spurious warnings on character columns.
       na_frac <- if (is.numeric(vals)) mean(is.na(vals) | is.nan(vals))
       else                  mean(is.na(vals))
       na_frac <= 0.8
@@ -316,19 +313,12 @@ plot_outliers_batch_curves <- function(batch_rout_output,
     plate <- batch_rout_output[[plate_name]]
     
     # ---- 5a. Extract the pre-cleaning modified_ratio_table ----
-    # rout_outliers_batch() stores the original (uncleaned)
-    # modified_ratio_table at $result$modified_ratio_table_original so that
-    # the plot function can re-fit on the original data and show outlier points
-    # as red X markers. The cleaned version (outliers -> NA) is at
-    # $result$modified_ratio_table and is used by batch_drc_analysis().
+
     mrt_original <- tryCatch(plate$result$modified_ratio_table_original,
                              error = function(e) NULL)
     mrt_cleaned  <- tryCatch(plate$result$modified_ratio_table,
                              error = function(e) NULL)
     
-    # Use original for re-fitting (so outlier points are visible as red X).
-    # Fall back to cleaned only if original was not stored (e.g. no outliers
-    # were detected on this plate, in which case both tables are identical).
     mrt <- if (!is.null(mrt_original) && is.data.frame(mrt_original) &&
                nrow(mrt_original) > 0L && ncol(mrt_original) >= 3L) {
       mrt_original
@@ -350,12 +340,7 @@ plot_outliers_batch_curves <- function(batch_rout_output,
     }
     
     # ---- 5c. Extract dose rows only (drop ALL NA-concentration rows) ----
-    # modified_ratio_table can have multiple NA-concentration rows:
-    #   - top row:    0% control mean
-    #   - bottom row: 100% control mean
-    # Both must be excluded before re-fitting. Using dose_rows (not a simple
-    # [-baseline_row] drop) mirrors the batch function and handles any number
-    # of NA-concentration rows regardless of their position.
+
     conc_vals   <- mrt_clean[[1L]]
     dose_rows   <- which(!is.na(conc_vals))
     
@@ -368,10 +353,7 @@ plot_outliers_batch_curves <- function(batch_rout_output,
     rownames(tbl_for_fit) <- NULL
     
     # ---- 5d. Obtain ROUT results for this plate ----
-    # Prefer the pre-computed rout_results stored by rout_outliers_batch(),
-    # which already has rescue flags cleared and is guaranteed to match
-    # outlier_summary exactly. Fall back to re-running ROUT only for results
-    # produced by older versions of rout_outliers_batch() that did not store it.
+
     rout_out <- tryCatch(plate$result$rout_results, error = function(e) NULL)
     
     if (is.null(rout_out) || is.null(rout_out$results) ||

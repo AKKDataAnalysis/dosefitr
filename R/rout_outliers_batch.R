@@ -1,12 +1,12 @@
 #' Batch ROUT Outlier Detection for Dose-Response Plates
 #'
 #' @description
-#' Applies ROUT-based outlier detection (via \code{rout_outliers()}) across
+#' Applies ROUT-based outlier detection (via \code{\link{rout_outliers}}) across
 #' multiple plates contained in a batch object. Each plate is processed
 #' independently, and results are aggregated into summary tables.
 #'
-#' This function is designed to operate on outputs from
-#' \code{ratio_dose_response_v2()}, specifically the
+#' This function is designed to operate on outputs from \code{\link{ratio_dose_response}},
+#' \code{\link{ratio_dose_response_v2}} or \code{\link{batch_read_tables}}, specifically the
 #' \code{modified_ratio_table} element stored within each plate.
 #'
 #' @details
@@ -157,8 +157,9 @@
 #' names(rout_res$plate_01)
 #' }
 #' @seealso
-#' \code{rout_outliers}, \code{ratio_dose_response_v2}
-#'
+#' \code{\link{rout_outliers}}, \code{\link{ratio_dose_response_v2}}, 
+#' \code{\link{ratio_dose_response}} and \code{\link{batch_read_tables}}
+#' 
 #' @export
 
 rout_outliers_batch <- function(batch_results,
@@ -222,17 +223,12 @@ rout_outliers_batch <- function(batch_results,
       cmpd_part <- strsplit(nm, ":")[[1L]][1L]
       if (grepl("^NA", cmpd_part)) return(TRUE)
       vals <- tbl[[j]]
-      # BUG_4 fix: is.nan() is only valid on numeric vectors; guard before calling
-      # it to avoid spurious warnings on character columns.
       na_frac <- if (is.numeric(vals)) mean(is.na(vals) | is.nan(vals))
       else                  mean(is.na(vals))
       na_frac > 0.8
     }, logical(1L))
     
     # Pair-aware removal: data columns come in replicate pairs (col i, col i+1).
-    # If either column of a pair is flagged, remove BOTH -- otherwise the
-    # remaining orphan column makes the total data-column count odd, which
-    # causes fit_drc_3pl() to stop with "Number of response columns must be even".
     n_data <- length(is_na_col)
     if (n_data >= 2L) {
       pair_starts <- seq(1L, n_data - 1L, by = 2L)   # indices within is_na_col
@@ -261,15 +257,7 @@ rout_outliers_batch <- function(batch_results,
   # Cytotoxicity rescue filter.
   # Takes the outlier_table and cleaned_mrt from a single plate and restores
   # points that are consistent with cytotoxicity rather than technical error.
-  #
-  # A point is rescued when BOTH replicates at the same compound + concentration
-  # are flagged (reproducible drop). The top-2 concentration rank is used as
-  # an informational label in the rescue_reason column but is NOT a hard gate -
-  # reproducible same-concentration flags anywhere in the dose range can reflect
-  # real biology (e.g. cytotoxicity at sub-maximal concentrations).
-  #
-  # Returns list(cleaned_mrt, outlier_table, rescued_rows) where rescued_rows
-  # is a data.frame (subset of outlier_table) of the rescued entries.
+
   .rescue_cytotoxic <- function(outlier_tbl, cleaned_mrt, original_mrt) {
     
     if (nrow(outlier_tbl) == 0L)
@@ -358,9 +346,7 @@ rout_outliers_batch <- function(batch_results,
     plate <- batch_results[[plate_name]]
     
     # Per-plate separator removed (verbose now shows only compound-level messages)
-    
-    # BUG_2 fix: clear any stale _original table from a previous run so that
-    # re-running on the same output object does not carry forward stale data.
+
     output[[plate_name]]$result$modified_ratio_table_original <- NULL
     
     # ---- 4a. Locate modified_ratio_table ----
@@ -385,8 +371,7 @@ rout_outliers_batch <- function(batch_results,
         n_valid           = 0L,
         dynamic_range_pct = NA_real_,
         stringsAsFactors  = FALSE)
-      # BUG_6 fix: use a source-specific key so ROUT-level skips (written below)
-      # do not overwrite NA-column skips for the same plate.
+
       skipped_list[[paste0(plate_name, "__na")]] <- .prepend_plate(sk, plate_name)
     }
     
@@ -398,13 +383,7 @@ rout_outliers_batch <- function(batch_results,
     }
     
     # ---- 4c. Separate control rows (NA concentration) from dose rows ----
-    # modified_ratio_table can have multiple NA-concentration rows:
-    #   - Row at the top:    0% control mean (e.g. original row 24)
-    #   - Row at the bottom: 100% control mean (e.g. original row 12)
-    # Both must be excluded from ROUT fitting and re-inserted at their
-    # ORIGINAL positions in the cleaned output. Inserting them all at the
-    # top (as the previous single-row logic did) breaks normalize=TRUE in
-    # batch_drc_analysis() because it expects the 100% control at the bottom.
+
     conc_col1    <- mrt_clean[[1L]]
     ctrl_rows    <- which(is.na(conc_col1))   # all NA-concentration rows
     dose_rows    <- which(!is.na(conc_col1))  # all real dose rows
@@ -452,12 +431,7 @@ rout_outliers_batch <- function(batch_results,
     if (is.null(rout_out)) next
     
     # ---- 4e. Reconstruct the full modified_ratio_table ----
-    # rout_out$cleaned_table covers only the dose rows (control rows were
-    # excluded before fitting). Re-insert all control rows at their ORIGINAL
-    # positions so the output table has the same row order as the input.
-    #
-    # Strategy: build a full-length skeleton from mrt_clean, fill dose
-    # positions with the cleaned values, leave control positions unchanged.
+
     cleaned_mrt <- rout_out$cleaned_table   # dose rows only, 1-based
     
     if (has_ctrl_rows) {
@@ -568,8 +542,7 @@ rout_outliers_batch <- function(batch_results,
       rescued_list[[plate_name]] <- .prepend_plate(rescued_rows_plate, plate_name)
     
     if (nrow(rout_out$skipped_table) > 0L) {
-      # BUG_6 fix: use a source-specific key so this does not overwrite the
-      # NA-column skip entry written above for the same plate.
+
       skipped_list[[paste0(plate_name, "__rout")]] <- .prepend_plate(rout_out$skipped_table, plate_name)
     }
     
@@ -640,7 +613,7 @@ rout_outliers_batch <- function(batch_results,
     Q                 = Q,
     n_param           = n_param,
     direction         = direction,
-    log_base          = "log10",   # hardcoded  --  modified_ratio_table is always log10
+    log_base          = "log10",   
     ntry_retry        = ntry_retry,
     keep_cytotoxic    = keep_cytotoxic,
     seed              = seed

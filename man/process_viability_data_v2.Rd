@@ -63,14 +63,14 @@ plate block. If \code{FALSE}, attempt the same fixed
 fallback positions as v1.}
 }
 \value{
-A list with the same shape as v1's \code{process_viability_data()}:
+A list with the same shape as v1's \code{\link{process_viability_data}}:
 \describe{
   \item{original_table}{Numeric data.frame of extracted viability values
         (rownames = A-H or A-P; colnames = "1".."12" or "1".."24").}
   \item{modified_table}{Transposed, control-reordered, replicate-renamed
         table with a leading log(inhibitor) column.}
   \item{processing_info}{Intermediate objects used by
-        \code{batch_viability_analysis()} for QC computation.}
+        \code{\link{batch_viability_analysis}} for QC computation.}
   \item{selected_columns_info}{Description of column selection.}
   \item{version}{\code{"v2"}.}
   \item{data_type}{\code{"viability"}.}

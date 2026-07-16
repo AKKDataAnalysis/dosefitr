@@ -93,7 +93,7 @@ If `generate_reports = TRUE`, also saves:
 \description{
 `batch_drc_analysis()` performs automated dose-response curve (DRC) fitting
 across multiple plates previously processed by `batch_ratio_analysis()`, 
-`batch_viability_analysis()` or `batch_read_tables.R`.
+`batch_viability_analysis()` or `batch_read_tables()`.
 
 It extracts the `modified_ratio_table` from each plate, applies a
 3-parameter logistic regression via [`fit_drc_3pl()`] (default) or a

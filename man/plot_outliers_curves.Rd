@@ -45,8 +45,8 @@ plots.}
 
 \item{label_sep}{Character separator used in display labels between
 construct and compound names.  Defaults to \code{":"}.  Change to
-e.g. \code{"/"} to show \code{"EPHA1/KK135"} instead of
-\code{"EPHA1:KK135"} in plot titles and legends.  The internal data
+e.g. \code{"/"} to show \code{"Kinase/Cpd1"} instead of
+\code{"Kinase:Cpd1"} in plot titles and legends.  The internal data
 always uses \code{":"}; this parameter only affects display.}
 }
 \value{

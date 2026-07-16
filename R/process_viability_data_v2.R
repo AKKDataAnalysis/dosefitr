@@ -55,14 +55,14 @@
 #'                       plate block. If \code{FALSE}, attempt the same fixed
 #'                       fallback positions as v1.
 #'
-#' @return A list with the same shape as v1's \code{process_viability_data()}:
+#' @return A list with the same shape as v1's \code{\link{process_viability_data}}:
 #' \describe{
 #'   \item{original_table}{Numeric data.frame of extracted viability values
 #'         (rownames = A-H or A-P; colnames = "1".."12" or "1".."24").}
 #'   \item{modified_table}{Transposed, control-reordered, replicate-renamed
 #'         table with a leading log(inhibitor) column.}
 #'   \item{processing_info}{Intermediate objects used by
-#'         \code{batch_viability_analysis()} for QC computation.}
+#'         \code{\link{batch_viability_analysis}} for QC computation.}
 #'   \item{selected_columns_info}{Description of column selection.}
 #'   \item{version}{\code{"v2"}.}
 #'   \item{data_type}{\code{"viability"}.}
@@ -321,9 +321,6 @@ process_viability_data_v2 <- function(data,
   }
 
   # -- 7. Build replicate-aware info_table ------------------------------------
-  # Drop rows whose Plate_Row is NA (those rows are only there to extend the
-  # concentration vector). Keep them in the original order so suffix
-  # assignment is stable.
   info_raw <- info_table
   plate_row_col <- info_raw[[2L]]
   target_col    <- info_raw[[3L]]

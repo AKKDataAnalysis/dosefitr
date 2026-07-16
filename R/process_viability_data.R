@@ -98,8 +98,6 @@
 #' )
 #' dim(out$modified_ratio_table)
 #' }
-#' @seealso
-#' \code{\link{t}}, \code{\link{apply}}
 #'
 #'
 #' @export
@@ -259,7 +257,6 @@ process_viability_data <- function(data,
     
     # --- STEP 3: Validate data structure ---
     # Check if data is numeric by scanning the entire data region
-    # (not just the first data column, which may be entirely empty)
     if (header_start_col + 1 <= ncol(data)) {
       is_numeric <- FALSE
       check_row_end <- min(data_start_row + 2, data_end_row)
@@ -343,7 +340,7 @@ process_viability_data <- function(data,
       if (verbose) message("OK - Using auto-detected table positions\n")
     }
   } else {
-    # Use fixed positions (original behavior)
+    # Use fixed positions
     header_row <- 9
     data_start_row <- 10
     data_end_row <- 25
@@ -413,14 +410,13 @@ process_viability_data <- function(data,
     }
   }
   
-  # --- COLUMN SELECTION LOGIC (ORIGINAL BEHAVIOR) ---
+  # --- COLUMN SELECTION LOGIC ---
   if (!is.null(selected_columns)) {
     # Validate selected_columns are numeric indices
     if (!is.numeric(selected_columns)) {
       stop("selected_columns must be numeric indices (e.g., c(2:23))")
     }
-    
-    # ORIGINAL BEHAVIOR:
+
     # selected_columns refers to columns in the DATA TABLE (1-24)
     
     # Validate indices are between 1 and 24
@@ -485,12 +481,11 @@ process_viability_data <- function(data,
     }
   }
   
-  # --- CONTROL COLUMN MAPPING (ORIGINAL BEHAVIOR) ---
+  # --- CONTROL COLUMN MAPPING ---
   map_control_column <- function(control_spec) {
     if (is.null(control_spec)) return(NULL)
     
     if (is.numeric(control_spec)) {
-      # ORIGINAL BEHAVIOR: control_spec is index 1-24 referring to data
       
       # Validate it's in the correct range (1-24)
       if (control_spec < 1 || control_spec > 24) {
