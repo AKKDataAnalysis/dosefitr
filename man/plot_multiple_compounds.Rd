@@ -23,6 +23,7 @@ plot_multiple_compounds(
   show_border = FALSE,
   transparent_background = FALSE,
   save_plot = NULL,
+  format = "png",
   plot_width = 10,
   plot_height = 8,
   plot_dpi = 600,
@@ -75,7 +76,7 @@ plot_multiple_compounds(
 )
 }
 \arguments{
-\item{results}{The list returned by \code{\link{batch_drc_analysis}}.
+\item{results}{The list returned by [`batch_drc_analysis()`].
 Must contain a `drc_results` element (one entry per plate), each with
 a `drc_result` sub-list that holds `detailed_results`.}
 
@@ -135,9 +136,26 @@ around the plot panel (using \code{axis_line_color}).  Default: \code{FALSE}.}
 and legend backgrounds are set to fully transparent (\code{element_rect(fill = NA)})
 instead of white. Default: \code{FALSE}.}
 
-\item{save_plot}{Defines whether to save the plot: \code{NULL} (do not save, default),
-\code{TRUE} (automatically saves as PNG with default name), or a file path with extension
-(\code{.png}, \code{.pdf}, \code{.jpeg}, \code{.tiff}, \code{.svg}, \code{.eps}) to save in a specific format.}
+\item{save_plot}{Defines whether to save the plot: \code{NULL} (do not
+save, default), \code{TRUE} (automatically saves with an auto-generated
+name in the current working directory), or a file path.  When a file
+path is supplied and it already carries an extension (\code{.png},
+\code{.pdf}, \code{.jpeg}, \code{.tiff}, \code{.svg}, \code{.eps},
+...), that extension wins and \code{format} is ignored (a message is
+emitted when \code{verbose = TRUE}).  When a file path is supplied
+without an extension, or when \code{save_plot = TRUE}, the extension
+is taken from \code{format}.}
+
+\item{format}{Character string giving the file format used when saving
+the plot.  Passed through as the file extension and forwarded to
+\code{ggplot2::ggsave()}, which infers the graphics device from it.
+Common values are \code{"png"} (default), \code{"pdf"}, \code{"svg"},
+\code{"jpeg"}, \code{"tiff"}, \code{"eps"}, and \code{"bmp"}; any
+extension \code{ggsave} recognises will work.  Only takes effect
+when the plot is actually saved (\code{save_plot} not \code{NULL}),
+and only when \code{save_plot} does not already specify an extension
+(see \code{save_plot} for the precedence rule).  Mirrors the
+\code{format} argument of \code{\link{batch_save_all_drc_plots}}.}
 
 \item{plot_width, plot_height}{Plot dimensions (in inches) when saving.}
 
@@ -220,7 +238,11 @@ was removed in ggplot2 4.0).}
 
 \item{label_sep}{Character string. Separator used for DISPLAY purposes in
 titles, legends, and filenames. When \code{NULL} (default), auto-detected
-from \code{attr(results, "label_sep")}; falls back to \code{":"}.}
+from \code{attr(results, "label_sep")}; falls back to \code{":"}.
+The data separator (used for parsing compound names) is always read from
+the attribute and is never overridden by this argument. This separation
+ensures that changing the display separator does not break title or legend
+logic, which was a bug in the previous single-separator design.}
 
 \item{legend_label}{Character string controlling the text shown in the
 side-legend entries.  One of:
@@ -276,7 +298,8 @@ for valid values. Ignored when \code{point_shapes} is provided.}
 \item{grid_linewidth}{Numeric. Line width of the major grid lines
 (default: 0.5).}
 
-\item{axis_expand}{Numeric vector of length 2.
+\item{axis_expand}{Numeric vector of length 2. Expansion constants for the
+continuous axis scales, passed to \code{scale_*_continuous(expand = )}.
 Default \code{c(0, 0)} removes all padding between data and axis edge.}
 
 \item{legend_key_fill}{Character string. Fill colour of the legend key
@@ -328,7 +351,7 @@ options for colors, shapes, titles, legends, gridlines, and file export.
 }
 \details{
 This function overlays fitted dose-response curves (based on nonlinear models)
-together with empirical mean +/- SD values for each concentration, allowing
+together with empirical mean +- SD values for each concentration, allowing
 direct visual comparison across multiple compounds or experimental conditions.
 
 \strong{Key Features:}
@@ -465,6 +488,7 @@ inherits(p, "ggplot")
 }
 }
 \seealso{
-\code{\link{batch_drc_analysis}} for generating input data
+\code{\link{fit_drc_3pl}} for generating input data
+\code{\link{fit_drc_4pl}} for generating input data
 \code{\link[ggplot2]{ggplot}} for underlying plotting functionality
 }
