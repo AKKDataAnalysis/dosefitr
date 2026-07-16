@@ -38,8 +38,8 @@
 #'   attribute is absent. This only affects what the user sees — the internal
 #'   data separator used for parsing compound names is always read from the
 #'   attribute and is never changed. For example, \code{label_sep = "/"} renders
-#'   \code{"Kinase/Compound"} in the title while the data still stores
-#'   \code{"Kinase:Compound"} internally.
+#'   \code{"EPHA1/KK135"} in the title while the data still stores
+#'   \code{"EPHA1:KK135"} internally.
 #' @param axis_line_width Numeric. Line width of the manually drawn x/y axis
 #'   lines (default: 0.8).
 #' @param axis_vjust Numeric or NULL. Vertical justification (\code{vjust}) of
@@ -120,6 +120,24 @@
 #'   `NULL` (default) inherits `point_size`.
 #' @param excluded_point_alpha Numeric between 0 and 1. Opacity of excluded points.
 #'   Default: `1`.
+#' @param show_display_overrides Logical. When \code{TRUE}, apply the same
+#'   \code{"N/D"} and \code{">highest"} semantics used by the batch report from
+#'   \code{\link{batch_drc_analysis}} to the plot: for flat curves (or, when
+#'   \code{nd_if_activation = TRUE}, activation curves), and for compounds whose
+#'   fitted IC50 exceeds the highest tested concentration, the IC50 vertical
+#'   line is not drawn.  Default \code{FALSE} preserves the historical
+#'   behaviour of always drawing the numeric IC50 line.  See
+#'   \code{\link{batch_drc_analysis}} for the underlying semantics.
+#' @param show_display_badge Logical. Only meaningful when
+#'   \code{show_display_overrides = TRUE}.  When \code{TRUE}, add a small
+#'   annotation at the top-right of the plot area indicating the override
+#'   state (\code{"IC50: N/D"} or \code{"IC50: >N uM"}).  Default \code{FALSE}
+#'   (no annotation).
+#' @param nd_if_activation Logical. When \code{TRUE} and
+#'   \code{show_display_overrides = TRUE}, activation curves are treated the
+#'   same as flat curves (their IC50 line is not drawn).  Default \code{FALSE}
+#'   mirrors \code{\link{batch_drc_analysis}}'s default and only omits the IC50
+#'   line for flat curves.
 #' @param plot_title Controls the plot title. \code{FALSE} (default) = no title;
 #'   \code{TRUE} = automatic title (construct + compound name);
 #'   character = custom title text.
@@ -295,7 +313,10 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
                                excluded_point_color = "red",
                                excluded_point_shape = 4,
                                excluded_point_size  = NULL,
-                               excluded_point_alpha = 1) {
+                               excluded_point_alpha = 1,
+                               show_display_overrides = FALSE,
+                               show_display_badge = FALSE,
+                               nd_if_activation = FALSE) {
   
   # Null-coalescing operator
   `%||%` <- function(a, b) if (is.null(a) || length(a) == 0 || all(is.na(a))) b else a
@@ -328,7 +349,10 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
   validate_inputs(results, compound_index)
   
 # Resolve label_sep: the separator used for DISPLAY purposes (titles, labels,
-# filenames). 
+# filenames). The internal data separator (used for parsing compound names)
+# is always ":" or whatever attr(results, "label_sep") reports; label_sep
+# here controls only what the user SEES.
+# Priority: explicit argument > attribute on results > default ":"
 if (is.null(label_sep)) {
   label_sep <- attr(results, "label_sep")
   if (is.null(label_sep) || !is.character(label_sep) ||
@@ -405,7 +429,11 @@ if (is.null(label_sep)) {
   compound_name_display <- strsplit(result$compound, " \\| ")[[1]][1]
 
   # Create a display version of the compound name where the internal
-  # separator is replaced with the user-facing label_sep. 
+  # separator is replaced with the user-facing label_sep. We don't rely on
+  # attr(results, "label_sep") here because plot_dose_response is often
+  # called with a single plate's drc_result (which lacks the attribute).
+  # Instead, we split on the first occurrence of a known separator and
+  # re-join with label_sep — robust regardless of the data separator.
   .find_data_sep <- function(name) {
     # Try the attribute first (most reliable when available)
     attr_sep <- attr(results, "label_sep")
@@ -476,40 +504,69 @@ if (is.null(label_sep)) {
   
   plot_config <- setup_plot_config()
   
-  # Generate fitted curve data
-  generate_fitted_curve <- function(model) {
-    if (is.null(model)) return(NULL)
-    
+  # Generate fitted curve data.  When the biological plausibility check
+  # corrected any parameter (res$biological_plausibility_check$needs_correction
+  # == TRUE), draw the curve analytically from the corrected parameters so it
+  # matches the batch report.  Otherwise use predict(model, ...) which returns
+  # the raw drm fit (identical to the corrected fit when no correction fired).
+  generate_fitted_curve <- function(res) {
+    if (is.null(res) || is.null(res$model)) return(NULL)
+
     x_range <- range(summary_data$log_inhibitor, na.rm = TRUE)
     if (!all(is.finite(x_range))) return(NULL)
-    
+
     x_seq <- seq(x_range[1], x_range[2], length.out = 300)
-    
-    predictions <- tryCatch({
-      predict(model, newdata = data.frame(log_inhibitor = x_seq))
-    }, error = function(e) NULL)
-    
+
+    corrected <- isTRUE(res$biological_plausibility_check$needs_correction)
+
+    predictions <- NULL
+    if (corrected && !is.null(res$parameters)) {
+      hs_default <- if (isTRUE(res$curve_type == "activation")) 1 else -1
+      predictions <- tryCatch(
+        analytic_dose_response(x_seq, res$parameters, hill_default = hs_default),
+        error = function(e) NULL
+      )
+    }
+
+    if (is.null(predictions)) {
+      predictions <- tryCatch(
+        predict(res$model, newdata = data.frame(log_inhibitor = x_seq)),
+        error = function(e) NULL
+      )
+    }
+
     if (!is.null(predictions)) {
       data.frame(log_inhibitor = x_seq, response = predictions)
     }
   }
   
-  # Get IC50 value for vertical line
-  get_ic50_value <- function(model) {
-    if (is.null(model)) return(NA)
-    
+  # Get IC50 value for vertical line and legend.  Reads from the corrected
+  # parameter table (result$parameters$Value[3]) so both the vline and the
+  # legend text agree with the batch report from batch_drc_analysis() and
+  # with plot_multiple_compounds().  Falls back to raw
+  # stats::coef(model)["LogIC50"] when parameters is missing or not finite
+  # (preserves behaviour on legacy result objects).
+  get_ic50_value <- function(res) {
+    if (is.null(res)) return(NA)
+    p <- res$parameters
+    if (!is.null(p) && "Parameter" %in% names(p) && "Value" %in% names(p)) {
+      v <- p$Value[p$Parameter == "LogIC50"]
+      if (length(v) > 0 && is.finite(v[1])) return(v[1])
+    }
+    m <- res$model
+    if (is.null(m)) return(NA)
     tryCatch({
-      coefs <- stats::coef(model)
-      if ("LogIC50" %in% names(coefs)) coefs["LogIC50"] else NA
+      coefs <- stats::coef(m)
+      if ("LogIC50" %in% names(coefs)) coefs[["LogIC50"]] else NA
     }, error = function(e) NA)
   }
   
   # Create legend text
-  create_legend_content <- function(model = NULL) {
+  create_legend_content <- function(res = NULL) {
     if (!show_legend) return(NULL)
-    
-    if (!is.null(model) && isTRUE(result$success)) {
-      log_ic50 <- get_ic50_value(model)
+
+    if (!is.null(res) && isTRUE(result$success)) {
+      log_ic50 <- get_ic50_value(res)
       ic50_value <- if (is.finite(log_ic50)) 10^log_ic50 else NA
       r_squared <- round(result$goodness_of_fit$R_squared, 3)
       
@@ -537,9 +594,38 @@ if (is.null(label_sep)) {
   
   # Model status and data preparation
   model_success <- !is.null(result$model) && isTRUE(result$success)
-  curve_data <- if (model_success) generate_fitted_curve(result$model) else NULL
-  log_ic50 <- if (model_success) get_ic50_value(result$model) else NA
-  legend_content <- create_legend_content(if (model_success) result$model else NULL)
+  curve_data <- if (model_success) generate_fitted_curve(result) else NULL
+  log_ic50 <- if (model_success) get_ic50_value(result) else NA
+  legend_content <- create_legend_content(if (model_success) result else NULL)
+
+  # Compute display-override state.  Mirrors batch_drc_analysis() semantics:
+  #  - is_nd: curve_type == "flat" OR (nd_if_activation && curve_type == "activation")
+  #  - is_above_range: numeric IC50 exceeds the highest tested concentration
+  # override_active is TRUE only when the user opts in via show_display_overrides.
+  override_active   <- isTRUE(show_display_overrides) && model_success
+  override_is_nd    <- FALSE
+  override_above    <- FALSE
+  override_badge    <- NA_character_
+  highest_conc_uM   <- NA_real_
+  if (override_active) {
+    ctype <- if (!is.null(result$curve_type)) as.character(result$curve_type) else NA_character_
+    override_is_nd <- isTRUE(ctype == "flat") ||
+      (isTRUE(nd_if_activation) && isTRUE(ctype == "activation"))
+    ic50_uM <- if (is.finite(log_ic50)) 10^log_ic50 * 1e6 else NA_real_
+    if (!is.null(result$data) && "log_inhibitor" %in% names(result$data)) {
+      lc <- result$data$log_inhibitor
+      lc <- lc[is.finite(lc)]
+      if (length(lc) > 0) highest_conc_uM <- round(max(10^lc) * 1e6)
+    }
+    override_above <- !override_is_nd && !is.na(ic50_uM) &&
+      !is.na(highest_conc_uM) && ic50_uM > highest_conc_uM
+    override_badge <- if (override_is_nd) {
+      "IC50: N/D"
+    } else if (override_above) {
+      sprintf("IC50: >%g uM", highest_conc_uM)
+    } else NA_character_
+  }
+  suppress_ic50_line <- override_active && (override_is_nd || override_above)
   
   # ============================================================================
   # Determine the title based on argument plot_title
@@ -618,6 +704,10 @@ if (is.null(label_sep)) {
   }
   
   # Draw axis lines manually so they stop exactly at the data limits.
+  # ggplot2's axis.line element always spans the full panel edge regardless of
+  # coord_cartesian / expand, so we blank it above and draw our own here.
+  # geom_segment with explicit data is more robust than annotate() under
+  # coord_cartesian.
   x_range_data <- range(summary_data$log_inhibitor, na.rm = TRUE)
   x_lo <- x_range_data[1] - diff(x_range_data) * 0.02   # mirrors expand mult
   x_hi <- x_range_data[2] + diff(x_range_data) * 0.02
@@ -733,9 +823,12 @@ if (is.null(label_sep)) {
       )
   }
   
-  # Add IC50 line only if valid IC50 exists
+  # Add IC50 line only if valid IC50 exists.  Skipped when display overrides
+  # are active AND the compound would show "N/D" or ">highest" in the batch
+  # report (flat curve, or IC50 above tested range).
   if (show_ic50_line && is.finite(log_ic50) &&
-      !(!is.null(ic50_excluded) && ic50_excluded)) {
+      !(!is.null(ic50_excluded) && ic50_excluded) &&
+      !suppress_ic50_line) {
     p <- p +
       ggplot2::geom_vline(
         xintercept = log_ic50,
@@ -743,6 +836,20 @@ if (is.null(label_sep)) {
         color = ic50_line_color,
         linewidth = ic50_linewidth,
         alpha = ic50_line_alpha
+      )
+  }
+
+  # Optional display-override badge at the top-right of the plot area.
+  # Only drawn when the user opts in with show_display_badge = TRUE AND
+  # show_display_overrides = TRUE AND the compound triggers an override.
+  if (isTRUE(show_display_badge) && override_active && !is.na(override_badge)) {
+    p <- p +
+      ggplot2::annotate(
+        "text",
+        x = Inf, y = Inf,
+        label = override_badge,
+        hjust = 1.1, vjust = 1.5,
+        size = 4
       )
   }
   

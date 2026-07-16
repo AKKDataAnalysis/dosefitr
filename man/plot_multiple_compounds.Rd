@@ -72,7 +72,10 @@ plot_multiple_compounds(
   legend_key_linewidth = 0.8,
   legend_lineheight = 0.8,
   plot_margin = NULL,
-  plate = NULL
+  plate = NULL,
+  show_display_overrides = FALSE,
+  show_display_badge = FALSE,
+  nd_if_activation = FALSE
 )
 }
 \arguments{
@@ -330,6 +333,27 @@ first plate is used and a message lists all available plates. Pass an
 explicit plate name (e.g. \code{plate = "plate_01"}) to select a
 specific plate. Has no effect when \code{results} is already a plain
 \code{drc_result} object.}
+
+\item{show_display_overrides}{Logical. When \code{TRUE}, apply the same
+\code{"N/D"} and \code{">highest"} semantics used by the batch report from
+\code{\link{batch_drc_analysis}} to the plot: for flat curves (or, when
+\code{nd_if_activation = TRUE}, activation curves), and for compounds
+whose fitted IC50 exceeds the highest tested concentration, the IC50
+vertical line is not drawn.  Default \code{FALSE} preserves the
+historical behaviour of always drawing the numeric IC50 line.  Mirrors
+the \code{show_display_overrides} argument of \code{\link{plot_dose_response}}.}
+
+\item{show_display_badge}{Logical. Only meaningful when
+\code{show_display_overrides = TRUE}.  When \code{TRUE}, add a small
+annotation at the top-right of the plot area listing the override state
+for each affected compound (\code{"IC50: <compound> N/D"} or
+\code{"IC50: <compound> >N uM"}).  Default \code{FALSE} (no annotation).}
+
+\item{nd_if_activation}{Logical. When \code{TRUE} and
+\code{show_display_overrides = TRUE}, activation curves are treated the
+same as flat curves (their IC50 line is not drawn).  Default \code{FALSE}
+mirrors \code{\link{batch_drc_analysis}}'s default and only omits the IC50
+line for flat curves.}
 }
 \value{
 A ggplot2 object with the generated plot, containing metadata attributes.

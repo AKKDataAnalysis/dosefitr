@@ -193,6 +193,24 @@
 #'   explicit plate name (e.g. \code{plate = "plate_01"}) to select a
 #'   specific plate. Has no effect when \code{results} is already a plain
 #'   \code{drc_result} object.
+#' @param show_display_overrides Logical. When \code{TRUE}, apply the same
+#'   \code{"N/D"} and \code{">highest"} semantics used by the batch report from
+#'   \code{\link{batch_drc_analysis}} to the plot: for flat curves (or, when
+#'   \code{nd_if_activation = TRUE}, activation curves), and for compounds
+#'   whose fitted IC50 exceeds the highest tested concentration, the IC50
+#'   vertical line is not drawn.  Default \code{FALSE} preserves the
+#'   historical behaviour of always drawing the numeric IC50 line.  Mirrors
+#'   the \code{show_display_overrides} argument of \code{\link{plot_dose_response}}.
+#' @param show_display_badge Logical. Only meaningful when
+#'   \code{show_display_overrides = TRUE}.  When \code{TRUE}, add a small
+#'   annotation at the top-right of the plot area listing the override state
+#'   for each affected compound (\code{"IC50: <compound> N/D"} or
+#'   \code{"IC50: <compound> >N uM"}).  Default \code{FALSE} (no annotation).
+#' @param nd_if_activation Logical. When \code{TRUE} and
+#'   \code{show_display_overrides = TRUE}, activation curves are treated the
+#'   same as flat curves (their IC50 line is not drawn).  Default \code{FALSE}
+#'   mirrors \code{\link{batch_drc_analysis}}'s default and only omits the IC50
+#'   line for flat curves.
 #'
 #'
 #'@importFrom ggplot2 aes
@@ -422,7 +440,10 @@ plot_multiple_compounds <- function(results,
                                     legend_key_linewidth = 0.8,
                                     legend_lineheight = 0.8,
                                     plot_margin = NULL,
-                                    plate = NULL) {
+                                    plate = NULL,
+                                    show_display_overrides = FALSE,
+                                    show_display_badge = FALSE,
+                                    nd_if_activation = FALSE) {
 
 
   # Null-coalescing operator
@@ -1361,9 +1382,29 @@ plot_multiple_compounds <- function(results,
       x_range <- range(valid_data$log_inhibitor, na.rm = TRUE)
       x_seq <- seq(x_range[1], x_range[2], length.out = 100)
 
+      # Draw the fitted curve analytically from the corrected parameters
+      # (result$parameters) when the biological plausibility check fired.
+      # Otherwise use predict(model, ...) — identical to the corrected fit
+      # when no correction fired, matches the batch report either way.
+      corrected <- isTRUE(result$biological_plausibility_check$needs_correction)
+      curve_y <- NULL
+      if (corrected && !is.null(result$parameters)) {
+        hs_default <- if (isTRUE(result$curve_type == "activation")) 1 else -1
+        curve_y <- tryCatch(
+          analytic_dose_response(x_seq, result$parameters, hill_default = hs_default),
+          error = function(e) NULL
+        )
+      }
+      if (is.null(curve_y)) {
+        curve_y <- tryCatch(
+          predict(result$model, newdata = data.frame(log_inhibitor = x_seq)),
+          error = function(e) rep(NA_real_, length(x_seq))
+        )
+      }
+
       curve_df <- data.frame(
         log_inhibitor = x_seq,
-        response = predict(result$model, newdata = data.frame(log_inhibitor = x_seq)),
+        response = curve_y,
         compound = comp_info$display_name,
         compound_index = i,
         target = comp_info$target,
@@ -1825,12 +1866,47 @@ plot_multiple_compounds <- function(results,
     }
   }
 
-  # Optional IC50 vertical reference lines
+  # Compute display-override state per selected compound.  Mirrors
+  # batch_drc_analysis(): is_nd when curve_type == "flat" or (nd_if_activation
+  # && curve_type == "activation"); is_above_range when the numeric IC50
+  # exceeds the highest tested concentration.  Only active when the user
+  # opts in via show_display_overrides = TRUE.
+  override_info <- lapply(seq_along(selected_compounds), function(i) {
+    res <- selected_compounds[[i]]$result
+    if (!isTRUE(show_display_overrides) || is.null(res)) {
+      return(list(is_nd = FALSE, above = FALSE, badge = NA_character_))
+    }
+    ctype <- if (!is.null(res$curve_type)) as.character(res$curve_type) else NA_character_
+    is_nd <- isTRUE(ctype == "flat") ||
+      (isTRUE(nd_if_activation) && isTRUE(ctype == "activation"))
+    log_ic50 <- if (!is.null(res$parameters)) res$parameters$Value[3] else NA_real_
+    ic50_uM <- if (is.finite(log_ic50)) 10^log_ic50 * 1e6 else NA_real_
+    highest_conc_uM <- NA_real_
+    if (!is.null(res$data) && "log_inhibitor" %in% names(res$data)) {
+      lc <- res$data$log_inhibitor
+      lc <- lc[is.finite(lc)]
+      if (length(lc) > 0) highest_conc_uM <- round(max(10^lc) * 1e6)
+    }
+    above <- !is_nd && !is.na(ic50_uM) &&
+      !is.na(highest_conc_uM) && ic50_uM > highest_conc_uM
+    badge <- if (is_nd) {
+      sprintf("%s: N/D", selected_compounds[[i]]$display_name)
+    } else if (above) {
+      sprintf("%s: >%g uM", selected_compounds[[i]]$display_name, highest_conc_uM)
+    } else NA_character_
+    list(is_nd = is_nd, above = above, badge = badge)
+  })
+
+  # Optional IC50 vertical reference lines.  When show_display_overrides is
+  # TRUE, skip vlines for compounds whose IC50 would show as "N/D" or
+  # ">highest" in the batch report.
   if (show_ic50_lines) {
     ic50_rows <- lapply(seq_along(selected_compounds), function(i) {
       res       <- selected_compounds[[i]]$result
       log_ic50  <- if (!is.null(res$parameters)) res$parameters$Value[3] else NA_real_
       if (is.na(log_ic50) || !is.finite(log_ic50)) return(NULL)
+      oi <- override_info[[i]]
+      if (isTRUE(show_display_overrides) && (oi$is_nd || oi$above)) return(NULL)
       data.frame(
         log_ic50 = log_ic50,
         compound = selected_compounds[[i]]$display_name,
@@ -1844,6 +1920,25 @@ plot_multiple_compounds <- function(results,
         ggplot2::aes(xintercept = .data$log_ic50, color = .data$compound),
         linetype = ic50_linetype, linewidth = ic50_linewidth, alpha = ic50_line_alpha
       )
+    }
+  }
+
+  # Optional display-override badges at the top-right of the plot area.
+  # Only drawn when both show_display_overrides = TRUE and
+  # show_display_badge = TRUE, and at least one selected compound triggered
+  # an override.  Multiple badges are stacked vertically.
+  if (isTRUE(show_display_badge) && isTRUE(show_display_overrides)) {
+    badges <- vapply(override_info, function(oi) oi$badge, character(1))
+    badges <- badges[!is.na(badges)]
+    if (length(badges) > 0) {
+      p <- p +
+        ggplot2::annotate(
+          "text",
+          x = Inf, y = Inf,
+          label = paste(badges, collapse = "\n"),
+          hjust = 1.1, vjust = 1.5,
+          size = 4
+        )
     }
   }
 

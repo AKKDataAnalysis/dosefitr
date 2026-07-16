@@ -64,7 +64,10 @@ plot_dose_response(
   excluded_point_color = "red",
   excluded_point_shape = 4,
   excluded_point_size = NULL,
-  excluded_point_alpha = 1
+  excluded_point_alpha = 1,
+  show_display_overrides = FALSE,
+  show_display_badge = FALSE,
+  nd_if_activation = FALSE
 )
 }
 \arguments{
@@ -129,8 +132,8 @@ from \code{attr(results, "label_sep")}; falls back to \code{":"} if the
 attribute is absent. This only affects what the user sees — the internal
 data separator used for parsing compound names is always read from the
 attribute and is never changed. For example, \code{label_sep = "/"} renders
-\code{"Kinase/Compound"} in the title while the data still stores
-\code{"Kinase:Compound"} internally.}
+\code{"EPHA1/KK135"} in the title while the data still stores
+\code{"EPHA1:KK135"} internally.}
 
 \item{axis_line_width}{Numeric. Line width of the manually drawn x/y axis
 lines (default: 0.8).}
@@ -246,6 +249,27 @@ Default: `4` (\eqn{\times} symbol).}
 
 \item{excluded_point_alpha}{Numeric between 0 and 1. Opacity of excluded points.
 Default: `1`.}
+
+\item{show_display_overrides}{Logical. When \code{TRUE}, apply the same
+\code{"N/D"} and \code{">highest"} semantics used by the batch report from
+\code{\link{batch_drc_analysis}} to the plot: for flat curves (or, when
+\code{nd_if_activation = TRUE}, activation curves), and for compounds whose
+fitted IC50 exceeds the highest tested concentration, the IC50 vertical
+line is not drawn.  Default \code{FALSE} preserves the historical
+behaviour of always drawing the numeric IC50 line.  See
+\code{\link{batch_drc_analysis}} for the underlying semantics.}
+
+\item{show_display_badge}{Logical. Only meaningful when
+\code{show_display_overrides = TRUE}.  When \code{TRUE}, add a small
+annotation at the top-right of the plot area indicating the override
+state (\code{"IC50: N/D"} or \code{"IC50: >N uM"}).  Default \code{FALSE}
+(no annotation).}
+
+\item{nd_if_activation}{Logical. When \code{TRUE} and
+\code{show_display_overrides = TRUE}, activation curves are treated the
+same as flat curves (their IC50 line is not drawn).  Default \code{FALSE}
+mirrors \code{\link{batch_drc_analysis}}'s default and only omits the IC50
+line for flat curves.}
 }
 \value{
 Returns a ggplot object with comprehensive metadata stored as attributes:

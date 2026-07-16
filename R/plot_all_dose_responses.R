@@ -19,7 +19,12 @@
 #'   \code{attr(results, "label_sep")}; falls back to \code{":"}. Forwarded to
 #'   \code{\link{plot_dose_response}}.
 #' @param ... Additional arguments passed to \code{\link{plot_dose_response}} for
-#'   customizing individual plots (colors, sizes, limits, etc.).
+#'   customizing individual plots (colors, sizes, limits, etc.).  This includes
+#'   the display-consistency arguments \code{show_display_overrides},
+#'   \code{show_display_badge} and \code{nd_if_activation}, which mirror the
+#'   \code{"N/D"} / \code{">highest"} semantics used by
+#'   \code{\link{batch_drc_analysis}}'s Pharmacology_Summary.  See
+#'   \code{\link{plot_dose_response}} for details.
 #'
 #' @return Invisibly returns a numeric vector of the compound indices that were plotted.
 #'   Primarily produces image files as output.

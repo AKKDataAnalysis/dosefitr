@@ -196,3 +196,151 @@ test_that("legend_label rejects invalid modes with a clear error", {
     regexp = "legend_label"
   )
 })
+
+# =============================================================================
+# `format` arg coverage
+# =============================================================================
+#
+# `format` is the file-format hint used by save_plot.  Mirrors the same-named
+# arg on batch_save_all_drc_plots(): passed straight through as the file
+# extension, no whitelist, and ggsave() infers the graphics device from it.
+#
+# Precedence rules exercised here:
+#   * save_plot = TRUE       -> auto-name uses <base>.<format>
+#   * save_plot = "path"     -> if path has no extension, append .<format>
+#                            -> if path has an extension, path wins and
+#                               format is ignored (verbose message on mismatch)
+
+test_that("format = default 'png' produces .png on auto-name", {
+  bundle <- build_plate01_drc()
+  on.exit(unlink(bundle$work_dir, recursive = TRUE), add = TRUE)
+  out_dir <- tempfile("plmc_fmt_A_"); dir.create(out_dir)
+  on.exit(unlink(out_dir, recursive = TRUE), add = TRUE)
+  old_wd <- getwd(); setwd(out_dir); on.exit(setwd(old_wd), add = TRUE)
+
+  # save_plot = TRUE lands in getwd(); default format = "png"
+  plot_multiple_compounds(bundle$drc_result, compound_indices = 1:2,
+                          save_plot = TRUE, verbose = FALSE)
+  pngs <- list.files(out_dir, pattern = "^multiple_compounds_.*\\.png$")
+  expect_length(pngs, 1L)
+})
+
+test_that("format = 'svg' produces .svg on auto-name", {
+  skip_if_not_installed("svglite")
+  bundle <- build_plate01_drc()
+  on.exit(unlink(bundle$work_dir, recursive = TRUE), add = TRUE)
+  out_dir <- tempfile("plmc_fmt_B_"); dir.create(out_dir)
+  on.exit(unlink(out_dir, recursive = TRUE), add = TRUE)
+  old_wd <- getwd(); setwd(out_dir); on.exit(setwd(old_wd), add = TRUE)
+
+  plot_multiple_compounds(bundle$drc_result, compound_indices = 1:2,
+                          save_plot = TRUE, format = "svg", verbose = FALSE)
+  svgs <- list.files(out_dir, pattern = "^multiple_compounds_.*\\.svg$")
+  expect_length(svgs, 1L)
+  # And no PNG should have been produced
+  pngs <- list.files(out_dir, pattern = "^multiple_compounds_.*\\.png$")
+  expect_length(pngs, 0L)
+})
+
+test_that("format applies when save_plot path has no extension", {
+  bundle <- build_plate01_drc()
+  on.exit(unlink(bundle$work_dir, recursive = TRUE), add = TRUE)
+  out_dir <- tempfile("plmc_fmt_C_"); dir.create(out_dir)
+  on.exit(unlink(out_dir, recursive = TRUE), add = TRUE)
+
+  target <- file.path(out_dir, "explicit_no_ext")
+  plot_multiple_compounds(bundle$drc_result, compound_indices = 1:2,
+                          save_plot = target, format = "pdf", verbose = FALSE)
+  expect_true(file.exists(paste0(target, ".pdf")))
+  expect_false(file.exists(target))          # no extensionless file
+})
+
+test_that("path extension wins when both path and format specify a format", {
+  skip_if_not_installed("svglite")
+  bundle <- build_plate01_drc()
+  on.exit(unlink(bundle$work_dir, recursive = TRUE), add = TRUE)
+  out_dir <- tempfile("plmc_fmt_D_"); dir.create(out_dir)
+  on.exit(unlink(out_dir, recursive = TRUE), add = TRUE)
+
+  target <- file.path(out_dir, "explicit.svg")
+  # Capture messages: verbose = TRUE should yield an override notice
+  msgs <- capture_messages(
+    plot_multiple_compounds(bundle$drc_result, compound_indices = 1:2,
+                            save_plot = target, format = "pdf", verbose = TRUE)
+  )
+  # File landed at the SVG path, not the PDF path
+  expect_true(file.exists(target))
+  expect_false(file.exists(sub("\\.svg$", ".pdf", target)))
+  # Override message emitted (may be one of several messages)
+  expect_true(any(grepl("ignoring `format", msgs, fixed = TRUE)),
+              info = paste("messages:", paste(msgs, collapse = " || ")))
+})
+
+test_that("matching path/format combo does NOT emit override message", {
+  bundle <- build_plate01_drc()
+  on.exit(unlink(bundle$work_dir, recursive = TRUE), add = TRUE)
+  out_dir <- tempfile("plmc_fmt_E_"); dir.create(out_dir)
+  on.exit(unlink(out_dir, recursive = TRUE), add = TRUE)
+
+  target <- file.path(out_dir, "explicit.png")
+  msgs <- capture_messages(
+    plot_multiple_compounds(bundle$drc_result, compound_indices = 1:2,
+                            save_plot = target, format = "png", verbose = TRUE)
+  )
+  expect_true(file.exists(target))
+  expect_false(any(grepl("ignoring `format", msgs, fixed = TRUE)),
+               info = paste("messages:", paste(msgs, collapse = " || ")))
+})
+
+test_that("format = '.svg' (leading dot) is tolerated", {
+  skip_if_not_installed("svglite")
+  bundle <- build_plate01_drc()
+  on.exit(unlink(bundle$work_dir, recursive = TRUE), add = TRUE)
+  out_dir <- tempfile("plmc_fmt_G_"); dir.create(out_dir)
+  on.exit(unlink(out_dir, recursive = TRUE), add = TRUE)
+  old_wd <- getwd(); setwd(out_dir); on.exit(setwd(old_wd), add = TRUE)
+
+  # Leading dot and whitespace should be stripped before use
+  plot_multiple_compounds(bundle$drc_result, compound_indices = 1:2,
+                          save_plot = TRUE, format = ".svg", verbose = FALSE)
+  svgs <- list.files(out_dir, pattern = "^multiple_compounds_.*\\.svg$")
+  expect_length(svgs, 1L)
+  # No literal "..svg" extension anywhere
+  double_dot <- list.files(out_dir, pattern = "\\.\\.svg$")
+  expect_length(double_dot, 0L)
+})
+
+test_that("format rejects empty / NA / wrong type with a clear error", {
+  bundle <- build_plate01_drc()
+  on.exit(unlink(bundle$work_dir, recursive = TRUE), add = TRUE)
+  out_dir <- tempfile("plmc_fmt_F_"); dir.create(out_dir)
+  on.exit(unlink(out_dir, recursive = TRUE), add = TRUE)
+
+  target <- file.path(out_dir, "bad")
+  # Empty string
+  expect_error(
+    plot_multiple_compounds(bundle$drc_result, compound_indices = 1:2,
+                            save_plot = target, format = "", verbose = FALSE),
+    regexp = "`format` must be"
+  )
+  # NA
+  expect_error(
+    plot_multiple_compounds(bundle$drc_result, compound_indices = 1:2,
+                            save_plot = target, format = NA_character_,
+                            verbose = FALSE),
+    regexp = "`format` must be"
+  )
+  # Wrong type
+  expect_error(
+    plot_multiple_compounds(bundle$drc_result, compound_indices = 1:2,
+                            save_plot = target, format = 42, verbose = FALSE),
+    regexp = "`format` must be"
+  )
+  # Length > 1
+  expect_error(
+    plot_multiple_compounds(bundle$drc_result, compound_indices = 1:2,
+                            save_plot = target, format = c("png", "svg"),
+                            verbose = FALSE),
+    regexp = "`format` must be"
+  )
+})
