@@ -229,7 +229,7 @@
 #'
 #' @details
 #' This function overlays fitted dose-response curves (based on nonlinear models)
-#' together with empirical mean +- SD values for each concentration, allowing
+#' together with empirical mean +/- SD values for each concentration, allowing
 #' direct visual comparison across multiple compounds or experimental conditions.
 #'
 #' \strong{Key Features:}
@@ -365,8 +365,7 @@
 #' inherits(p, "ggplot")
 #' }
 #' @seealso
-#' \code{\link{fit_drc_3pl}} for generating input data
-#' \code{\link{fit_drc_4pl}} for generating input data
+#' \code{\link{batch_drc_analysis}} for generating input data
 #' \code{\link[ggplot2]{ggplot}} for underlying plotting functionality
 #'
 #' @export
@@ -682,8 +681,7 @@ plot_multiple_compounds <- function(results,
     sapply(labels, function(label) {
       if (is.na(label) || nchar(label) <= width) return(label)
 
-      # Strategy 1: space-based wrapping (handles "PF-05236216 HYDROCHLORIDE"
-      # correctly by treating "PF-05236216" as one token).
+      # Strategy 1: space-based wrapping
       words <- strsplit(label, " ")[[1]]
       if (length(words) > 1) {
         lines <- character(0)
@@ -1651,9 +1649,6 @@ plot_multiple_compounds <- function(results,
   # ============================================================================
 
   # Point shape selection
-  # point_shapes = TRUE  → default optimal shapes, one per compound
-  # point_shapes = NULL  → all points use shape 16 (filled circle), no per-compound mapping
-  # point_shapes = <vec> → custom shapes, recycled to cover all compounds
   optimal_shapes <- c(16, 17, 15, 18, 8, 1, 2, 0, 5, 6, 7, 10, 11, 12, 13, 14)
 
   if (isTRUE(point_shapes)) {
@@ -2041,10 +2036,6 @@ plot_multiple_compounds <- function(results,
   }
 
   # Draw axis lines manually so they stop exactly at the data limits.
-  # ggplot2's axis.line elements always span the full panel edge regardless of
-  # coord_cartesian / expand, so we blank them above and draw our own here.
-  # geom_segment with explicit data is more robust than annotate() under
-  # coord_cartesian.
   axis_segs_mc <- data.frame(
     x    = c(x_limits_final[1],   x_limits_final[1]),
     xend = c(x_limits_final[2],   x_limits_final[1]),

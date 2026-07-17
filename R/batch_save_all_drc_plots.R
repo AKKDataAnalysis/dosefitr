@@ -63,7 +63,7 @@
 #'   to \code{":"} if the attribute is absent. This only affects what the user
 #'   sees — the internal data separator used for parsing compound names is
 #'   always read from the attribute. For example, \code{label_sep = "/"} renders
-#'   \code{"EPHA1/KK135"} in titles while the data stores \code{"EPHA1:KK135"}.
+#'   \code{"Kinase/Cpd1"} in titles while the data stores \code{"Kinase:Cpd1"}.
 #'   Also forwarded to \code{\link{plot_dose_response}} via \code{...} when not
 #'   explicitly set there.
 #' @param ... Additional arguments passed to \code{\link{plot_dose_response}}.

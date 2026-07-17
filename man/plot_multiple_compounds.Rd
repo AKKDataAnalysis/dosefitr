@@ -375,7 +375,7 @@ options for colors, shapes, titles, legends, gridlines, and file export.
 }
 \details{
 This function overlays fitted dose-response curves (based on nonlinear models)
-together with empirical mean +- SD values for each concentration, allowing
+together with empirical mean +/- SD values for each concentration, allowing
 direct visual comparison across multiple compounds or experimental conditions.
 
 \strong{Key Features:}
@@ -512,7 +512,6 @@ inherits(p, "ggplot")
 }
 }
 \seealso{
-\code{\link{fit_drc_3pl}} for generating input data
-\code{\link{fit_drc_4pl}} for generating input data
+\code{\link{batch_drc_analysis}} for generating input data
 \code{\link[ggplot2]{ggplot}} for underlying plotting functionality
 }
