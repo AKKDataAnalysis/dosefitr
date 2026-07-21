@@ -164,12 +164,13 @@ save_multiple_sheets(
 file.exists(xlsx_out)
 
 ## ----v2-note, eval = FALSE----------------------------------------------------
+# # v2: fixed 0 % scalar + one or more averaged 100 % columns
 # via_res_v2 <- batch_viability_analysis(
 #   directory        = work_dir,
 #   info_file        = "viability_info.xlsx",
 #   data_pattern     = "viability_plate_\\d+\\.xlsx$",
-#   control_0perc    = 1,
-#   control_100perc  = 24,
+#   control_0perc    = 1,           # fixed scalar baseline (not a column)
+#   control_100perc  = 24,          # 100 % control column(s); may be a vector
 #   selected_columns = 1:24,
 #   generate_reports = FALSE,
 #   output_dir       = via_out,

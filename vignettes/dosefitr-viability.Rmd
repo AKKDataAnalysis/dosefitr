@@ -397,18 +397,33 @@ The fit-level `Curve_Quality` column carries one of:
 
 See `?batch_drc_analysis` for the complete list and thresholds.
 
-# Note on the v2 processor
+# Other layouts: the v2 and v3 processors
 
-For info tables that follow the alternative PHERAstar layout (with
-merged control columns in a single sheet), pass `version = "v2"`:
+`batch_viability_analysis()` supports three layouts via the `version`
+argument. The `version = "v1"` processor used above expects two
+technical replicates per plate row. The other two handle different
+control and replicate conventions:
+
+- **`version = "v2"` (NanoBRET-style).** The 0 % control is a *fixed
+  scalar* supplied through `control_0perc` (never a plate well); it
+  becomes a constant `Fixed_0perc` first row. The 100 % control is one
+  or more *plate columns* named in `control_100perc`, averaged into a
+  single `Mean_100perc` last row and then consumed. This mirrors the
+  control style of `ratio_dose_response_v2()` on the NanoBRET side.
+
+- **`version = "v3"` (row-based replicates).** One replicate per plate
+  row; replicate rows are encoded as repeated `Target` + `Compound`
+  pairs in the info table, and the output column names receive `.2`,
+  `.3`, ... suffixes.
 
 ```{r v2-note, eval = FALSE}
+# v2: fixed 0 % scalar + one or more averaged 100 % columns
 via_res_v2 <- batch_viability_analysis(
   directory        = work_dir,
   info_file        = "viability_info.xlsx",
   data_pattern     = "viability_plate_\\d+\\.xlsx$",
-  control_0perc    = 1,
-  control_100perc  = 24,
+  control_0perc    = 1,           # fixed scalar baseline (not a column)
+  control_100perc  = 24,          # 100 % control column(s); may be a vector
   selected_columns = 1:24,
   generate_reports = FALSE,
   output_dir       = via_out,
@@ -416,10 +431,12 @@ via_res_v2 <- batch_viability_analysis(
 )
 ```
 
-The two processors share the downstream pipeline: the same
-`batch_drc_analysis()` call, the same plot functions, the same
-`scarab_viability()` export. The only structural difference is the
-shape of the info table.
+All three processors share the downstream pipeline: the same
+`batch_drc_analysis()` call, the same plot functions, and the same
+`scarab_viability()` export. They differ only in how the 0 % / 100 %
+controls and replicates are laid out; see
+`?process_viability_data_v2` and `?process_viability_data_v3` for the
+full contracts.
 
 # See also
 

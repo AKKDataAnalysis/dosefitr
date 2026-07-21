@@ -214,8 +214,11 @@ ratio_res_v2 <- batch_ratio_analysis(
 )
 ```
 
-See `vignette("dosefitr-viability", package = "dosefitr")` for the
-canonical v2-processor example on cell-viability data.
+The cell-viability pipeline has its own `version = "v2"` processor that
+borrows this same NanoBRET-style control model (a fixed 0 % scalar plus
+one or more averaged 100 % columns); see
+`vignette("dosefitr-viability", package = "dosefitr")` for a
+viability-side example and for the row-based `version = "v3"` layout.
 
 # Detect outliers (ROUT)
 
