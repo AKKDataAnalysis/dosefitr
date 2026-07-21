@@ -14,6 +14,7 @@ process_viability_data(
   low_value_threshold = 0,
   verbose = TRUE,
   apply_control_means = TRUE,
+  control_mean_scope = c("construct", "row", "global"),
   auto_detect = TRUE
 )
 }
@@ -47,8 +48,29 @@ Default is 0.}
 
 \item{verbose}{Logical. If TRUE (default), prints progress messages and warnings.}
 
-\item{apply_control_means}{Logical. If TRUE (default), replaces control values with
-construct-specific means based on \code{info_table}.}
+\item{apply_control_means}{Logical. If TRUE (default), replace the 0\% and 100\%
+control cells with aggregated means (see \code{control_mean_scope}). If FALSE,
+controls are left as raw per-well values and \code{control_mean_scope} is ignored.}
+
+\item{control_mean_scope}{Character; one of \code{"construct"} (default),
+\code{"row"}, or \code{"global"}. Only used when
+\code{apply_control_means = TRUE}; it selects how the 0\% and 100\% control
+columns are aggregated (the same scope is applied \emph{jointly} to both):
+\describe{
+  \item{\code{"construct"}}{For each construct (grouped by \code{info_table}
+    Plate_Row -> Construct), replace that construct's rows' 0\% cells with the
+    mean of those 0\% cells, and likewise for the 100\% cells. This is the
+    legacy per-construct behaviour and the default.}
+  \item{\code{"global"}}{Replace \emph{all} rows' 0\% cells with the single
+    plate-wide mean of the 0\% column, and all rows' 100\% cells with the
+    plate-wide mean of the 100\% column.}
+  \item{\code{"row"}}{Identity: each plate row keeps its own raw 0\% and 100\%
+    control values (no cross-row averaging). Because v1 holds a single control
+    well per row, there is nothing to average \emph{within} a row, so
+    \code{"row"} performs no replacement. (This differs from \code{"row"} in
+    the NanoBRET-style \code{\link{process_viability_data_v2}}, which averages
+    across multiple 100\% columns within each row.)}
+}}
 
 \item{auto_detect}{Logical. If TRUE (default), automatically detects the plate
 structure within the input data.}

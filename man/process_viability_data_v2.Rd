@@ -2,7 +2,8 @@
 % Please edit documentation in R/process_viability_data_v2.R
 \name{process_viability_data_v2}
 \alias{process_viability_data_v2}
-\title{Process viability data from a plate with row-based replicates (v2 layout)}
+\title{Process viability data with a fixed 0\% baseline and column-averaged 100\%
+control (v2 layout)}
 \usage{
 process_viability_data_v2(
   data,
@@ -13,97 +14,159 @@ process_viability_data_v2(
   selected_columns = NULL,
   low_value_threshold = 0,
   verbose = TRUE,
-  apply_control_means = TRUE,
+  control_mean_scope = c("row", "construct", "global"),
   auto_detect = TRUE
 )
 }
 \arguments{
-\item{data}{Raw plate data.frame / matrix, including any header
-rows/columns. Auto-detection will locate the data
-block.}
+\item{data}{Raw plate data.frame / matrix, including any header rows/columns.
+Auto-detection locates the data block (rows A-H + cols 1-12 for a 96-well
+plate, or rows A-P + cols 1-24 for a 384-well plate).}
 
-\item{control_0perc}{Single integer in \code{[1, n_cols]} -- well used as
-the 0\% (background) control. Must be one of
-\code{selected_columns}.}
+\item{control_0perc}{\strong{Required.} A single finite numeric value used as
+the fixed 0\% baseline. It is placed as the constant first row
+(\code{Fixed_0perc}) of \code{modified_table}. Unlike v1/v2 this is
+\emph{not} a plate column: pass a number such as \code{0} (a 0\% floor) or a
+measured background signal. Non-numeric, length \eqn{\neq} 1, or \code{NA}
+values raise an error.}
 
-\item{control_100perc}{Single integer in \code{[1, n_cols]} -- well used as
-the 100\% (positive) control. Must be one of
-\code{selected_columns}.}
+\item{control_100perc}{\strong{Required.} The 100\% (positive / untreated)
+control column(s). Accepts \strong{either}:
+\itemize{
+  \item numeric well index/indices in \code{[1, n_cols]}, e.g. \code{24} or
+        \code{c(23, 24)}; \strong{or}
+  \item character column name(s), e.g. \code{"24"} or \code{c("23", "24")}.
+}
+The mean of these columns becomes the last row (\code{Mean_100perc}); see
+\code{control_mean_scope} for how the mean is computed. Every 100\% column
+must also be present in \code{selected_columns}.}
 
-\item{split_replicates}{Accepted for API parity with v1. v2 never splits a
-row (replicates are defined by repeated rows in
-\code{info_table}), so if \code{TRUE} the function
-forces it to \code{FALSE} and emits a one-line
-message.}
+\item{split_replicates}{Logical. If \code{TRUE} (default), the middle
+(experimental) rows of the transposed table are split into two technical
+replicates that share the \code{Fixed_0perc} / \code{Mean_100perc}
+bracketing rows (v1-style). The second replicate's columns receive a
+\code{.2} suffix. If the number of experimental wells is odd, the last well
+is dropped (a one-line warning is emitted).}
 
-\item{info_table}{data.frame with at least four columns, in this order:
-\code{log(inhibitor)}, \code{Plate_Row}, \code{Target},
-\code{Compound}. The first column may contain NAs
-(they are dropped); \code{Plate_Row} may have trailing
-NA rows (they exist only to extend the concentration
-vector and are ignored).}
+\item{info_table}{\strong{Required.} A data.frame with at least four columns,
+in this order: \code{log(inhibitor)}, \code{Plate_Row} (A-H or A-P),
+\code{Construct}, \code{Compound}. Repeated \code{Construct}+\code{Compound}
+pairs are treated as biological replicates and disambiguated with
+\code{_2}, \code{_3}, ... suffixes on the construct name (as in v1).}
 
-\item{selected_columns}{Integer vector of well/column indices in
-\code{[1, n_cols]} to keep. Both controls must be
-included. Default \code{NULL} means \code{1:n_cols}.}
+\item{selected_columns}{Optional integer vector of well/column indices in
+\code{[1, n_cols]} to keep. Default \code{NULL} means all columns. Must
+include every \code{control_100perc} column and must not contain
+duplicates.}
 
-\item{low_value_threshold}{Numeric. Values strictly below this threshold
-are replaced with NA. Default \code{0}.}
+\item{low_value_threshold}{Numeric. Values strictly below this threshold are
+replaced with \code{NA} before any averaging. Default \code{0}.}
 
-\item{verbose}{Logical. If \code{TRUE}, print progress messages.}
+\item{verbose}{Logical. If \code{TRUE} (default), print progress messages.}
 
-\item{apply_control_means}{Logical. If \code{TRUE}, replace each row's
-\code{control_0perc} and \code{control_100perc}
-wells with the per-Target mean across all plate rows
-that share the same Target (across all compounds for
-that Target).}
+\item{control_mean_scope}{Character; one of \code{"row"} (default for v2),
+\code{"construct"}, or \code{"global"}. Controls how the 100\% columns are
+averaged into the \code{Mean_100perc} last row. See \strong{Details} for
+worked definitions of each mode. Does not affect the fixed 0\% row.}
 
-\item{auto_detect}{Logical. If \code{TRUE} (default), auto-detect the
-plate block. If \code{FALSE}, attempt the same fixed
-fallback positions as v1.}
+\item{auto_detect}{Logical. If \code{TRUE} (default), auto-detect the plate
+block. If \code{FALSE}, fall back to fixed 96-well positions analogous to
+v2's fallback.}
 }
 \value{
-A list with the same shape as v1's \code{\link{process_viability_data}}:
+A list with the same shape as \code{\link{process_viability_data_v3}}:
 \describe{
   \item{original_table}{Numeric data.frame of extracted viability values
-        (rownames = A-H or A-P; colnames = "1".."12" or "1".."24").}
-  \item{modified_table}{Transposed, control-reordered, replicate-renamed
-        table with a leading log(inhibitor) column.}
+        (rownames = A-H or A-P; colnames = \code{"1"}..\code{"n"}).}
+  \item{modified_table}{Transposed, control-bracketed, replicate-split table
+        with a leading \code{log(inhibitor)} column; first row
+        \code{Fixed_0perc}, last row \code{Mean_100perc}.}
   \item{processing_info}{Intermediate objects used by
-        \code{\link{batch_viability_analysis}} for QC computation.}
-  \item{selected_columns_info}{Description of column selection.}
+        \code{\link{batch_viability_analysis}} for QC computation, including
+        \code{control_0_info} (with the fixed value) and \code{control_100_info}
+        (with the column names and scope).}
+  \item{selected_columns_info}{Description of the column selection.}
   \item{version}{\code{"v2"}.}
   \item{data_type}{\code{"viability"}.}
   \item{auto_detect}{Echo of the input.}
-  \item{behavior_mode}{\code{"v2-row-replicates"}.}
+  \item{behavior_mode}{\code{"v2-fixed0-colmean100"}.}
 }
 }
 \description{
-Variant of \code{\link{process_viability_data}} for a different plate-layout
-convention. In v2:
+Third viability processor for \pkg{dosefitr}. It ports the control style of
+\code{\link{ratio_dose_response_v2}} (the NanoBRET processor) into the
+cell-viability world:
+
 \itemize{
-  \item Replicates are encoded as repeated rows in \code{info_table} that
-        share the same \code{Target}/\code{Compound} pair. The first
-        occurrence keeps the name \code{Target:Compound}; subsequent rows
-        get suffixes \code{.2}, \code{.3}, \code{.4}, ... appended to the
-        column name in the final output (the construct name itself is not
-        modified).
-  \item Concentrations live in the first column of \code{info_table} and
-        map to wells (columns of the plate), not to plate rows. Only the
-        non-NA numeric entries are used; the function builds the final
-        concentration column as \code{c(NA, concs, NA)}, with NA at the
-        positions corresponding to \code{control_0perc} (first row of the
-        final table) and \code{control_100perc} (last row).
-  \item Optimised for a 96-well plate (rows A-H, columns 1-12) by default,
-        but also accepts a 384-well plate (rows A-P, columns 1-24) if the
-        auto-detected data block matches that shape.
+  \item The \strong{0\% control} is a \strong{fixed scalar} supplied by the
+        user (\code{control_0perc}). It becomes a constant first row
+        (\code{Fixed_0perc}) of \code{modified_table}. It is \emph{never} a
+        plate well, and \code{control_mean_scope} does not affect it.
+  \item The \strong{100\% control} is one or more \strong{plate columns}
+        (\code{control_100perc}). Their values are averaged into a single
+        \code{Mean_100perc} row (the \strong{last row} of
+        \code{modified_table}) and the columns are then \strong{removed} from
+        the experimental wells (consumed as controls), exactly like
+        \code{\link{ratio_dose_response_v2}} drops its 100\% columns.
 }
+
+Like \code{\link{process_viability_data}} (v1), the plate uses a layout in
+which each construct spans a set of plate rows and, when
+\code{split_replicates = TRUE}, the middle (experimental) rows are halved
+into two technical replicates that share the bracketing control rows.
+}
+\details{
+\strong{How the 100\% mean is computed --- \code{control_mean_scope}.}
+The last row (\code{Mean_100perc}) is built from the columns named in
+\code{control_100perc}. The scope argument selects one of three behaviours;
+the 0\% first row is always the fixed scalar regardless of scope.
+
+Suppose \code{control_100perc = c(23, 24)} (two columns) and the plate has
+constructs A (plate rows A-D) and B (plate rows E-H):
+
+\describe{
+  \item{\code{"row"} (default for v2)}{For \emph{each plate row}, average that
+        row's values across columns 23 and 24. After the table is transposed
+        (wells become rows, plate rows become columns), the \code{Mean_100perc}
+        row therefore carries a \emph{different} value for every construct
+        column --- each equal to that plate row's own mean of the 100\%
+        columns. This is the direct analogue of the NanoBRET
+        \code{rowMeans(ratio[, control_100_cols])} behaviour.}
+  \item{\code{"construct"}}{For \emph{each construct}, average columns 23 and
+        24 over \emph{all plate rows belonging to that construct}. Every column
+        of construct A shares one value (its mean over rows A-D); every column
+        of construct B shares another (its mean over rows E-H). This mirrors
+        the per-construct control averaging used by v1/v2, applied to the
+        100\% control only.}
+  \item{\code{"global"}}{Average \emph{all cells} in columns 23 and 24 across
+        the whole plate into a single number. The \code{Mean_100perc} row is
+        then identical for every construct column.}
+}
+
+\strong{Concentration axis.} \code{info_table[[1]]} must provide one
+log-concentration per \emph{experimental} well (i.e. after the 100\% control
+columns are removed), per replicate. The leading column of the output is
+assembled as \code{c(NA, exp_concs, NA)}, with \code{NA} at the
+\code{Fixed_0perc} (row 1) and \code{Mean_100perc} (last row) positions.
+
+\strong{Output row count.} With \code{k = length(selected_columns)} and
+\code{m = } number of distinct 100\% control columns, the retained
+experimental wells number \code{k - m}. When \code{split_replicates = TRUE},
+those are halved (an odd count drops the last well, as in v1), giving
+\code{e = floor((k - m) / 2)} rows per replicate. The final table has
+\code{e + 2} rows: \code{Fixed_0perc}, \code{e} concentrations,
+\code{Mean_100perc}. For the canonical 24-column plate with a single 100\%
+column this is \code{floor(23/2) + 2 = 13} rows, matching the other viability
+processors. With \code{split_replicates = FALSE} the table has
+\code{(k - m) + 2} rows.
 }
 \examples{
 stopifnot(requireNamespace("dosefitr", quietly = TRUE))
 \donttest{
-# v2 targets a 96-well plate (rows A-H, cols 1-12) with row-based replicates.
-# The bundled fixtures are 384-well, so we build a small synthetic plate here.
+# v2 uses a fixed 0\% scalar and averages user-chosen columns for the 100\%
+# control. The bundled fixtures are not required; build a small synthetic
+# 96-well plate (rows A-H, cols 1-12) here.
+set.seed(1L)
 n_hdr <- 12L
 header_rows <- as.data.frame(
   matrix("", nrow = n_hdr, ncol = 13L), stringsAsFactors = FALSE
@@ -111,43 +174,47 @@ header_rows <- as.data.frame(
 col_label_row <- as.data.frame(
   matrix(c("", as.character(1:12)), nrow = 1L), stringsAsFactors = FALSE
 )
-set.seed(1L)
 data_rows <- as.data.frame(
   matrix("", nrow = 8L, ncol = 13L), stringsAsFactors = FALSE
 )
-logc <- seq(-9, -5, length.out = 10L)
+logc <- seq(-9, -5, length.out = 10L)   # 10 experimental wells (cols 2-11)
 for (i in seq_len(8L)) {
-  data_rows[i, 1L] <- LETTERS[i]
   frac <- 1 / (1 + 10^((logc - (-7))))
   vals <- 40 + (800 - 40) * frac + rnorm(10L, 0, 5)
-  data_rows[i, 2L]     <- as.character(round(800 + rnorm(1L, 0, 3)))
-  data_rows[i, 3L:12L] <- as.character(round(vals))
-  data_rows[i, 13L]    <- as.character(round(40 + rnorm(1L, 0, 3)))
+  data_rows[i, 1L]     <- LETTERS[i]
+  data_rows[i, 2L:11L] <- as.character(round(vals))
+  data_rows[i, 12L]    <- as.character(round(800 + rnorm(1L, 0, 3)))  # 100\% col
+  data_rows[i, 13L]    <- as.character(round(40  + rnorm(1L, 0, 3)))
 }
 raw_plate <- rbind(header_rows, col_label_row, data_rows)
 colnames(raw_plate) <- paste0("V", seq_len(ncol(raw_plate)))
 
 info_table <- data.frame(
-  log_conc  = c(NA, logc, NA),
-  Plate_Row = c(LETTERS[1:8], NA, NA, NA, NA),
-  Target    = c(rep("KinaseZ", 8L), NA, NA, NA, NA),
-  Compound  = c(paste0("Cpd", 1:8), NA, NA, NA, NA),
+  log_conc  = c(NA, logc, NA),                 # concs for the 10 exp. wells
+  Plate_Row = LETTERS[1:8],
+  Target    = rep("KinaseZ", 8L),
+  Compound  = paste0("Cpd", 1:8),
   stringsAsFactors = FALSE
 )
 
 out <- process_viability_data_v2(
-  data             = raw_plate,
-  control_0perc    = 1,
-  control_100perc  = 12,
-  info_table       = info_table,
-  selected_columns = 1:12,
-  verbose          = FALSE
+  data               = raw_plate,
+  control_0perc      = 0,          # fixed 0\% baseline (first row)
+  control_100perc    = 12,         # column 12 averaged into last row
+  info_table         = info_table,
+  selected_columns   = 1:12,
+  control_mean_scope = "row",
+  verbose            = FALSE
 )
 dim(out$modified_table)
+out$modified_table[1, 1:3]                       # Fixed_0perc row
+out$modified_table[nrow(out$modified_table), 1:3] # Mean_100perc row
 }
 }
 \seealso{
-\code{\link{process_viability_data}} (v1, two-replicates-per-row
-layout) and \code{\link{batch_viability_analysis}} (use
-\code{version = "v2"} to dispatch to this function).
+\code{\link{process_viability_data}} (v1),
+  \code{\link{process_viability_data_v3}} (v3),
+  \code{\link{ratio_dose_response_v2}} (NanoBRET analogue of the control
+  style), and \code{\link{batch_viability_analysis}} (use
+  \code{version = "v2"} to dispatch here).
 }

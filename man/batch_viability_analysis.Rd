@@ -19,20 +19,28 @@ batch_viability_analysis(
   selected_columns = NULL,
   verbose = TRUE,
   file_map = NULL,
-  version = c("v1", "v2")
+  version = c("v1", "v2", "v3"),
+  control_mean_scope = NULL
 )
 }
 \arguments{
 \item{directory}{Character. Path to the directory containing the input Excel
 files (both raw data and metadata). Defaults to the current working directory.}
 
-\item{control_0perc}{Integer (1-24) or NULL. Column index corresponding to the
-0\% viability control (e.g., background signal). This is typically a condition
-where no viable cells are expected. If NULL, no background normalization is applied.}
+\item{control_0perc}{For \code{version = "v1"}/\code{"v3"}: integer (1-24) or
+NULL, the column index of the 0\% viability control (e.g. background signal),
+a condition where no viable cells are expected. For \code{version = "v2"}
+(the NanoBRET-style processor): a single finite numeric \emph{scalar} (not a
+column) used as the fixed 0\% baseline; it becomes the constant first row
+\code{Fixed_0perc} of the output. If NULL, no background normalization is
+applied.}
 
-\item{control_100perc}{Integer (1-24) or NULL. Column index corresponding to the
-100\% viability control (e.g., untreated cells). This represents the reference
-condition for maximum viability. If NULL, normalization is not performed.}
+\item{control_100perc}{For \code{version = "v1"}/\code{"v3"}: integer (1-24) or
+NULL, the column index of the 100\% viability control (e.g. untreated cells).
+For \code{version = "v2"}: one or more 100\% control columns given as numeric
+well indices (e.g. \code{24} or \code{c(23, 24)}) OR character column names
+(e.g. \code{"24"}); their mean becomes the last row \code{Mean_100perc} and
+the columns are consumed. If NULL, normalization is not performed.}
 
 \item{split_replicates}{Logical. If TRUE, splits experimental concentrations into
 two technical replicates after processing. This assumes the plate layout contains
@@ -42,9 +50,14 @@ duplicated concentration series. Default is TRUE.}
 Values below this threshold are replaced with NA before analysis. Useful for
 removing background noise or invalid measurements. Default is 0.}
 
-\item{apply_control_means}{Logical. If TRUE, replaces individual control values
-with construct-specific mean values based on the metadata table. This reduces
-variability in control measurements. Default is TRUE.}
+\item{apply_control_means}{Logical. For \code{version = "v1"}/\code{"v3"}
+(row-based processors) only: if TRUE (default), replace individual 0\% and
+100\% control cells with aggregated means (see \code{control_mean_scope} for
+the aggregation), reducing control-measurement variability. If FALSE, controls
+are left as raw per-well values and \code{control_mean_scope} is ignored.
+Not used by \code{version = "v2"} (the NanoBRET-style processor), where the
+0\% row is a fixed scalar and the 100\% row is governed solely by
+\code{control_mean_scope}.}
 
 \item{auto_detect}{Logical. If TRUE, automatically detects plate structure
 (rows A-P and columns 1-24) within the raw data file. If FALSE, fixed positions
@@ -79,15 +92,41 @@ info-sheet name to data filename, bypassing the automatic
 Default \code{NULL} uses auto-discovery for all sheets.}
 
 \item{version}{Character. \code{"v1"} (default) dispatches to
-\code{\link{process_viability_data}} (two replicates per row, columns
-define the replicate). \code{"v2"} dispatches to
-\code{\link{process_viability_data_v2}} (one replicate per row; replicate
-rows share \code{Target}+\code{Compound} in the info table; output
-column names get \code{.2}, \code{.3}, ... suffixes).
-When \code{version = "v2"} and \code{split_replicates = TRUE}, the
-wrapper sets \code{split_replicates = FALSE} and emits a one-line
-message: in v2 replicates are defined by repeated rows in the info
-table, not by row halving.}
+\code{\link{process_viability_data}} (two technical replicates per plate
+row; \code{split_replicates} halves the middle rows). \code{"v2"}
+dispatches to \code{\link{process_viability_data_v2}}, the NanoBRET-style
+processor: the 0\% control is a fixed scalar (\code{control_0perc}) placed
+as the first row \code{Fixed_0perc}, and the 100\% control is one or more
+plate columns (\code{control_100perc}) averaged into the last row
+\code{Mean_100perc} and then consumed; aggregation is set by
+\code{control_mean_scope}. \code{"v3"} dispatches to
+\code{\link{process_viability_data_v3}} (one replicate per row; replicate
+rows share \code{Target}+\code{Compound} in the info table; output column
+names get \code{.2}, \code{.3}, ... suffixes).
+When \code{version = "v3"} and \code{split_replicates = TRUE}, the
+wrapper sets \code{split_replicates = FALSE} and emits a one-line message:
+in v3 replicates are defined by repeated rows in the info table, not by row
+halving.}
+
+\item{control_mean_scope}{Character or NULL; one of \code{"construct"},
+\code{"row"}, \code{"global"}. Selects how control wells are aggregated.
+Behaviour depends on version:
+\itemize{
+  \item \code{version = "v2"} (NanoBRET-style): governs how the 100\%
+    column(s) are averaged into the \code{Mean_100perc} row (the 0\% row is
+    always the fixed scalar). \code{"row"} = per plate-row mean across the
+    100\% columns (default for v2); \code{"construct"} = one mean per
+    construct over its rows; \code{"global"} = one plate-wide mean.
+  \item \code{version = "v1"}/\code{"v3"} (row-based): applied
+    \emph{jointly} to both the 0\% and 100\% control columns, but only when
+    \code{apply_control_means = TRUE}. \code{"construct"} = per-construct
+    (per-Target) means (default for v1/v3, the legacy behaviour);
+    \code{"global"} = plate-wide column means; \code{"row"} = per-row
+    identity (each row keeps its own control value, since v1/v3 hold a single
+    control well per row -- note this differs from \code{"row"} on v2).
+}
+Default \code{NULL} lets each version pick its own default (\code{"row"} for
+v2; \code{"construct"} for v1/v3).}
 }
 \value{
 A named list where each element corresponds to a processed plate.

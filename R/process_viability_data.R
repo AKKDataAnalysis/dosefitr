@@ -42,8 +42,29 @@
 #'
 #' @param verbose Logical. If TRUE (default), prints progress messages and warnings.
 #'
-#' @param apply_control_means Logical. If TRUE (default), replaces control values with
-#'   construct-specific means based on \code{info_table}.
+#' @param apply_control_means Logical. If TRUE (default), replace the 0\% and 100\%
+#'   control cells with aggregated means (see \code{control_mean_scope}). If FALSE,
+#'   controls are left as raw per-well values and \code{control_mean_scope} is ignored.
+#'
+#' @param control_mean_scope Character; one of \code{"construct"} (default),
+#'   \code{"row"}, or \code{"global"}. Only used when
+#'   \code{apply_control_means = TRUE}; it selects how the 0\% and 100\% control
+#'   columns are aggregated (the same scope is applied \emph{jointly} to both):
+#'   \describe{
+#'     \item{\code{"construct"}}{For each construct (grouped by \code{info_table}
+#'       Plate_Row -> Construct), replace that construct's rows' 0\% cells with the
+#'       mean of those 0\% cells, and likewise for the 100\% cells. This is the
+#'       legacy per-construct behaviour and the default.}
+#'     \item{\code{"global"}}{Replace \emph{all} rows' 0\% cells with the single
+#'       plate-wide mean of the 0\% column, and all rows' 100\% cells with the
+#'       plate-wide mean of the 100\% column.}
+#'     \item{\code{"row"}}{Identity: each plate row keeps its own raw 0\% and 100\%
+#'       control values (no cross-row averaging). Because v1 holds a single control
+#'       well per row, there is nothing to average \emph{within} a row, so
+#'       \code{"row"} performs no replacement. (This differs from \code{"row"} in
+#'       the NanoBRET-style \code{\link{process_viability_data_v2}}, which averages
+#'       across multiple 100\% columns within each row.)}
+#'   }
 #'
 #' @param auto_detect Logical. If TRUE (default), automatically detects the plate
 #'   structure within the input data.
@@ -109,7 +130,13 @@ process_viability_data <- function(data,
                                    low_value_threshold = 0,
                                    verbose = TRUE,
                                    apply_control_means = TRUE,
+                                   control_mean_scope = c("construct", "row", "global"),
                                    auto_detect = TRUE) {
+
+  # Scope for control-mean aggregation (applied jointly to the 0% and 100%
+  # control columns when apply_control_means = TRUE). Default "construct"
+  # reproduces the legacy per-construct behaviour.
+  control_mean_scope <- match.arg(control_mean_scope)
   
   # --- SPECIFIC PATTERN DETECTION FUNCTION ---
   detect_specific_pattern <- function(data) {
@@ -628,79 +655,112 @@ process_viability_data <- function(data,
     info_table$ID <- paste(info_table$Construct_Modified, info_table[[4]], sep = ":")
   }
   
-  # --- APPLY CONTROL MEANS BY CONSTRUCT ---
+  # --- APPLY CONTROL MEANS (scope: construct / row / global) ---
+  # apply_control_means is the outer on/off gate. When TRUE, control_mean_scope
+  # selects how the 0% and 100% control columns are aggregated (jointly):
+  #   * "construct": per-construct (per-Target) means over that construct's rows
+  #                    (legacy behaviour, default).
+  #   * "global":    one plate-wide mean per control column, assigned to all rows.
+  #   * "row":       identity -- each row keeps its own control value (no
+  #                    cross-row averaging; v1 holds one control well per row).
   if (apply_control_means && !is.null(info_table) &&
-      !is.null(control_0_info) && !is.null(control_100_info)) {
-    
-    # Extract relevant values from info_table
-    plate_row_values <- info_table[[2]]
-    construct_values <- info_table$Construct_Modified
-    
-    # Map plate rows to indices (A=1, B=2, etc.)
-    plate_row_to_index <- setNames(1:16, LETTERS[1:16])
-    
-    # Group constructs by plate rows
-    construct_groups <- list()
-    unique_constructs <- unique(construct_values)
-    
-    for (construct in unique_constructs) {
-      construct_indices <- which(construct_values == construct)
-      construct_groups[[construct]] <- plate_row_values[construct_indices]
-    }
-    
-    # Convert plate rows to numeric indices
-    row_intervals <- lapply(construct_groups, function(plate_rows) {
-      indices <- plate_row_to_index[plate_rows]
-      as.numeric(indices[!is.na(indices)])
-    })
-    
-    row_intervals <- row_intervals[sapply(row_intervals, length) > 0]
-    
-    # Control columns to analyze
-    mean_columns <- c(control_0_info$name, control_100_info$name)
-    existing_columns <- mean_columns[mean_columns %in% colnames(viability_modified)]
-    
-    if (length(existing_columns) > 0 && length(row_intervals) > 0) {
-      if (verbose) {
-        message("Applying construct-specific control means to modified viability table...")
+      !is.null(control_0_info) && !is.null(control_100_info) &&
+      control_mean_scope != "row") {
+
+    ctrl0_nm   <- control_0_info$name
+    ctrl100_nm <- control_100_info$name
+    have_c0    <- ctrl0_nm   %in% colnames(viability_modified)
+    have_c100  <- ctrl100_nm %in% colnames(viability_modified)
+
+    if (control_mean_scope == "global") {
+      # ---- Plate-wide (global) means -------------------------------------
+      if (have_c0) {
+        g0 <- mean(viability_modified[, ctrl0_nm], na.rm = TRUE)
+        viability_modified[, ctrl0_nm] <- g0
       }
-      
-      # Apply means by construct to controls
-      for (construct_name in names(row_intervals)) {
-        interval_rows <- row_intervals[[construct_name]]
-        valid_rows <- interval_rows[interval_rows >= 1 & interval_rows <= nrow(viability_modified)]
-        
-        if (length(valid_rows) > 0) {
-          # Calculate means for this construct
-          if (control_0_info$name %in% colnames(viability_modified)) {
-            mean_background <- mean(viability_modified[valid_rows, control_0_info$name], na.rm = TRUE)
-            # Replace individual values with mean
-            viability_modified[valid_rows, control_0_info$name] <- mean_background
-          }
-          
-          if (control_100_info$name %in% colnames(viability_modified)) {
-            mean_positive <- mean(viability_modified[valid_rows, control_100_info$name], na.rm = TRUE)
-            # Replace individual values with mean
-            viability_modified[valid_rows, control_100_info$name] <- mean_positive
-          }
-          
-          if (verbose) {
-            message("  Construct '", construct_name, "' (rows ",
-                    paste(LETTERS[range(valid_rows)], collapse = "-"), "):")
-            if (control_0_info$name %in% colnames(viability_modified)) {
-              message("    - Background control replaced with mean: ",
-                      round(mean_background, 2))
+      if (have_c100) {
+        g100 <- mean(viability_modified[, ctrl100_nm], na.rm = TRUE)
+        viability_modified[, ctrl100_nm] <- g100
+      }
+      if (verbose)
+        message(sprintf(
+          "Applying GLOBAL control means to modified viability table (0%%=%s, 100%%=%s).",
+          if (have_c0)   round(g0,   2) else "NA",
+          if (have_c100) round(g100, 2) else "NA"))
+
+    } else {
+      # ---- Per-construct means (legacy default) --------------------------
+      # Extract relevant values from info_table
+      plate_row_values <- info_table[[2]]
+      construct_values <- info_table$Construct_Modified
+
+      # Map plate rows to indices (A=1, B=2, etc.)
+      plate_row_to_index <- setNames(1:16, LETTERS[1:16])
+
+      # Group constructs by plate rows
+      construct_groups <- list()
+      unique_constructs <- unique(construct_values)
+
+      for (construct in unique_constructs) {
+        construct_indices <- which(construct_values == construct)
+        construct_groups[[construct]] <- plate_row_values[construct_indices]
+      }
+
+      # Convert plate rows to numeric indices
+      row_intervals <- lapply(construct_groups, function(plate_rows) {
+        indices <- plate_row_to_index[plate_rows]
+        as.numeric(indices[!is.na(indices)])
+      })
+
+      row_intervals <- row_intervals[sapply(row_intervals, length) > 0]
+
+      # Control columns to analyze
+      mean_columns <- c(ctrl0_nm, ctrl100_nm)
+      existing_columns <- mean_columns[mean_columns %in% colnames(viability_modified)]
+
+      if (length(existing_columns) > 0 && length(row_intervals) > 0) {
+        if (verbose) {
+          message("Applying construct-specific control means to modified viability table...")
+        }
+
+        # Apply means by construct to controls
+        for (construct_name in names(row_intervals)) {
+          interval_rows <- row_intervals[[construct_name]]
+          valid_rows <- interval_rows[interval_rows >= 1 & interval_rows <= nrow(viability_modified)]
+
+          if (length(valid_rows) > 0) {
+            # Calculate means for this construct
+            if (have_c0) {
+              mean_background <- mean(viability_modified[valid_rows, ctrl0_nm], na.rm = TRUE)
+              # Replace individual values with mean
+              viability_modified[valid_rows, ctrl0_nm] <- mean_background
             }
-            if (control_100_info$name %in% colnames(viability_modified)) {
-              message("    - Positive control replaced with mean: ",
-                      round(mean_positive, 2))
+
+            if (have_c100) {
+              mean_positive <- mean(viability_modified[valid_rows, ctrl100_nm], na.rm = TRUE)
+              # Replace individual values with mean
+              viability_modified[valid_rows, ctrl100_nm] <- mean_positive
+            }
+
+            if (verbose) {
+              message("  Construct '", construct_name, "' (rows ",
+                      paste(LETTERS[range(valid_rows)], collapse = "-"), "):")
+              if (have_c0) {
+                message("    - Background control replaced with mean: ",
+                        round(mean_background, 2))
+              }
+              if (have_c100) {
+                message("    - Positive control replaced with mean: ",
+                        round(mean_positive, 2))
+              }
             }
           }
         }
       }
     }
+  } else if (apply_control_means && control_mean_scope == "row" && verbose) {
+    message("control_mean_scope = 'row': keeping each row's own control values (no averaging).")
   }
-  
   # --- COLUMN REORGANIZATION ---
   # Place control columns at beginning and end
   if (!is.null(control_0_info) && !is.null(control_100_info)) {
@@ -821,6 +881,7 @@ process_viability_data <- function(data,
     final_rownames = final_rownames,       # Row names
     selected_columns = selected_columns,   # Selected columns info
     apply_control_means = apply_control_means,  # Control flag
+    control_mean_scope = control_mean_scope,    # Scope of control-mean aggregation
     auto_detected = auto_detect,           # Whether auto-detection was used
     detection_method = if (auto_detect && exists("found_by_colnames")) {
       if (found_by_colnames) "column_names" else "row_header"
