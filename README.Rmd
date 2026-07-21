@@ -175,6 +175,27 @@ Or open each one directly:
   section by section, mirroring how you would run it against your own plates
   (ratios, ROUT, replicate merging, DRC fits, plotting, Scarab metadata).
 
+The vignettes above are the primary, executable tutorials. As a convenience,
+the same day-to-day workflows are also shipped as standalone, copy-paste R
+scripts you can adapt to your own experiment (edit the paths / control
+columns and run top to bottom):
+
+- `Example_protocol_NanoBRET.R` — NanoBRET BRET-ratio workflow.
+- `Example_protocol_Viability.R` — cell-viability workflow.
+- `Example_protocol_analysis.R` — combined analysis walkthrough.
+
+Locate them in your installed copy with:
+
+```{r examples-path, eval = FALSE}
+system.file("examples", package = "dosefitr")
+list.files(system.file("examples", package = "dosefitr"), pattern = "\\.R$")
+```
+
+or browse them on GitHub under
+[`inst/examples/`](https://github.com/AKKDataAnalysis/dosefitr/tree/main/inst/examples).
+These scripts are a lightweight complement to the vignettes, not a replacement
+— the vignettes remain the authoritative, reproducible documentation.
+
 Each exported function also has its own help page; open the grouped index
 with `help(package = "dosefitr")`.
 
