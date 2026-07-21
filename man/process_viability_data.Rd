@@ -138,7 +138,7 @@ out <- process_viability_data(
   selected_columns = 1:24,
   verbose          = FALSE
 )
-dim(out$modified_ratio_table)
+dim(out$modified_table)
 }
 
 

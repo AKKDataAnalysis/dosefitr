@@ -150,37 +150,47 @@
 #' @examples
 #' stopifnot(requireNamespace("dosefitr", quietly = TRUE))
 #' \donttest{
-#' # v2 uses a fixed 0% scalar and averages user-chosen columns for the 100%
-#' # control. The bundled fixtures are not required; build a small synthetic
-#' # 96-well plate (rows A-H, cols 1-12) here.
+#' # v2 uses a fixed 0% scalar for the 0% baseline and averages user-chosen
+#' # column(s) for the 100% control. No bundled fixtures are needed: build a
+#' # small synthetic 96-well plate (rows A-H, columns 1-12) here. As in the real
+#' # assay layout the inhibitor dose varies DOWN the plate rows (each plate row
+#' # is one concentration) and column 12 is the 100% (untreated) control column.
 #' set.seed(1L)
-#' n_hdr <- 12L
-#' header_rows <- as.data.frame(
-#'   matrix("", nrow = n_hdr, ncol = 13L), stringsAsFactors = FALSE
+#' n_rows <- 8L                                 # plate rows A-H
+#' n_cols <- 12L                                # plate columns 1-12
+#' logc   <- seq(-5, -9, length.out = n_rows)   # one concentration per plate row
+#'
+#' # 12 instrument-header rows + 1 column-label row + 8 data rows, matching the
+#' # shape the auto-detector expects.
+#' header_rows   <- as.data.frame(
+#'   matrix("", nrow = 12L, ncol = n_cols + 1L), stringsAsFactors = FALSE
 #' )
 #' col_label_row <- as.data.frame(
-#'   matrix(c("", as.character(1:12)), nrow = 1L), stringsAsFactors = FALSE
+#'   matrix(c("", as.character(1:n_cols)), nrow = 1L), stringsAsFactors = FALSE
 #' )
 #' data_rows <- as.data.frame(
-#'   matrix("", nrow = 8L, ncol = 13L), stringsAsFactors = FALSE
+#'   matrix("", nrow = n_rows, ncol = n_cols + 1L), stringsAsFactors = FALSE
 #' )
-#' logc <- seq(-9, -5, length.out = 10L)   # 10 experimental wells (cols 2-11)
-#' for (i in seq_len(8L)) {
-#'   frac <- 1 / (1 + 10^((logc - (-7))))
+#' for (i in seq_len(n_rows)) {
+#'   x    <- seq(-9, -5, length.out = 10L)          # 10 experimental wells (cols 2-11)
+#'   frac <- 1 / (1 + 10^(x - logc[i]))
 #'   vals <- 40 + (800 - 40) * frac + rnorm(10L, 0, 5)
-#'   data_rows[i, 1L]     <- LETTERS[i]
-#'   data_rows[i, 2L:11L] <- as.character(round(vals))
-#'   data_rows[i, 12L]    <- as.character(round(800 + rnorm(1L, 0, 3)))  # 100% col
-#'   data_rows[i, 13L]    <- as.character(round(40  + rnorm(1L, 0, 3)))
+#'   data_rows[i, 1L]     <- LETTERS[i]                                   # row label
+#'   data_rows[i, 2L:11L] <- as.character(round(vals))                   # experimental
+#'   data_rows[i, 12L]    <- as.character(round(800 + rnorm(1L, 0, 3)))  # 100% col (12)
+#'   data_rows[i, 13L]    <- as.character(round(40  + rnorm(1L, 0, 3)))  # spare col 13
 #' }
 #' raw_plate <- rbind(header_rows, col_label_row, data_rows)
 #' colnames(raw_plate) <- paste0("V", seq_len(ncol(raw_plate)))
 #'
+#' # info_table is ROW-indexed: one row per plate row (A-H). Column 1 is the
+#' # log(inhibitor) axis, NA-padded at the bracketing (0%/100%) positions;
+#' # distinct compounds keep the eight rows in a single construct group.
 #' info_table <- data.frame(
-#'   log_conc  = c(NA, logc, NA),                 # concs for the 10 exp. wells
-#'   Plate_Row = LETTERS[1:8],
-#'   Target    = rep("KinaseZ", 8L),
-#'   Compound  = paste0("Cpd", 1:8),
+#'   log_conc  = c(NA, logc[-c(1L, n_rows)], NA),  # NA at first/last row
+#'   Plate_Row = LETTERS[seq_len(n_rows)],
+#'   Target    = rep("KinaseZ", n_rows),
+#'   Compound  = paste0("Cpd", seq_len(n_rows)),
 #'   stringsAsFactors = FALSE
 #' )
 #'
@@ -189,12 +199,12 @@
 #'   control_0perc      = 0,          # fixed 0% baseline (first row)
 #'   control_100perc    = 12,         # column 12 averaged into last row
 #'   info_table         = info_table,
-#'   selected_columns   = 1:12,
+#'   selected_columns   = 2:12,       # 10 experimental wells + the 100% column
 #'   control_mean_scope = "row",
 #'   verbose            = FALSE
 #' )
 #' dim(out$modified_table)
-#' out$modified_table[1, 1:3]                       # Fixed_0perc row
+#' out$modified_table[1, 1:3]                        # Fixed_0perc row
 #' out$modified_table[nrow(out$modified_table), 1:3] # Mean_100perc row
 #' }
 #' @importFrom stats sd

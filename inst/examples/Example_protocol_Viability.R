@@ -17,6 +17,24 @@ via_results <- batch_viability_analysis(
  selected_columns = c(2:23)   # passed straight through to process_viability_data
 )
 
+## Cell Viability v2 (fixed 0% control and mean 100%)
+# via_results <- batch_viability_analysis(
+#   control_0perc    = 16,
+#   control_100perc  = c(12,13),
+#   version = "v2",
+#   control_mean_scope = "row",
+#   selected_columns = c(2:23)   # passed straight through to process_viability_data
+# )
+
+## Cell Viability v3 row plate layout (96 well plate)
+# via_results <- batch_viability_analysis(
+#   control_0perc    = 1,
+#   control_100perc  = 12,
+#   version = "v3",
+#   control_mean_scope = "construct",
+#   selected_columns = c(1:12)   # passed straight through to process_viability_data
+# )
+
 ## Detect and remove outliers
 ## (if you want to use the outliers table, put results_clean in the
 ## batch_results argument of batch_drc_analysis)
