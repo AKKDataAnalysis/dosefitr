@@ -78,8 +78,13 @@ The eight stages of the pipeline:
 6.  Visualise individual and overlay plots
     (`batch_save_all_drc_plots()`, `plot_multiple_compounds()`,
     `compare_plates_drc()`).
-7.  Export Scarab-format tables and multi-sheet workbooks
-    (`scarab_table()`, `save_multiple_sheets()`).
+7.  Export the results. `batch_ratio_analysis()` and
+    `batch_drc_analysis()` already write result workbooks and a
+    consolidated report when `generate_reports = TRUE` (this vignette
+    sets `FALSE` to keep the knit clean); `save_multiple_sheets()` writes
+    arbitrary data frames to one workbook. Optionally, labs that submit
+    to the SGC Scarab system emit a Scarab-format table with
+    `scarab_table()`.
 8.  Read the quality metrics.
 
 # Setup
@@ -165,7 +170,7 @@ plate 01 to demonstrate the inter-plate comparison step.
 
 `batch_ratio_analysis()` reads both plates, extracts the donor and
 acceptor matrices, computes the BRET ratio per well as
-`(acceptor / donor) * 1000`, and normalises each row by its controls.
+`(acceptor / donor) * 1000`, and processes each row against its controls.
 
 ```{r ratio}
 ratio_out <- file.path(tempdir(), "dosefitr_nanobret_ratio")
@@ -376,7 +381,16 @@ them inline.
 
 # Export
 
-## Scarab-format submission tables
+The main results are already exported by the batch functions: with
+`generate_reports = TRUE` (the default), `batch_ratio_analysis()` writes
+a per-plate result workbook plus a consolidated report, and
+`batch_drc_analysis()` writes the fitted `drc_results` and its own
+consolidated report. `save_multiple_sheets()` is available to write any
+set of data frames to a single workbook. The Scarab table below is an
+**optional, lab-specific** step for groups that submit to the SGC Scarab
+system; skip it if you do not.
+
+## Scarab-format submission tables (optional, lab-specific)
 
 `scarab_table()` produces a wide submission table in the SGC Scarab
 format, one column per compound:

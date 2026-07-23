@@ -60,9 +60,10 @@ h4.date             { font-size: 0.95em; margin-top: 1em; font-weight: 500; }
 assays** and **cell viability** experiments read out on the BMG PHERAstar
 platform. It turns raw 384-well plate-reader exports into a full
 dose-response analysis package in one R session: plate parsing, control
-normalisation, ROUT outlier detection, 3PL / 4PL logistic fitting with
+processing, ROUT outlier detection, 3PL / 4PL logistic fitting with
 IC50 / pIC50 and confidence intervals, publication-ready plots, and
-Scarab-formatted submission tables.
+Excel result workbooks written automatically at each batch step (with
+optional, lab-specific Scarab-format submission tables).
 
 ## Motivation for Bioconductor
 
@@ -71,7 +72,7 @@ that leave a gap in the middle. On one side, generic curve-fitting
 engines (`drc`, `nplr`, `dr4pl`) provide flexible non-linear regression
 but expect the user to shape their own tidy data frame, pick a model
 family, and hand-roll everything upstream and downstream of the fit —
-plate parsing, control normalisation, outlier detection, batch iteration,
+plate parsing, control processing, outlier detection, batch iteration,
 export. On the other side, large-scale pharmacogenomic frameworks
 (`PharmacoGx`) treat drug response as one facet of curated multi-omic
 screens (GDSC, CCLE, gCSI) via the `PharmacoSet` /
@@ -79,12 +80,13 @@ screens (GDSC, CCLE, gCSI) via the `PharmacoSet` /
 than the day-to-day plate-reader output of a single wet lab.
 
 `dosefitr` fills the gap: the user hands in a folder of BMG PHERAstar
-Excel exports and receives a full analysis package back — normalised
+Excel exports and receives a full analysis package back — processed
 ratio / viability tables, ROUT-flagged wells, 4PL fits with assay-aware
 plausibility limits, quality-controlled `Curve_Quality` labels, per-plate
-patchwork panels, cross-plate consistency checks, and a Scarab-formatted
-submission table. No external pipeline, no shell scripts, no per-plate
-manual data wrangling.
+patchwork panels, cross-plate consistency checks, and Excel result
+workbooks written automatically at each batch step (with an optional,
+lab-specific Scarab-format submission table). No external pipeline, no
+shell scripts, no per-plate manual data wrangling.
 
 Inclusion in Bioconductor makes `dosefitr` discoverable to the
 translational-pharmacology and chemical-biology communities that already
@@ -102,8 +104,9 @@ address parts of the dose-response workflow:
   reference for methods research. `dosefitr` is not a replacement:
   it targets a narrower problem (kinase-binding NanoBRET and viability
   on 384-well PHERAstar plates) and layers plate parsing, control
-  normalisation, ROUT outlier detection, batch iteration across plates,
-  Curve_Quality classification, and Scarab-format export on top of the
+  processing, ROUT outlier detection, batch iteration across plates,
+  Curve_Quality classification, and automatic Excel result export (with
+  optional, lab-specific Scarab-format tables) on top of the
   4PL / 3PL fits themselves.
 - **`nplr`** (CRAN) — n-parameter logistic focused on IC50 estimation
   with confidence intervals. Single-curve API; the user shapes the
@@ -132,9 +135,10 @@ address parts of the dose-response workflow:
   scriptable, batch-friendly, open-source R workflow.
 
 `dosefitr`'s unique combination is: **BMG PHERAstar-aware parsing +
-control-normalised ratio / viability tables + ROUT outlier detection +
-assay-aware 4PL / 3PL fitting with Curve_Quality labels + Scarab-format
-export**, all in one package with no external pipeline dependency.
+control-processed ratio / viability tables + ROUT outlier detection +
+assay-aware 4PL / 3PL fitting with Curve_Quality labels + automatic Excel
+result export (optional Scarab-format tables for labs that use them)**,
+all in one package with no external pipeline dependency.
 
 ## Vignette scope
 
@@ -236,13 +240,13 @@ table(sum_01$Curve_Quality)
 ```
 
 For the full pipeline — plate layout, info table, ROUT outlier
-detection, per-plate panel plots, cross-plate comparison, Scarab
-export, and quality metrics — see:
+detection, per-plate panel plots, cross-plate comparison, automatic
+Excel result export (optional Scarab tables), and quality metrics — see:
 
 - `vignette("dosefitr-nanobret", package = "dosefitr")` — BRET ratios,
-  ROUT, 4PL fits, plotting, Scarab export.
+  ROUT, 4PL fits, plotting, optional Scarab export.
 - `vignette("dosefitr-viability", package = "dosefitr")` — single-channel
-  viability normalisation, 4PL fits, Scarab export.
+  viability processing, 4PL fits, optional Scarab export.
 
 # Importing pre-computed ratio tables
 

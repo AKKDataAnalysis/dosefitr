@@ -10,11 +10,12 @@ MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/
 
 End-to-end dose-response analysis for **NanoBRET kinase binding assays**
 and **cell viability experiments**. `dosefitr` reads raw BMG PHERAstar
-plate-reader exports, computes BRET ratios (or normalises luminescence),
+plate-reader exports, computes BRET ratios (or processes luminescence),
 detects outliers with the ROUT method, fits 3PL / 4PL logistic models,
-reports IC50 / pIC50 with confidence intervals, and exports
-publication-ready plots, multi-sheet Excel workbooks, and
-Scarab-formatted submission tables.
+reports IC50 / pIC50 with confidence intervals, and writes its results
+to Excel automatically — per-plate result files plus a consolidated
+report — alongside publication-ready plots (with optional, lab-specific
+Scarab-format submission tables).
 
 ## Hero example
 
@@ -75,13 +76,21 @@ together plate-parsing, curve-fitting, and export tools:
 
 - **NanoBRET pipeline** (dual-channel donor/acceptor):
   `batch_ratio_analysis` reads BMG PHERAstar exports, extracts donor and
-  acceptor matrices, computes BRET ratios per well, and normalises each
-  row by its DMSO / saturated controls.
+  acceptor matrices, computes BRET ratios per well, and processes each
+  row against its DMSO / saturated controls, writing a per-plate result
+  workbook plus a consolidated report.
 - **Viability pipeline** (single-channel luminescence,
   e.g. CellTiter-Glo): `batch_viability_analysis` reads single-channel
-  exports, normalises to DMSO, and clamps the 0 % floor at the
-  compound-saturated wells. Two info-table layouts are supported via the
-  `version = "v1"` / `"v2"` switch.
+  exports, processes against DMSO, and clamps the 0 % floor at the
+  compound-saturated wells, writing per-plate result workbooks plus
+  quality-metric files. Three info-table / control layouts are
+  supported via the `version = "v1"` / `"v2"` / `"v3"` switch: **v1**
+  (default) expects two technical replicates per plate row and applies
+  per-construct / per-row / global control means; **v2** is the
+  NanoBRET-style processor, using a fixed 0 % scalar and one or more
+  plate columns averaged for the 100 % control; **v3** encodes one
+  replicate per row (replicate rows share `Target` + `Compound` in the
+  info table).
 - **Shared downstream stack**: `rout_outliers_batch` flags outlier wells
   with the ROUT method (Motulsky & Brown 2006); `batch_drc_analysis`
   fits 3PL or 4PL models with assay-aware plausibility limits on Bottom,
@@ -93,10 +102,15 @@ together plate-parsing, curve-fitting, and export tools:
   per-plate CV%, plus a `Curve_Quality` label per compound
   (`Good curve`, `Wide logIC50 CI range`, `Top too low`, …) exposed on
   the per-plate summary table.
-- **Export**: `scarab_table` (NanoBRET) and `scarab_viability` produce
-  Scarab-format submission tables for SGC-style kinase profiling
-  submission; `save_multiple_sheets` writes any number of data frames to
-  one Excel file.
+- **Export**: result export is built into the batch functions
+  themselves — `batch_ratio_analysis`, `batch_viability_analysis`, and
+  `batch_drc_analysis` each write their results to Excel (per-plate files
+  plus a consolidated report) whenever `generate_reports = TRUE` (the
+  default), so a standard run produces its result workbooks with no extra
+  step. `save_multiple_sheets` writes any number of data frames to a
+  single workbook. For laboratories that submit to the SGC Scarab system,
+  the optional `scarab_table` (NanoBRET) and `scarab_viability` helpers
+  additionally emit lab-specific Scarab-format submission tables.
 
 ## What it doesn’t do
 
@@ -112,7 +126,7 @@ public screens, see `PharmacoGx` on Bioconductor.
           |
           v
     batch_ratio_analysis()        <- NanoBRET:   reads plates, computes BRET ratios
-    batch_viability_analysis()    <- Viability:  reads plates, normalises signal
+    batch_viability_analysis()    <- Viability:  reads plates, processes signal
           |
           v
     rout_outliers_batch()         <- detects and removes outliers (optional)
@@ -123,8 +137,8 @@ public screens, see `PharmacoGx` on Bioconductor.
           |--> batch_save_all_drc_plots() <- one plot per compound + panel per plate
           |--> plot_multiple_compounds()  <- overlays selected compounds
           |--> compare_plates_drc()       <- same compound across plates
-          |--> scarab_table()             <- Scarab-format export (NanoBRET)
-          `--> scarab_viability()         <- Scarab-format export (viability)
+          |--> scarab_table()             <- optional Scarab export, lab-specific (NanoBRET)
+          `--> scarab_viability()         <- optional Scarab export, lab-specific (viability)
 
 ## Function map
 
@@ -141,11 +155,12 @@ public screens, see `PharmacoGx` on Bioconductor.
 </thead>
 <tbody>
 <tr>
-<td>Reading / normalising</td>
+<td>Reading / processing</td>
 <td><code>batch_ratio_analysis</code>
 <code>batch_viability_analysis</code>
 <code>process_viability_data</code>
-<code>process_viability_data_v2</code> <code>ratio_dose_response</code>
+<code>process_viability_data_v2</code>
+<code>process_viability_data_v3</code> <code>ratio_dose_response</code>
 <code>ratio_dose_response_v2</code>
 <code>merge_plate_replicates</code></td>
 </tr>
@@ -172,8 +187,9 @@ public screens, see `PharmacoGx` on Bioconductor.
 </tr>
 <tr>
 <td>Export</td>
-<td><code>scarab_table</code> <code>scarab_viability</code>
-<code>save_multiple_sheets</code></td>
+<td><code>save_multiple_sheets</code> <code>scarab_table</code>
+<code>scarab_viability</code> (batch functions also write result workbooks
+directly)</td>
 </tr>
 </tbody>
 </table>
@@ -192,14 +208,14 @@ Or open each one directly:
   pointers into the pipeline vignettes.
 - **`vignette("dosefitr-nanobret")`** — end-to-end NanoBRET walkthrough
   on the bundled example plates (BRET ratios, ROUT, 3PL / 4PL fits,
-  plotting, Scarab export).
+  plotting, optional Scarab export).
 - **`vignette("dosefitr-viability")`** — end-to-end cell-viability
   walkthrough on the bundled example plates (single-channel
-  normalisation, 3PL / 4PL fits, Scarab export).
+  processing, 3PL / 4PL fits, optional Scarab export).
 - **`vignette("dosefitr-protocol")`** — the day-to-day analysis script,
   section by section, mirroring how you would run it against your own
-  plates (ratios, ROUT, replicate merging, DRC fits, plotting, Scarab
-  metadata).
+  plates (ratios, ROUT, replicate merging, DRC fits, plotting, optional
+  Scarab metadata).
 
 The vignettes above are the primary, executable tutorials. As a
 convenience, the same day-to-day workflows are also shipped as

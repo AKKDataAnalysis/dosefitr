@@ -10,7 +10,7 @@
 
 
 
-<meta name="date" content="2026-07-21" />
+<meta name="date" content="2026-07-23" />
 
 <title>dosefitr walkthrough</title>
 
@@ -1832,7 +1832,7 @@ Department of Physiology and Pharmacology, Federal University of Ceará,
 Fortaleza, 60430-160, Brazil
 </p>
 <p class="author-email"><span class="affil-mark">*</span><a href="mailto:thiago-loreto@hotmail.com">thiago-loreto@hotmail.com</a></p>
-<h4 class="date">2026-07-21</h4>
+<h4 class="date">2026-07-23</h4>
 <h4 class="package">Package</h4>
 <p>dosefitr 1.0.0</p>
 
@@ -1865,9 +1865,10 @@ h4.date             { font-size: 0.95em; margin-top: 1em; font-weight: 500; }
 assays</strong> and <strong>cell viability</strong> experiments read out on the BMG PHERAstar
 platform. It turns raw 384-well plate-reader exports into a full
 dose-response analysis package in one R session: plate parsing, control
-normalisation, ROUT outlier detection, 3PL / 4PL logistic fitting with
+processing, ROUT outlier detection, 3PL / 4PL logistic fitting with
 IC50 / pIC50 and confidence intervals, publication-ready plots, and
-Scarab-formatted submission tables.</p>
+Excel result workbooks written automatically at each batch step (with
+optional, lab-specific Scarab-format submission tables).</p>
 <div id="motivation-for-bioconductor" class="section level2" number="1.1">
 <h2><span class="header-section-number">1.1</span> Motivation for Bioconductor</h2>
 <p>Preclinical dose-response analysis sits between two well-served ecosystems
@@ -1875,19 +1876,20 @@ that leave a gap in the middle. On one side, generic curve-fitting
 engines (<code>drc</code>, <code>nplr</code>, <code>dr4pl</code>) provide flexible non-linear regression
 but expect the user to shape their own tidy data frame, pick a model
 family, and hand-roll everything upstream and downstream of the fit —
-plate parsing, control normalisation, outlier detection, batch iteration,
+plate parsing, control processing, outlier detection, batch iteration,
 export. On the other side, large-scale pharmacogenomic frameworks
 (<code>PharmacoGx</code>) treat drug response as one facet of curated multi-omic
 screens (GDSC, CCLE, gCSI) via the <code>PharmacoSet</code> /
 <code>TreatmentResponseExperiment</code> classes; they solve a different problem
 than the day-to-day plate-reader output of a single wet lab.</p>
 <p><code>dosefitr</code> fills the gap: the user hands in a folder of BMG PHERAstar
-Excel exports and receives a full analysis package back — normalised
+Excel exports and receives a full analysis package back — processed
 ratio / viability tables, ROUT-flagged wells, 4PL fits with assay-aware
 plausibility limits, quality-controlled <code>Curve_Quality</code> labels, per-plate
-patchwork panels, cross-plate consistency checks, and a Scarab-formatted
-submission table. No external pipeline, no shell scripts, no per-plate
-manual data wrangling.</p>
+patchwork panels, cross-plate consistency checks, and Excel result
+workbooks written automatically at each batch step (with an optional,
+lab-specific Scarab-format submission table). No external pipeline, no
+shell scripts, no per-plate manual data wrangling.</p>
 <p>Inclusion in Bioconductor makes <code>dosefitr</code> discoverable to the
 translational-pharmacology and chemical-biology communities that already
 rely on Bioconductor for the omics half of their pipelines, and ensures
@@ -1904,8 +1906,9 @@ Weibull, exponential decay, Brain-Cousens, …), and the standard
 reference for methods research. <code>dosefitr</code> is not a replacement:
 it targets a narrower problem (kinase-binding NanoBRET and viability
 on 384-well PHERAstar plates) and layers plate parsing, control
-normalisation, ROUT outlier detection, batch iteration across plates,
-Curve_Quality classification, and Scarab-format export on top of the
+processing, ROUT outlier detection, batch iteration across plates,
+Curve_Quality classification, and automatic Excel result export (with
+optional, lab-specific Scarab-format tables) on top of the
 4PL / 3PL fits themselves.</li>
 <li><strong><code>nplr</code></strong> (CRAN) — n-parameter logistic focused on IC50 estimation
 with confidence intervals. Single-curve API; the user shapes the
@@ -1934,9 +1937,10 @@ wrangling. <code>dosefitr</code> reproduces its analytical outputs in a
 scriptable, batch-friendly, open-source R workflow.</li>
 </ul>
 <p><code>dosefitr</code>’s unique combination is: <strong>BMG PHERAstar-aware parsing +
-control-normalised ratio / viability tables + ROUT outlier detection +
-assay-aware 4PL / 3PL fitting with Curve_Quality labels + Scarab-format
-export</strong>, all in one package with no external pipeline dependency.</p>
+control-processed ratio / viability tables + ROUT outlier detection +
+assay-aware 4PL / 3PL fitting with Curve_Quality labels + automatic Excel
+result export (optional Scarab-format tables for labs that use them)</strong>,
+all in one package with no external pipeline dependency.</p>
 </div>
 <div id="vignette-scope" class="section level2" number="1.3">
 <h2><span class="header-section-number">1.3</span> Vignette scope</h2>
@@ -2059,13 +2063,13 @@ bundled example plates almost every compound earns <code>Good curve</code>:</p>
 #&gt;            Good curve Wide logIC50 CI range 
 #&gt;                    14                     2</code></pre>
 <p>For the full pipeline — plate layout, info table, ROUT outlier
-detection, per-plate panel plots, cross-plate comparison, Scarab
-export, and quality metrics — see:</p>
+detection, per-plate panel plots, cross-plate comparison, automatic
+Excel result export (optional Scarab tables), and quality metrics — see:</p>
 <ul>
 <li><code>vignette(&quot;dosefitr-nanobret&quot;, package = &quot;dosefitr&quot;)</code> — BRET ratios,
-ROUT, 4PL fits, plotting, Scarab export.</li>
+ROUT, 4PL fits, plotting, optional Scarab export.</li>
 <li><code>vignette(&quot;dosefitr-viability&quot;, package = &quot;dosefitr&quot;)</code> — single-channel
-viability normalisation, 4PL fits, Scarab export.</li>
+viability processing, 4PL fits, optional Scarab export.</li>
 </ul>
 </div>
 <div id="importing-pre-computed-ratio-tables" class="section level1" number="4">

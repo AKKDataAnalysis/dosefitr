@@ -70,15 +70,19 @@ The seven stages of the pipeline:
 
 1.  Setup and stage the bundled plates into a working directory.
 2.  Inspect the plate layout and the info table.
-3.  Process the raw counts into normalised viability tables
+3.  Process the raw counts into viability tables
     (`batch_viability_analysis()`).
 4.  Fit 4PL dose-response curves
     (`batch_drc_analysis()` with `normalize = TRUE`).
 5.  Visualise individual and overlay plots
     (`batch_save_all_drc_plots()`, `plot_multiple_compounds()`,
     `compare_plates_drc()`).
-6.  Export Scarab-format tables
-    (`scarab_viability()`).
+6.  Export the results. `batch_viability_analysis()` and
+    `batch_drc_analysis()` already write result workbooks and a
+    consolidated report when `generate_reports = TRUE` (this vignette
+    sets `FALSE` to keep the knit clean). Optionally, labs that submit to
+    the SGC Scarab system emit a Scarab-format table with
+    `scarab_viability()`.
 7.  Read the quality metrics.
 
 A short note at the end (Section 8) explains how to use the v2
@@ -168,9 +172,9 @@ compounds to demonstrate the inter-plate consistency QC.
 
 # Viability table processing
 
-`batch_viability_analysis()` reads both plates, normalises each row
-to its DMSO control, applies the 0 % floor at the saturated-compound
-control, and produces percent-viability tables ready for fitting.
+`batch_viability_analysis()` reads both plates, processes each row
+against its DMSO control, applies the 0 % floor at the saturated-compound
+control, and produces viability tables ready for fitting.
 For the bundled v1-format data we use `version = "v1"`:
 
 ```{r viability}
@@ -337,6 +341,16 @@ list.files(compare_out, pattern = "\\.png$")
 The returned object's `$plots` list has one ggplot per pairing.
 
 # Export
+
+The main results are already exported by the batch functions: with
+`generate_reports = TRUE` (the default), `batch_viability_analysis()`
+writes per-plate result workbooks plus quality-metric files, and
+`batch_drc_analysis()` writes the fitted `drc_results` and its own
+consolidated report. The Scarab table below is an **optional,
+lab-specific** step for groups that submit to the SGC Scarab system;
+skip it if you do not.
+
+## Scarab-format submission table (optional, lab-specific)
 
 `scarab_viability()` produces a wide submission table in the SGC
 Scarab format for viability assays:

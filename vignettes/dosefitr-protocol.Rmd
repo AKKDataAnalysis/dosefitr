@@ -60,8 +60,10 @@ block that runs against the two bundled example plates.
 
 The walkthrough mirrors the pattern of a real-world `dosefitr` session:
 locate the raw data, build the ratio table, detect outliers, fit the
-dose-response curves, save the plots, compare across plates, and export a
-Scarab-formatted submission table. Where a step has a common variation
+dose-response curves, save the plots, compare across plates, and export
+the results (the batch functions write their own result workbooks, with
+an optional Scarab-format submission table for labs that use it). Where a
+step has a common variation
 (v2 ratio processor, viability pipeline, replicate merging), that
 variation is treated as its own sub-topic instead of being folded into
 the main flow.
@@ -133,7 +135,7 @@ path to your data folder as the `directory` argument to
 
 `batch_ratio_analysis()` reads each plate's donor and acceptor channels,
 computes the BRET ratio per well as `(acceptor / donor) * 1000`, and
-normalises each compound row by the plate's 0 % and 100 % controls. The
+processes each compound row against the plate's 0 % and 100 % controls. The
 result is a named list, one entry per plate, keyed by the info-table
 sheet name.
 
@@ -425,7 +427,14 @@ bridging compound. Use `compare_by = "construct"` when you want the
 same target aggregated across plates (useful for tracking compound
 libraries against a single kinase across weeks of screening).
 
-# Build the Scarab table
+# Build the Scarab table (optional, lab-specific)
+
+This step is optional and specific to laboratories that submit to the SGC
+Scarab system. The standard results have already been written by the
+batch functions (`batch_ratio_analysis()` and `batch_drc_analysis()` write
+their result workbooks and a consolidated report when
+`generate_reports = TRUE`), so you only need this if you require a
+Scarab-format submission file.
 
 `scarab_table()` produces a Scarab-format submission table: one long
 sheet with fitted parameters, quality metrics, and experiment metadata
