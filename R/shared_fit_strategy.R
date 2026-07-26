@@ -1,15 +1,15 @@
 #' Shared dose-response fitting strategy helpers
 #'
-#' These internal helpers centralise the three pieces of fitting *strategy* that
-#' should behave identically across the package's two fitting engines:
+#' These internal helpers centralise the pieces of fitting *strategy* that
+#' behave identically across the package's fitting engines:
 #'
 #' \enumerate{
-#'   \item \code{detect_direction()} -- data-driven inhibition / activation / flat
-#'         classification (scale-aware; works for BRET ratios and 0--100\% data).
-#'   \item \code{make_start_grid()}  -- a grid of robust starting-value sets,
-#'         mirroring the multi-start strategy in \code{fit_drc_4pl.R}.
-#'   \item \code{choose_model()}     -- the shared 3PL-vs-4PL selection policy
-#'         (rsdr-guarded, prefers the simpler 3PL unless 4PL is clearly better).
+#'   \item \code{make_start_grid()}        -- a grid of robust starting-value
+#'         sets, mirroring the multi-start strategy in \code{fit_drc_4pl.R}.
+#'   \item \code{optim_sign_for()}         -- Hill-slope sign convention helper.
+#'   \item \code{detect_curve_type_shared()} -- data-driven inhibition /
+#'         activation / flat classification (scale-aware and noise-aware; works
+#'         for raw BRET ratios and 0--100\% data), shared by both fitters.
 #' }
 #'
 #' Two parameterisations are supported so the same strategy can seed either engine:
@@ -28,45 +28,6 @@
 #' @keywords internal
 #' @name shared_fit_strategy
 NULL
-
-
-# --- Direction detection ------------------------------------------------------
-
-#' Detect dose-response direction from data (scale-aware)
-#'
-#' @param x_log Numeric vector of log-concentrations (log10 or ln; only the
-#'   ordering is used).
-#' @param y Numeric vector of responses (same length as \code{x_log}).
-#' @param rel_frac Relative threshold as a fraction of the response range
-#'   (default 0.15, matching \code{fit_drc_4pl.R}).
-#' @param abs_floor Optional absolute floor on the threshold. If \code{NULL}
-#'   (default) it is derived as \code{0.15 * range} with no fixed floor, which
-#'   makes the test scale-invariant (safe for BRET ratios ~0.2--1 AND 0--100\%
-#'   data). Pass e.g. \code{15} to reproduce \code{fit_drc_4pl.R}'s 0--100\%
-#'   behaviour exactly.
-#' @return One of \code{"inhibition"}, \code{"activation"}, \code{"flat"},
-#'   or \code{"unknown"}.
-#' @keywords internal
-detect_direction <- function(x_log, y, rel_frac = 0.15, abs_floor = NULL) {
-  ok <- is.finite(x_log) & is.finite(y)
-  x_log <- x_log[ok]; y <- y[ok]
-  if (length(y) < 4L) return("unknown")
-
-  o <- order(x_log); ys <- y[o]
-  k <- max(3L, floor(length(ys) / 4L))          # use up to a quarter of points per tail
-  k <- min(k, floor(length(ys) / 2L))
-  initial_avg <- mean(utils::head(ys, k), na.rm = TRUE)
-  final_avg   <- mean(utils::tail(ys, k), na.rm = TRUE)
-
-  range_val <- diff(range(ys, na.rm = TRUE))
-  if (!is.finite(range_val) || range_val <= 0) return("flat")
-  threshold <- rel_frac * range_val
-  if (!is.null(abs_floor)) threshold <- max(abs_floor, threshold)
-
-  if (initial_avg > final_avg + threshold) return("inhibition")
-  if (final_avg > initial_avg + threshold) return("activation")
-  "flat"
-}
 
 
 # --- Sign helper --------------------------------------------------------------
@@ -154,52 +115,81 @@ make_start_grid <- function(x_log, y, direction,
 }
 
 
-# --- Shared 3PL vs 4PL selection policy --------------------------------------
+# --- Shared curve-direction classifier ---------------------------------------
 
-#' Shared 3PL-vs-4PL model-selection policy
+#' Classify a dose-response curve as inhibition, activation, or flat
 #'
-#' Prefers the simpler 3PL model and only accepts 4PL when it fits meaningfully
-#' better, guarding against implausible Hill slopes. This is the single source of
-#' truth for the selection rule used across engines.
+#' Single source of truth for curve-direction detection, shared by
+#' \code{fit_drc_3pl} and \code{fit_drc_4pl}. Compares the mean of the three
+#' lowest-concentration responses with the three highest, and calls the curve
+#' non-flat only when that difference exceeds a threshold that is BOTH
+#' scale-relative and noise-aware:
+#'   (a) 15%% of the observed response range (works at any scale, including
+#'       raw BRET ratios whose full range is only a fraction of a unit), and
+#'   (b) 3 * SE(diff), where SE(diff) = sigma / sqrt(3) and sigma is the
+#'       trend-robust lag-1 (von Neumann) noise estimate
+#'       sigma = sqrt(sum(diff(resps)^2) / (2 * (n - 1))). This is a ~3-sigma
+#'       signal-to-noise test that suppresses random-noise false positives.
+#' threshold = max((a),(b)). No absolute floor (an absolute floor of 15, as in
+#' the previous fit_drc_4pl copy, mislabels real raw-scale curves as flat).
 #'
-#' @param rsdr3,rsdr4 Robust (or ordinary) residual SD of the 3PL and 4PL fits.
-#'   Either may be \code{NA}/\code{NULL} if that fit failed.
-#' @param hill4 Estimated Hill slope (absolute value taken internally) of the 4PL fit.
-#' @param improve_frac Fractional improvement in rsdr required to accept 4PL.
-#'   4PL is accepted when \code{rsdr4 <= rsdr3 * (1 - improve_frac_tol)} where the
-#'   default \code{tol} reproduces \code{rout_outliers()}'s \code{<= rsdr3 * 1.10}
-#'   rule; see \code{tol10} argument.
-#' @param hill_min,hill_max Plausibility bounds on \code{|hill4|}.
-#' @param tol10 If \code{TRUE} (default) use \code{rout_outliers()}'s original
-#'   \code{rsdr4 <= rsdr3 * 1.10} acceptance (i.e. accept 4PL unless it is >10\%
-#'   WORSE). If \code{FALSE}, require genuine improvement:
-#'   \code{rsdr4 <= rsdr3 * (1 - improve_frac)}.
-#' @return List with \code{model} ("3PL" or "4PL") and \code{reason}.
+#' The von Neumann estimator is used instead of the raw variance of the first
+#' and last three points because those extreme points sit on the shoulders of
+#' a sigmoid: their within-window variance is dominated by curve SLOPE, not
+#' measurement noise, so \code{3 * sqrt((var(head3)+var(tail3))/3)} explodes on
+#' clean-but-steep curves and mislabels genuine inhibition as flat. Successive
+#' first differences are nearly insensitive to a smooth monotonic trend, so the
+#' lag-1 estimate isolates noise regardless of curve steepness or scale.
+#'
+#' Rows with a missing (\code{NA}) \code{log_inhibitor} are dropped before
+#' ordering: a point with no concentration cannot be assigned to the low- or
+#' high-dose end, and (e.g. control rows carrying 0/100 sentinels) would
+#' otherwise sort to one end and corrupt the head/tail statistics.
+#'
+#' Replicates are collapsed to a per-concentration MEAN profile before the
+#' head/tail comparison and the noise estimate. Direction is a property of the
+#' concentration-response profile, not of the individual wells. When two
+#' replicates disagree by a large systematic offset, sorting the pooled long
+#' vector by concentration interleaves them (high, low, high, low, ...), which
+#' both scrambles the first/last-three means and inflates the lag-1 noise
+#' estimate with between-replicate offset, mislabelling a genuine curve as flat.
+#' Aggregating first removes that artifact.
+#'
+#' @param data A data frame with columns \code{log_inhibitor} and
+#'   \code{response} (extra columns ignored).
+#' @return One of "inhibition", "activation", "flat", or "unknown".
 #' @keywords internal
-choose_model <- function(rsdr3, rsdr4, hill4,
-                         improve_frac = 0.05,
-                         hill_min = 0.1, hill_max = 5,
-                         tol10 = TRUE) {
-  has3 <- !is.null(rsdr3) && is.finite(rsdr3)
-  has4 <- !is.null(rsdr4) && is.finite(rsdr4) && !is.null(hill4) && is.finite(hill4)
+detect_curve_type_shared <- function(data) {
+  if (is.null(data) || nrow(data) < 4) return("unknown")
+  # Keep only rows with a real concentration AND a real response. A point with
+  # no concentration cannot be ordered onto the low/high-dose end.
+  keep <- !is.na(data$log_inhibitor) & !is.na(data$response)
+  clean_df <- data[keep, , drop = FALSE]
+  if (nrow(clean_df) < 4) return("unknown")
 
-  if (!has4 && !has3) return(list(model = NA_character_, reason = "both fits failed"))
-  if (!has4)          return(list(model = "3PL", reason = "4PL fit unavailable"))
-  if (!has3)          return(list(model = "4PL", reason = "3PL fit unavailable"))
+  # Collapse replicates to a per-concentration mean profile, sorted by dose.
+  agg <- stats::aggregate(response ~ log_inhibitor, data = clean_df, FUN = mean)
+  agg <- agg[order(agg$log_inhibitor), , drop = FALSE]
+  resps <- agg$response
+  n <- length(resps)
+  if (n < 4) return("unknown")
 
-  mag_ok <- abs(hill4) >= hill_min && abs(hill4) <= hill_max
-  if (!mag_ok)
-    return(list(model = "3PL",
-                reason = sprintf("4PL Hill=%.2f outside [%.1f,%.1f] -- rejected",
-                                 hill4, hill_min, hill_max)))
+  initial_avg <- mean(utils::head(resps, 3))
+  final_avg   <- mean(utils::tail(resps, 3))
 
-  accept4 <- if (tol10) rsdr4 <= rsdr3 * 1.10
-             else       rsdr4 <= rsdr3 * (1 - improve_frac)
+  range_val <- diff(range(resps))
+  thr_rel   <- range_val * 0.15
 
-  if (accept4)
-    list(model = "4PL",
-         reason = sprintf("4PL accepted (rsdr %.4f vs 3PL %.4f)", rsdr4, rsdr3))
-  else
-    list(model = "3PL",
-         reason = sprintf("4PL not better (rsdr %.4f > 3PL %.4f) -- using 3PL", rsdr4, rsdr3))
+  # Trend-robust noise estimate from successive (lag-1) differences.
+  d <- diff(resps)
+  sigma <- if (n >= 2) sqrt(sum(d^2) / (2 * (n - 1))) else 0
+  if (!is.finite(sigma)) sigma <- 0
+  se_diff   <- sigma / sqrt(3)
+  thr_noise <- if (se_diff > 0) 3 * se_diff else 0
+
+  threshold <- max(thr_rel, thr_noise)
+
+  if (initial_avg > final_avg + threshold) return("inhibition")
+  if (final_avg > initial_avg + threshold) return("activation")
+  "flat"
 }

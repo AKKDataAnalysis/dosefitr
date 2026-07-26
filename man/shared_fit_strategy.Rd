@@ -4,17 +4,17 @@
 \alias{shared_fit_strategy}
 \title{Shared dose-response fitting strategy helpers}
 \description{
-These internal helpers centralise the three pieces of fitting *strategy* that
-should behave identically across the package's two fitting engines:
+These internal helpers centralise the pieces of fitting *strategy* that
+behave identically across the package's fitting engines:
 }
 \details{
 \enumerate{
-  \item \code{detect_direction()} -- data-driven inhibition / activation / flat
-        classification (scale-aware; works for BRET ratios and 0--100\% data).
-  \item \code{make_start_grid()}  -- a grid of robust starting-value sets,
-        mirroring the multi-start strategy in \code{fit_drc_4pl.R}.
-  \item \code{choose_model()}     -- the shared 3PL-vs-4PL selection policy
-        (rsdr-guarded, prefers the simpler 3PL unless 4PL is clearly better).
+  \item \code{make_start_grid()}        -- a grid of robust starting-value
+        sets, mirroring the multi-start strategy in \code{fit_drc_4pl.R}.
+  \item \code{optim_sign_for()}         -- Hill-slope sign convention helper.
+  \item \code{detect_curve_type_shared()} -- data-driven inhibition /
+        activation / flat classification (scale-aware and noise-aware; works
+        for raw BRET ratios and 0--100\% data), shared by both fitters.
 }
 
 Two parameterisations are supported so the same strategy can seed either engine:

@@ -405,9 +405,17 @@ rout_outliers <- function(data,
       
       # rsdr guard: prefer 4PL only if it provides a meaningfully better fit.
       # Threshold: rsdr(4PL) <= rsdr(3PL) * 1.10.
+      # Hill-plausibility gate (salvaged from shared choose_model): also
+      # require |Hill(4PL)| within [0.1, 5] so an rsdr-marginal 4PL with a
+      # degenerate/implausible slope is rejected in favour of 3PL.
+      hill4_ok <- !is.null(res4$fit) &&
+        is.finite(res4$fit$par[4L]) &&
+        abs(res4$fit$par[4L]) >= 0.1 &&
+        abs(res4$fit$par[4L]) <= 5
 
       use_4pl <- !is.null(res4$fit) &&
         !is.null(res3$fit) &&
+        hill4_ok &&
         res4$fit$rsdr <= res3$fit$rsdr * 1.10
       
       if (use_4pl) {
@@ -418,7 +426,12 @@ rout_outliers <- function(data,
           100 * (1 - res4$fit$rsdr / res3$fit$rsdr)))
       } else {
         res_chosen <- res3
-        if (!is.null(res4$fit) && verbose) {
+        if (!is.null(res4$fit) && verbose && !hill4_ok) {
+          # 4PL fitted but its Hill slope was implausible
+          message(sprintf(
+            "%s: 4PL Hill (%.3f) outside [0.1, 5]  --  using 3PL",
+            cmpd, res4$fit$par[4L]))
+        } else if (!is.null(res4$fit) && verbose) {
           # 4PL fitted but rsdr guard rejected it
           message(sprintf(
             "%s: 4PL rsdr (%.4f) > 3PL rsdr (%.4f) x 1.10  --  using 3PL",

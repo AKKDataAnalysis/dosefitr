@@ -186,40 +186,10 @@ fit_drc_3pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
   # 3. HELPER FUNCTIONS
   # ============================================================================
   
-  detect_curve_type <- function(df_clean) {
-    if (nrow(df_clean) < 4) return("unknown")
-    sorted_df <- df_clean[order(df_clean$log_inhibitor), ]
-    resps <- sorted_df$response
-    
-    initial_avg <- mean(head(resps, 3), na.rm = TRUE)
-    final_avg   <- mean(tail(resps, 3), na.rm = TRUE)
-    
-    # Scale-robust classifier: a curve is non-flat only if the difference
-    # between the means of the first and last 3 responses (along the
-    # log-concentration axis) exceeds BOTH:
-    #   (a) 15% of the observed response range (catches strong curves at
-    #       any scale, including raw BRET ratios with range ~10 units), and
-    #   (b) k * SE(diff) where SE(diff) = sqrt((var(head3) + var(tail3))/3),
-    #       k = 3 (~3-sigma signal-to-noise test, suppresses random-noise
-    #       false positives on truly flat curves).
-    # Threshold = max((a), (b)). Both relative and noise-aware -> works on
-    # normalized 0-100% data AND raw plate-reader counts without an
-    # absolute floor.
-    range_val <- diff(range(resps, na.rm = TRUE))
-    head3 <- head(resps, 3); tail3 <- tail(resps, 3)
-    var_head <- if (length(head3) >= 2) stats::var(head3, na.rm = TRUE) else 0
-    var_tail <- if (length(tail3) >= 2) stats::var(tail3, na.rm = TRUE) else 0
-    if (is.na(var_head)) var_head <- 0
-    if (is.na(var_tail)) var_tail <- 0
-    se_diff <- sqrt((var_head + var_tail) / 3)
-    thr_rel   <- range_val * 0.15
-    thr_noise <- if (se_diff > 0) 3 * se_diff else 0
-    threshold <- max(thr_rel, thr_noise)
-    
-    if (initial_avg > final_avg + threshold) return("inhibition")
-    if (final_avg > initial_avg + threshold) return("activation")
-    return("flat")
-  }
+  # Direction classification is delegated to the SHARED noise-aware,
+  # scale-robust classifier (single source of truth in shared_fit_strategy.R)
+  # so 3PL and 4PL always agree on curve direction.
+  detect_curve_type <- function(df_clean) detect_curve_type_shared(df_clean)
   
   correct_hill_slope <- function(hill_slope, df_clean) {
     if (is.na(hill_slope)) return(NA_real_)

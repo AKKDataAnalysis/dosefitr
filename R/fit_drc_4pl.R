@@ -139,22 +139,11 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
   # Detect curve type based on data pattern.
   # Uses a relative threshold (max(15, range * 0.15)) on the head/tail
   # mean difference -- identical to fit_drc_3pl.
-  detect_curve_type <- function(data) {
-    if (nrow(data) < 4) return("unknown")
-    sorted_df <- data[order(data$log_inhibitor), ]
-    resps <- sorted_df$response[!is.na(sorted_df$response)]
-    if (length(resps) < 4) return("unknown")
-    
-    initial_avg <- mean(head(resps, 3), na.rm = TRUE)
-    final_avg   <- mean(tail(resps, 3), na.rm = TRUE)
-    
-    range_val <- diff(range(resps, na.rm = TRUE))
-    threshold <- max(15, range_val * 0.15)
-    
-    if (initial_avg > final_avg + threshold) return("inhibition")
-    if (final_avg > initial_avg + threshold) return("activation")
-    return("flat")
-  }
+  # Direction classification is delegated to the SHARED noise-aware,
+  # scale-robust classifier (single source of truth in shared_fit_strategy.R).
+  # This replaces the former hardcoded absolute floor of 15, which mislabeled
+  # real raw-scale curves as flat, and guarantees 3PL/4PL agree on direction.
+  detect_curve_type <- function(data) detect_curve_type_shared(data)
   
   # Create empty result structure for failed fits
   create_empty_result <- function(comp_name, reason = "Model failed") {
