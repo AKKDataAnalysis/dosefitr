@@ -349,20 +349,51 @@ fit_drc_3pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
     control_defs <- stats::nls.control(maxiter = 500, tol = 1e-04, minFactor = 1/4096, warnOnly = TRUE)
     control_relax <- stats::nls.control(maxiter = 1000, tol = 1e-03, minFactor = 1/1024, warnOnly = TRUE)
     
-    start_strategies <- list(
+    # Start values: draw plateau/LogIC50 seeds from the SHARED grid so 3PL
+    # and 4PL share one source of truth. 3PL fixes the Hill slope in
+    # model_func, so we drop the grid's HillSlope element and keep the
+    # distinct (Bottom, Top, LogIC50) triplets. The original hardcoded
+    # strategies are appended as a fallback so no working start is lost.
+    dir_lbl <- if (curve_type == "activation") "activation" else "inhibition"
+    shared_grid <- tryCatch(
+      make_start_grid(df_clean$log_inhibitor, df_clean$response,
+                      direction = dir_lbl, param = "drc"),
+      error = function(e) list())
+    shared_starts <- lapply(shared_grid, function(s)
+      list(Bottom = unname(s["Bottom"]),
+           Top    = unname(s["Top"]),
+           LogIC50 = if (is.finite(approx_ic50)) approx_ic50 else unname(s["LogIC50"])))
+
+    legacy_starts <- list(
       list(Bottom = min_resp, Top = max_resp, LogIC50 = approx_ic50),
       list(Bottom = min_resp * 0.8, Top = max_resp * 1.2, LogIC50 = approx_ic50),
       list(Bottom = min_resp * 1.2, Top = max_resp * 0.8, LogIC50 = approx_ic50),
       list(Bottom = max(0, min_resp - 10), Top = min(150, max_resp + 10), LogIC50 = approx_ic50)
     )
+    # Legacy strategy [[1]] first so it is the relaxed-control fallback seed
+    # and preserves the exact original behaviour on the common path.
+    start_strategies <- c(legacy_starts[1], shared_starts, legacy_starts[-1])
+    # Drop duplicate/invalid start sets.
+    start_strategies <- start_strategies[!duplicated(lapply(start_strategies,
+      function(s) round(unlist(s), 8)))]
+    start_strategies <- Filter(function(s) all(vapply(s, is.finite, logical(1))),
+                               start_strategies)
+    if (length(start_strategies) == 0L)
+      start_strategies <- legacy_starts[1]
     
-    fit <- NULL
+    # Fit loop: try ALL starts, keep the one with the lowest residual SS
+    # (best fit) -- same keep-best philosophy as fit_drc_4pl. This moves the
+    # solution toward the global least-squares optimum GraphPad targets.
+    fit <- NULL; best_rss <- Inf
     for (start_vals in start_strategies) {
-      fit <- tryCatch({
+      cand <- tryCatch({
         stats::nls(response ~ model_func(log_inhibitor, Bottom, Top, LogIC50),
                    data = df_clean, start = start_vals, control = control_defs, algorithm = "port")
       }, error = function(e) NULL)
-      if (!is.null(fit)) break
+      if (!is.null(cand)) {
+        rss <- tryCatch(sum(stats::residuals(cand)^2), error = function(e) Inf)
+        if (is.finite(rss) && rss < best_rss) { best_rss <- rss; fit <- cand }
+      }
     }
     if (is.null(fit)) {
       fit <- tryCatch({
