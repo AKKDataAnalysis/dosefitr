@@ -150,7 +150,8 @@ rout_outliers <- function(data,
   #
   # rout_fitter() argument order: rout_fitter(theta0, f.model, x, y, ...)
 
-  .fit_model <- function(x, y, n_param, hill_fixed, Q, ntry_retry) {
+  .fit_model <- function(x, y, n_param, hill_fixed, Q, ntry_retry,
+                         start_grid = NULL) {
     # Build a 3PL model by fixing the Hill slope to hill_fixed.
     # hill_model uses 4 parameters: (emin, emax, lec50, m).
     # For 3PL we fix m = hill_fixed and optimise only (emin, emax, lec50).
@@ -166,13 +167,54 @@ rout_outliers <- function(data,
     } else {
       f_model <- OptimModel::hill_model
     }
-    
-    fit <- tryCatch(
-      OptimModel::rout_fitter(theta0 = NULL, f.model = f_model,
-                              x = x, y = y, Q = Q, ntry = 0L),
-      error = function(e) NULL
-    )
-    
+
+    # --- Shared multi-start strategy (mirrors fit_drc_4pl.R) --------------
+    # Try each robust start set from the shared grid, seeding rout_fitter via
+    # theta0. Keep the CONVERGED fit with the lowest rsdr. This replaces the
+    # previous single theta0=NULL call, which frequently failed to converge on
+    # steep curves (Hill slope collapsing toward 1).
+    # Each grid entry is c(emin, emax, lec50, m); drop m for 3PL.
+    fit <- NULL
+    if (!is.null(start_grid) && length(start_grid) > 0L) {
+      N <- length(y)
+      for (sset in start_grid) {
+        theta_core <- if (n_param == 3L) unname(sset[1:3]) else unname(sset[1:4])
+        # rout_fitter only appends the Cauchy scale parameter (lsig) when
+        # theta0 = NULL. With an explicit theta0 it does NOT, so the parameter
+        # vector would be one element short and optim() fails. Append lsig here,
+        # replicating rout_fitter's internal computation (via f_model so this
+        # works for both the 3PL closure and the 4PL model).
+        mu0 <- tryCatch(f_model(theta_core, x), error = function(e) NULL)
+        if (is.null(mu0) || any(!is.finite(mu0))) next
+        res0  <- y - mu0
+        rsdr0 <- stats::quantile(abs(res0), 0.6827, names = FALSE) *
+          N / (N - length(theta_core))
+        if (!is.finite(rsdr0) || rsdr0 <= 0) next
+        theta0 <- c(theta_core, lsig = log(rsdr0))
+        cand <- tryCatch(
+          OptimModel::rout_fitter(theta0 = theta0, f.model = f_model,
+                                  x = x, y = y, Q = Q, ntry = 0L),
+          error = function(e) NULL
+        )
+        if (is.null(cand)) next
+        keep <- is.null(fit) ||
+          (isTRUE(cand$Converge) && !isTRUE(fit$Converge)) ||
+          (identical(isTRUE(cand$Converge), isTRUE(fit$Converge)) &&
+             is.finite(cand$rsdr) && cand$rsdr < fit$rsdr)
+        if (keep) fit <- cand
+      }
+    }
+
+    # Fallback: original theta0=NULL behaviour if the grid produced nothing
+    # (or no grid was supplied), preserving backward compatibility.
+    if (is.null(fit)) {
+      fit <- tryCatch(
+        OptimModel::rout_fitter(theta0 = NULL, f.model = f_model,
+                                x = x, y = y, Q = Q, ntry = 0L),
+        error = function(e) NULL
+      )
+    }
+
     retried <- FALSE
     
     # Retry logic: attempt random restarts if initial fit did not converge
@@ -342,12 +384,24 @@ rout_outliers <- function(data,
     #
     # Both models are fitted upfront so the rsdr comparison requires no extra
     # optimizer call. The decision logic then selects the winner cleanly.
+    # ---- Shared robust starting-value grid (mirrors fit_drc_4pl.R) ----
+    # Direction is fixed by `direction` (via hill_fixed) to preserve the
+    # documented API; the grid seeds rout_fitter with multiple plateau/slope
+    # combinations so steep curves converge. x_log_fit carries an is_ln flag
+    # so make_start_grid() emits lec50 = ln(EC50) correctly.
+    dir_lbl <- if (hill_fixed > 0) "inhibition" else "activation"
+    x_log_tagged <- x_log_fit
+    attr(x_log_tagged, "is_ln") <- identical(log_base, "ln")
+    start_grid <- tryCatch(
+      make_start_grid(x_log_tagged, y_fit, direction = dir_lbl, param = "optim"),
+      error = function(e) NULL)
+
     res3 <- .fit_model(x_fit, y_fit, n_param = 3L, hill_fixed = hill_fixed, Q = Q,
-                       ntry_retry = ntry_retry)
-    
+                       ntry_retry = ntry_retry, start_grid = start_grid)
+
     if (n_param == 4L) {
       res4 <- .fit_model(x_fit, y_fit, n_param = 4L, hill_fixed = hill_fixed, Q = Q,
-                         ntry_retry = ntry_retry)
+                         ntry_retry = ntry_retry, start_grid = start_grid)
       
       # rsdr guard: prefer 4PL only if it provides a meaningfully better fit.
       # Threshold: rsdr(4PL) <= rsdr(3PL) * 1.10.

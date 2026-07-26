@@ -364,63 +364,63 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
          min_response = min_resp, max_response = max_resp, approx_ic50 = approx_ic50)
   }
   
-  # Robust nonlinear fitting with multiple strategies
+  # Robust nonlinear fitting with multiple strategies.
+  #
+  # Starting values come from the SHARED strategy module (make_start_grid),
+  # so this OLS/nls engine and the ROUT outlier engine seed their fits from
+  # one source of truth. Unlike the previous "first strategy that converges
+  # wins" behaviour, this tries ALL starts and keeps the BEST-fitting one
+  # (lowest residual sum of squares) -- more robust for steep curves, which
+  # matters because these fits sit underneath outlier detection.
   try_robust_fit <- function(df_clean, min_resp, max_resp, approx_ic50, curve_type) {
     if (nrow(df_clean) < 5) return(NULL)
-    
+
     control_configs <- list(
       default = stats::nls.control(maxiter = 500, tol = 1e-04, minFactor = 1/4096, warnOnly = TRUE),
       relaxed = stats::nls.control(maxiter = 1000, tol = 1e-03, minFactor = 1/1024, warnOnly = TRUE)
     )
-    
-    # Define start strategies based on curve type
-    if (curve_type == "inhibition") {
-      start_strategies <- list(
-        list(Bottom = min_resp, Top = max_resp, LogIC50 = approx_ic50, HillSlope = -1),
-        list(Bottom = min_resp * 0.8, Top = max_resp * 1.2, LogIC50 = approx_ic50, HillSlope = -1.5),
-        list(Bottom = min_resp * 1.2, Top = max_resp * 0.8, LogIC50 = approx_ic50, HillSlope = -2),
-        list(Bottom = max(0, min_resp - 10), Top = min(150, max_resp + 10), LogIC50 = approx_ic50, HillSlope = -0.8),
-        list(Bottom = min_resp, Top = max_resp, LogIC50 = approx_ic50, HillSlope = -0.5)
-      )
-    } else if (curve_type == "activation") {
-      start_strategies <- list(
-        list(Bottom = min_resp, Top = max_resp, LogIC50 = approx_ic50, HillSlope = 1),
-        list(Bottom = min_resp * 0.8, Top = max_resp * 1.2, LogIC50 = approx_ic50, HillSlope = 1.5),
-        list(Bottom = min_resp * 1.2, Top = max_resp * 0.8, LogIC50 = approx_ic50, HillSlope = 2),
-        list(Bottom = max(0, min_resp - 10), Top = min(150, max_resp + 10), LogIC50 = approx_ic50, HillSlope = 0.8),
-        list(Bottom = min_resp, Top = max_resp, LogIC50 = approx_ic50, HillSlope = 0.5)
-      )
-    } else {
-      # For flat or unknown curves: try both directions
-      start_strategies <- list(
-        list(Bottom = min_resp, Top = max_resp, LogIC50 = approx_ic50, HillSlope = -1),
-        list(Bottom = min_resp, Top = max_resp, LogIC50 = approx_ic50, HillSlope = 1),
-        list(Bottom = min_resp * 0.8, Top = max_resp * 1.2, LogIC50 = approx_ic50, HillSlope = -1.5),
-        list(Bottom = min_resp * 0.8, Top = max_resp * 1.2, LogIC50 = approx_ic50, HillSlope = 1.5)
-      )
+
+    # Build the shared starting-value grid on the drc parameterisation
+    # (Bottom, Top, LogIC50, HillSlope). x here is log10 concentration.
+    build_grid <- function(direction) {
+      make_start_grid(df_clean$log_inhibitor, df_clean$response,
+                      direction = direction, param = "drc")
     }
-    
-    # Try all strategies with default control
-    for (start_vals in start_strategies) {
-      fit <- tryCatch({
+    if (curve_type == "inhibition") {
+      start_strategies <- build_grid("inhibition")
+    } else if (curve_type == "activation") {
+      start_strategies <- build_grid("activation")
+    } else {
+      # For flat or unknown curves: try BOTH directions.
+      start_strategies <- c(build_grid("inhibition"), build_grid("activation"))
+    }
+
+    # Fit from every start; keep the converged fit with the lowest RSS.
+    fit_one <- function(start_vals, control) {
+      tryCatch(
         stats::nls(
           response ~ four_param_model(log_inhibitor, Bottom, Top, LogIC50, HillSlope),
-          data = df_clean, start = start_vals, control = control_configs$default, algorithm = "port"
-        )
-      }, error = function(e) NULL)
-      
-      if (!is.null(fit)) return(fit)
-    }
-    
-    # Final attempt with relaxed parameters
-    tryCatch({
-      stats::nls(
-        response ~ four_param_model(log_inhibitor, Bottom, Top, LogIC50, HillSlope),
-        data = df_clean, start = start_strategies[[1]], control = control_configs$relaxed, algorithm = "port"
+          data = df_clean,
+          start = list(Bottom = start_vals[["Bottom"]], Top = start_vals[["Top"]],
+                       LogIC50 = start_vals[["LogIC50"]], HillSlope = start_vals[["HillSlope"]]),
+          control = control, algorithm = "port"
+        ),
+        error = function(e) NULL
       )
-    }, error = function(e) NULL)
+    }
+
+    best <- NULL; best_rss <- Inf
+    for (start_vals in start_strategies) {
+      fit <- fit_one(start_vals, control_configs$default)
+      if (is.null(fit)) next
+      rss <- tryCatch(sum(stats::resid(fit)^2), error = function(e) Inf)
+      if (is.finite(rss) && rss < best_rss) { best <- fit; best_rss <- rss }
+    }
+    if (!is.null(best)) return(best)
+
+    # Final attempt with relaxed control from the first start (fallback).
+    fit_one(start_strategies[[1]], control_configs$relaxed)
   }
-  
   # Calculate goodness of fit metrics
   calculate_goodness_of_fit <- function(fit, df_clean) {
     tryCatch({
