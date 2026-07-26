@@ -256,9 +256,10 @@ rout_outliers <- function(data,
   .detect_systematic_flags <- function(outlier_flags, std_residuals, x_log_fit) {
     flagged_idx <- which(outlier_flags)
     
-    # Need at least 2 flagged points AND at least 2 unique concentrations.
-    # (Two replicates flagged at the same concentration is a true outlier pair,
-    # not a systematic model-misfit pattern.)
+    # Cheap pre-check: a systematic pattern needs at least 2 flagged points.
+    # The definitive gate is >= 3 unique flagged concentrations (Condition 2
+    # below). A single flagged point, or two replicates flagged at the same
+    # concentration, is a true outlier (pair) -- never a systematic pattern.
     if (length(flagged_idx) < 2L)
       return(list(flags = outlier_flags, cleared = FALSE, reason = ""))
     
@@ -267,21 +268,34 @@ rout_outliers <- function(data,
     if (!all(flag_signs == flag_signs[1L]))
       return(list(flags = outlier_flags, cleared = FALSE, reason = ""))
     
-    # Condition 2: flagged points span >= 2 consecutive concentrations.
-    # "Consecutive" = adjacent in the sorted unique concentration vector,
-    # allowing a gap of 1 (one missing step between two flagged steps).
+    # Condition 2 (fix 1): flagged points must span >= 3 DISTINCT concentrations.
+    # A same-sign run across 3+ concentrations is strong evidence of a curve-shape
+    # mismatch (true model misfit). With only 2 flagged concentrations the pattern
+    # is statistically indistinguishable from two genuine, adjacent bad wells that
+    # happen to share a residual sign, so we must NOT override ROUT there -- those
+    # flags are KEPT. Raising this floor from 2 to 3 closes the "two adjacent
+    # same-sign outliers silently cleared" gap without weakening protection
+    # against real misfit.
     flagged_concs  <- sort(unique(x_log_fit[flagged_idx]))
-    if (length(flagged_concs) < 2L)
+    if (length(flagged_concs) < 3L)
       return(list(flags = outlier_flags, cleared = FALSE, reason = ""))
     all_concs      <- sort(unique(x_log_fit))
     conc_positions <- match(flagged_concs, all_concs)  # positions in full conc ladder
     
-    # Check that the flagged positions form a contiguous run (max gap = 1 step)
+    # Condition 3 (fix 2): the flagged concentrations must form a near-contiguous
+    # run on the concentration ladder, tolerating AT MOST ONE missing step between
+    # two flagged concentrations. On the sorted position vector that is a position
+    # difference of at most 2: a difference of 1 is fully adjacent; a difference of
+    # 2 means exactly one intervening concentration was not flagged. Any larger
+    # jump (pos-diff > 2) means the flags are scattered rather than a run, so they
+    # are NOT treated as systematic. (Code and comment now state the identical
+    # rule; the previous "max gap = 1 step" comment contradicted the tolerance of
+    # one missing step and has been corrected.)
     pos_diffs <- diff(conc_positions)
     if (any(pos_diffs > 2L))
       return(list(flags = outlier_flags, cleared = FALSE, reason = ""))
     
-    # Both conditions met: clear all flags
+    # All conditions met: clear all flags
     sign_word <- if (flag_signs[1L] > 0) "positive" else "negative"
     reason <- sprintf(
       "systematic %s residuals at %d consecutive concentration(s) [%.2f to %.2f] -- possible model misfit",
