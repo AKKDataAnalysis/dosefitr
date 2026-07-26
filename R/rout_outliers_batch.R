@@ -268,7 +268,7 @@ rout_outliers_batch <- function(batch_results,
     # Concentration column name (log10_conc or ln_conc)
     conc_col_name <- intersect(c("log10_conc", "ln_conc"), names(outlier_tbl))[1L]
     
-    # Top-2 concentrations (used for labelling only, not as a hard filter)
+    # Top-2 concentrations (hard filter: cytotoxicity is a high-dose effect)
     conc_col_idx <- 1L
     all_concs    <- sort(unique(stats::na.omit(cleaned_mrt[[conc_col_idx]])),
                          decreasing = TRUE)
@@ -281,16 +281,19 @@ rout_outliers_batch <- function(batch_results,
       conc_i <- outlier_tbl[[conc_col_name]][i]
       cmpd_i <- outlier_tbl$compound[i]
       
-      # Condition: both replicates at this compound + concentration are flagged
+      # Condition 1 (replicate agreement): both replicates at this compound +
+      # concentration are flagged (reproducible drop, not a single-rep artefact).
       same_cmpd_conc <- outlier_tbl$compound == cmpd_i &
         outlier_tbl[[conc_col_name]] == conc_i
       if (sum(same_cmpd_conc) < 2L) next
       
+      # Condition 2 (top-2 concentration): cytotoxicity is a high-dose effect, so
+      # only rescue reproducible drops at one of the two highest tested concs.
+      # Both conditions must hold simultaneously (see @param keep_cytotoxic).
+      if (!(conc_i %in% top2_concs)) next
+      
       rescue_mask[i]   <- TRUE
-      rescue_reason[i] <- if (conc_i %in% top2_concs)
-        "both replicates flagged at top-2 concentration (cytotoxicity)"
-      else
-        "both replicates flagged at same concentration (reproducible drop)"
+      rescue_reason[i] <- "both replicates flagged at top-2 concentration (cytotoxicity)"
     }
     
     if (!any(rescue_mask))

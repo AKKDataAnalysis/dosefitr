@@ -561,9 +561,10 @@ batch_drc_analysis <- function(batch_results,
               mean_end_row <- mean(
                 as.numeric(unlist(full_data_df[last_idx, rep_positions])), na.rm = TRUE)
               
-              # 3. Fitted Span (Parameter 5)
+              # 3. Fitted Span -- look up BY NAME (position differs: 3PL=5, 4PL=6)
               fit_span <- NA_real_
-              if (length(res$parameters$Value) >= 5) fit_span <- res$parameters$Value[5]
+              .span_idx <- match("Span", res$parameters$Parameter)
+              if (!is.na(.span_idx)) fit_span <- res$parameters$Value[.span_idx]
               
               # 4. Calculation: abs(fit_span) / abs(mean_end_row - mean_start_row)
               diff_window <- abs(mean_end_row - mean_start_row)
@@ -578,8 +579,8 @@ batch_drc_analysis <- function(batch_results,
           # For 4PL: it is NULL; fall back to the estimated HillSlope (Value[4]).
           ideal_hill <- if (!is.null(res$ideal_hill_slope)) {
             res$ideal_hill_slope
-          } else if (!is.null(res$parameters) && length(res$parameters$Value) >= 4) {
-            res$parameters$Value[4]
+          } else if (!is.null(res$parameters) && !is.na(match("HillSlope", res$parameters$Parameter))) {
+            res$parameters$Value[match("HillSlope", res$parameters$Parameter)]
           } else {
             NA_real_
           }
