@@ -711,14 +711,40 @@ if (is.null(label_sep)) {
   x_range_data <- range(summary_data$log_inhibitor, na.rm = TRUE)
   x_lo <- x_range_data[1] - diff(x_range_data) * 0.02   # mirrors expand mult
   x_hi <- x_range_data[2] + diff(x_range_data) * 0.02
-  # Resolve y_limits: if NULL (auto), derive from the data so segment endpoints
-  # are always finite scalars.
+  # Resolve y_limits: if NULL (auto), the manual y-axis spine must span the SAME
+  # range that ggplot auto-computes for the panel, otherwise (with
+  # expand = c(0, 0)) the pretty-breaks / tick labels can extend beyond the
+  # spine, leaving ticks floating with no axis line beside them.
+  # coord_cartesian auto-ranges from ALL plotted layers, so the spine range is
+  # the union of the point means, the (unclipped) fitted curve, and any excluded
+  # points.  Error bars are excluded here because they are themselves clipped to
+  # y_seg_limits below (including them would be circular and they never extend
+  # the visible range).  A small break-aware pad then guarantees the spine
+  # reaches the outermost tick that scales::extended_breaks() will draw.
   y_seg_limits <- if (!is.null(y_limits) && length(y_limits) == 2L) {
     y_limits
   } else {
-    y_range_data <- range(summary_data$mean_response, na.rm = TRUE)
-    y_pad <- diff(y_range_data) * 0.05
-    c(y_range_data[1] - y_pad, y_range_data[2] + y_pad)
+    y_vals <- summary_data$mean_response
+    if (!is.null(curve_data) && "response" %in% names(curve_data)) {
+      y_vals <- c(y_vals, curve_data$response)
+    }
+    if (!is.null(excluded_summary) && nrow(excluded_summary) > 0L) {
+      y_vals <- c(y_vals, excluded_summary$mean_response)
+    }
+    y_vals <- y_vals[is.finite(y_vals)]
+    y_range_data <- range(y_vals, na.rm = TRUE)
+    # Extend the spine to the outermost pretty-break so no drawn tick floats
+    # above/below the axis line.  extended_breaks() mirrors ggplot's default
+    # break algorithm; keep only breaks inside the padded data range.
+    seg_lo <- y_range_data[1]
+    seg_hi <- y_range_data[2]
+    brks <- tryCatch(scales::extended_breaks()(y_range_data), error = function(e) numeric(0))
+    brks <- brks[is.finite(brks) & brks >= seg_lo & brks <= seg_hi]
+    if (length(brks)) {
+      seg_lo <- min(seg_lo, brks)
+      seg_hi <- max(seg_hi, brks)
+    }
+    c(seg_lo, seg_hi)
   }
   axis_segs <- data.frame(
     x    = c(x_lo,              x_lo),
