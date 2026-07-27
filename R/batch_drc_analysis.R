@@ -330,7 +330,8 @@ batch_drc_analysis <- function(batch_results,
           verbose                  = FALSE,
           enforce_bottom_threshold = enforce_bottom_threshold,
           bottom_threshold         = bottom_threshold,
-          r_sqr_threshold          = r_sqr_threshold
+          r_sqr_threshold          = r_sqr_threshold,
+          assay_type               = assay_type
         )
       } else {
         fit_drc_4pl(
@@ -930,7 +931,8 @@ batch_drc_analysis <- function(batch_results,
             verbose                  = FALSE,
             enforce_bottom_threshold = enforce_bottom_threshold,
             bottom_threshold         = bottom_threshold,
-            r_sqr_threshold          = r_sqr_threshold
+            r_sqr_threshold          = r_sqr_threshold,
+            assay_type               = assay_type
           )
         } else {
           fit_drc_4pl(
