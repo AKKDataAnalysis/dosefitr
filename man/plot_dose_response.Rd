@@ -8,6 +8,7 @@ plot_dose_response(
   results,
   compound_index = 1,
   y_limits = c(0, 150),
+  y_from_zero = FALSE,
   x_limits = NULL,
   point_color = "black",
   line_color = "black",
@@ -30,6 +31,7 @@ plot_dose_response(
   enforce_bottom_threshold = NULL,
   bottom_threshold = 60,
   label_sep = NULL,
+  y_number_format = c("integer", "scientific", "si"),
   axis_line_width = 0.8,
   axis_vjust = NULL,
   tick_length = NULL,
@@ -76,7 +78,19 @@ dose-response analysis results.}
 
 \item{compound_index}{Numeric index specifying which compound to plot (default: 1).}
 
-\item{y_limits}{Numeric vector of length 2 specifying y-axis limits (default: c(0, 150)).}
+\item{y_limits}{Numeric vector of length 2 specifying y-axis limits (default:
+c(0, 150)). Set to \code{NULL} to auto-range the axis to the data. An
+explicit length-2 vector always takes precedence over \code{y_from_zero}.}
+
+\item{y_from_zero}{Logical. Only consulted when \code{y_limits} is \code{NULL}
+(i.e. not an explicit length-2 vector). When \code{TRUE}, the y-axis lower
+bound is anchored at \code{min(0, data minimum)} - normally 0, but drops
+below 0 if the data genuinely go negative so nothing is clipped - and the
+upper bound auto-fits to the data. When \code{FALSE} (default), the axis
+full-auto-ranges to the data (the lower bound floats up to just below the
+smallest value, which is why flat high-signal compounds do not start at 0).
+Useful for viability panels where anchoring every sub-plot at 0 makes the
+effect size visually comparable across compounds.}
 
 \item{x_limits}{Numeric vector of length 2 specifying the x-axis limits
 in log10 molar units.  \code{NULL} (default) uses the data range.}
@@ -129,11 +143,20 @@ was used in analysis (default: NULL, auto-detected from results).}
 \item{label_sep}{Character string. Separator used for DISPLAY purposes in
 titles, filenames, and metadata. When \code{NULL} (default), auto-detected
 from \code{attr(results, "label_sep")}; falls back to \code{":"} if the
-attribute is absent. This only affects what the user sees — the internal
+attribute is absent. This only affects what the user sees - the internal
 data separator used for parsing compound names is always read from the
 attribute and is never changed. For example, \code{label_sep = "/"} renders
 \code{"EPHA1/KK135"} in the title while the data still stores
 \code{"EPHA1:KK135"} internally.}
+
+\item{y_number_format}{Character string. How the y-axis tick labels are
+formatted. One of \code{"integer"} (default; plain integers with no
+thousands separator, e.g. \code{100000}), \code{"scientific"} (scientific
+notation, e.g. \code{1e+05}), or \code{"si"} (SI short-scale suffixes,
+e.g. \code{100K}, \code{1.5M}). ggplot2's default formatter chooses
+notation per panel based on that panel's break magnitudes, so a multi-panel
+figure can mix plain integers and scientific notation; setting this forces
+one consistent style across all panels.}
 
 \item{axis_line_width}{Numeric. Line width of the manually drawn x/y axis
 lines (default: 0.8).}
@@ -279,7 +302,8 @@ Returns a ggplot object with comprehensive metadata stored as attributes:
   \item \code{model_success}: Whether model fitting was successful
   \item \code{summary_data}: Data frame with summarized plotting data
   \item \code{plot_config}: Configuration settings used for plotting
-  \item \code{y_limits_used}: Y-axis limits actually used
+  \item \code{y_limits_used}: Y-axis limits actually rendered (the drawn axis
+    range, resolved from \code{y_limits} / \code{y_from_zero} / auto-range)
   \item \code{data_points}: Number of data points plotted
   \item \code{concentration_levels}: Number of concentration levels
   \item \code{file_saved}: Path to saved file if plot was saved

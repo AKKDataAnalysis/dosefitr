@@ -9,7 +9,18 @@
 #' @param compound_index Numeric index specifying which compound to plot (default: 1).
 #' @param x_limits Numeric vector of length 2 specifying the x-axis limits
 #'   in log10 molar units.  \code{NULL} (default) uses the data range.
-#' @param y_limits Numeric vector of length 2 specifying y-axis limits (default: c(0, 150)).
+#' @param y_limits Numeric vector of length 2 specifying y-axis limits (default:
+#'   c(0, 150)). Set to \code{NULL} to auto-range the axis to the data. An
+#'   explicit length-2 vector always takes precedence over \code{y_from_zero}.
+#' @param y_from_zero Logical. Only consulted when \code{y_limits} is \code{NULL}
+#'   (i.e. not an explicit length-2 vector). When \code{TRUE}, the y-axis lower
+#'   bound is anchored at \code{min(0, data minimum)} - normally 0, but drops
+#'   below 0 if the data genuinely go negative so nothing is clipped - and the
+#'   upper bound auto-fits to the data. When \code{FALSE} (default), the axis
+#'   full-auto-ranges to the data (the lower bound floats up to just below the
+#'   smallest value, which is why flat high-signal compounds do not start at 0).
+#'   Useful for viability panels where anchoring every sub-plot at 0 makes the
+#'   effect size visually comparable across compounds.
 #' @param point_color Color for data points (default: "black").
 #' @param line_color Color for fitted curve (default: "black").
 #' @param ic50_line_color Color for IC50 vertical line (default: "gray").
@@ -35,11 +46,19 @@
 #' @param label_sep Character string. Separator used for DISPLAY purposes in
 #'   titles, filenames, and metadata. When \code{NULL} (default), auto-detected
 #'   from \code{attr(results, "label_sep")}; falls back to \code{":"} if the
-#'   attribute is absent. This only affects what the user sees — the internal
+#'   attribute is absent. This only affects what the user sees - the internal
 #'   data separator used for parsing compound names is always read from the
 #'   attribute and is never changed. For example, \code{label_sep = "/"} renders
 #'   \code{"EPHA1/KK135"} in the title while the data still stores
 #'   \code{"EPHA1:KK135"} internally.
+#' @param y_number_format Character string. How the y-axis tick labels are
+#'   formatted. One of \code{"integer"} (default; plain integers with no
+#'   thousands separator, e.g. \code{100000}), \code{"scientific"} (scientific
+#'   notation, e.g. \code{1e+05}), or \code{"si"} (SI short-scale suffixes,
+#'   e.g. \code{100K}, \code{1.5M}). ggplot2's default formatter chooses
+#'   notation per panel based on that panel's break magnitudes, so a multi-panel
+#'   figure can mix plain integers and scientific notation; setting this forces
+#'   one consistent style across all panels.
 #' @param axis_line_width Numeric. Line width of the manually drawn x/y axis
 #'   lines (default: 0.8).
 #' @param axis_vjust Numeric or NULL. Vertical justification (\code{vjust}) of
@@ -151,7 +170,8 @@
 #'   \item \code{model_success}: Whether model fitting was successful
 #'   \item \code{summary_data}: Data frame with summarized plotting data
 #'   \item \code{plot_config}: Configuration settings used for plotting
-#'   \item \code{y_limits_used}: Y-axis limits actually used
+#'   \item \code{y_limits_used}: Y-axis limits actually rendered (the drawn axis
+#'     range, resolved from \code{y_limits} / \code{y_from_zero} / auto-range)
 #'   \item \code{data_points}: Number of data points plotted
 #'   \item \code{concentration_levels}: Number of concentration levels
 #'   \item \code{file_saved}: Path to saved file if plot was saved
@@ -267,6 +287,7 @@
 
 
 plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150),
+                               y_from_zero = FALSE,
                                x_limits = NULL,
                                point_color = "black", line_color = "black",
                                ic50_line_color = "gray", point_size = 2,
@@ -279,6 +300,7 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
                                plot_title = TRUE,
                                enforce_bottom_threshold = NULL, bottom_threshold = 60,
                                label_sep = NULL,
+                               y_number_format = c("integer", "scientific", "si"),
                                axis_line_width = 0.8,
                                axis_vjust = NULL,
                                tick_length = NULL,
@@ -361,6 +383,22 @@ if (is.null(label_sep)) {
   }
 }
 
+# Resolve y_number_format: controls how the y-axis tick labels are rendered.
+# ggplot2's default formatter decides per-panel whether to use scientific
+# notation based on that panel's break magnitudes, which makes a multi-panel
+# figure look inconsistent (some panels show plain integers, others 3e+05).
+# Forcing an explicit labels= formatter keeps every panel consistent.
+#   "integer"    -> plain integers, no thousands separator (e.g. 100000)  [default]
+#   "scientific" -> scientific notation everywhere         (e.g. 1e+05)
+#   "si"         -> SI short-scale suffixes                 (e.g. 100K, 1.5M)
+y_number_format <- match.arg(y_number_format)
+y_label_fun <- switch(
+  y_number_format,
+  integer    = scales::label_number(accuracy = 1, big.mark = ""),
+  scientific = scales::label_scientific(),
+  si         = scales::label_number(scale_cut = scales::cut_short_scale())
+)
+
   # Extract compound data
   result <- results$detailed_results[[compound_index]]
   
@@ -433,7 +471,7 @@ if (is.null(label_sep)) {
   # attr(results, "label_sep") here because plot_dose_response is often
   # called with a single plate's drc_result (which lacks the attribute).
   # Instead, we split on the first occurrence of a known separator and
-  # re-join with label_sep — robust regardless of the data separator.
+  # re-join with label_sep - robust regardless of the data separator.
   .find_data_sep <- function(name) {
     # Try the attribute first (most reliable when available)
     attr_sep <- attr(results, "label_sep")
@@ -598,6 +636,53 @@ if (is.null(label_sep)) {
   log_ic50 <- if (model_success) get_ic50_value(result) else NA
   legend_content <- create_legend_content(if (model_success) result else NULL)
 
+  # ---------------------------------------------------------------------------
+  # Resolve the effective y-axis range ONCE so the coord_cartesian ylim and the
+  # manually drawn y-axis spine (below) always agree. Three modes, in priority:
+  #   1. Explicit y_limits (length-2 numeric)  -> use verbatim (wins over
+  #      everything, preserves the historical default c(0, 150)).
+  #   2. y_from_zero = TRUE                     -> anchor the lower bound at
+  #      min(0, data minimum) (so it is 0 normally, but drops below 0 if the
+  #      data genuinely go negative and nothing is clipped) and auto-fit the top.
+  #   3. Otherwise (y_limits = NULL, y_from_zero = FALSE) -> full auto-range from
+  #      the data (unchanged legacy behaviour).
+  # The auto range is the union of point means, the (unclipped) fitted curve,
+  # and any excluded points, snapped out to the outermost pretty-break so no
+  # drawn tick floats beyond the spine. Error bars are intentionally excluded
+  # (they are clipped to this range below, so including them would be circular).
+  y_limits_explicit <- !is.null(y_limits) && length(y_limits) == 2L
+  compute_auto_yrange <- function(floor_zero) {
+    y_vals <- summary_data$mean_response
+    if (!is.null(curve_data) && "response" %in% names(curve_data)) {
+      y_vals <- c(y_vals, curve_data$response)
+    }
+    if (!is.null(excluded_summary) && nrow(excluded_summary) > 0L) {
+      y_vals <- c(y_vals, excluded_summary$mean_response)
+    }
+    y_vals <- y_vals[is.finite(y_vals)]
+    if (!length(y_vals)) return(NULL)
+    rng <- range(y_vals, na.rm = TRUE)
+    seg_lo <- rng[1]
+    seg_hi <- rng[2]
+    if (isTRUE(floor_zero)) seg_lo <- min(0, seg_lo)
+    # Snap to the outermost pretty-break so ticks never float past the spine.
+    brk_range <- c(seg_lo, seg_hi)
+    brks <- tryCatch(scales::extended_breaks()(brk_range), error = function(e) numeric(0))
+    brks <- brks[is.finite(brks) & brks >= seg_lo & brks <= seg_hi]
+    if (length(brks)) {
+      seg_lo <- min(seg_lo, brks)
+      seg_hi <- max(seg_hi, brks)
+    }
+    c(seg_lo, seg_hi)
+  }
+  y_range_resolved <- if (y_limits_explicit) {
+    y_limits
+  } else if (isTRUE(y_from_zero)) {
+    compute_auto_yrange(floor_zero = TRUE)
+  } else {
+    NULL   # signals full auto-range to coord_cartesian
+  }
+
   # Compute display-override state.  Mirrors batch_drc_analysis() semantics:
   #  - is_nd: curve_type == "flat" OR (nd_if_activation && curve_type == "activation")
   #  - is_above_range: numeric IC50 exceeds the highest tested concentration
@@ -650,11 +735,11 @@ if (is.null(label_sep)) {
       y = plot_config$y_lab,
       title = final_title
     ) +
-    ggplot2::scale_y_continuous(expand = axis_expand) +
+    ggplot2::scale_y_continuous(expand = axis_expand, labels = y_label_fun) +
     ggplot2::scale_x_continuous(expand = axis_expand) +
     ggplot2::coord_cartesian(
       xlim = if (!is.null(x_limits) && length(x_limits) == 2L) x_limits else NULL,
-      ylim = if (!is.null(y_limits) && length(y_limits) == 2L) y_limits else NULL,
+      ylim = if (!is.null(y_range_resolved) && length(y_range_resolved) == 2L) y_range_resolved else NULL,
       clip = "on") +
     ggplot2::theme_minimal() +
     ggplot2::theme(
@@ -711,40 +796,16 @@ if (is.null(label_sep)) {
   x_range_data <- range(summary_data$log_inhibitor, na.rm = TRUE)
   x_lo <- x_range_data[1] - diff(x_range_data) * 0.02   # mirrors expand mult
   x_hi <- x_range_data[2] + diff(x_range_data) * 0.02
-  # Resolve y_limits: if NULL (auto), the manual y-axis spine must span the SAME
-  # range that ggplot auto-computes for the panel, otherwise (with
-  # expand = c(0, 0)) the pretty-breaks / tick labels can extend beyond the
-  # spine, leaving ticks floating with no axis line beside them.
-  # coord_cartesian auto-ranges from ALL plotted layers, so the spine range is
-  # the union of the point means, the (unclipped) fitted curve, and any excluded
-  # points.  Error bars are excluded here because they are themselves clipped to
-  # y_seg_limits below (including them would be circular and they never extend
-  # the visible range).  A small break-aware pad then guarantees the spine
-  # reaches the outermost tick that scales::extended_breaks() will draw.
-  y_seg_limits <- if (!is.null(y_limits) && length(y_limits) == 2L) {
-    y_limits
+  # Resolve the y-axis spine range. It must match the coord_cartesian ylim
+  # exactly, otherwise (with expand = c(0, 0)) drawn ticks can float beyond the
+  # spine. y_range_resolved (computed above) already encodes the explicit and
+  # y_from_zero modes; when it is NULL we are in full auto-range mode and
+  # recompute the data-driven span here (floor_zero = FALSE).
+  y_seg_limits <- if (!is.null(y_range_resolved) && length(y_range_resolved) == 2L) {
+    y_range_resolved
   } else {
-    y_vals <- summary_data$mean_response
-    if (!is.null(curve_data) && "response" %in% names(curve_data)) {
-      y_vals <- c(y_vals, curve_data$response)
-    }
-    if (!is.null(excluded_summary) && nrow(excluded_summary) > 0L) {
-      y_vals <- c(y_vals, excluded_summary$mean_response)
-    }
-    y_vals <- y_vals[is.finite(y_vals)]
-    y_range_data <- range(y_vals, na.rm = TRUE)
-    # Extend the spine to the outermost pretty-break so no drawn tick floats
-    # above/below the axis line.  extended_breaks() mirrors ggplot's default
-    # break algorithm; keep only breaks inside the padded data range.
-    seg_lo <- y_range_data[1]
-    seg_hi <- y_range_data[2]
-    brks <- tryCatch(scales::extended_breaks()(y_range_data), error = function(e) numeric(0))
-    brks <- brks[is.finite(brks) & brks >= seg_lo & brks <= seg_hi]
-    if (length(brks)) {
-      seg_lo <- min(seg_lo, brks)
-      seg_hi <- max(seg_hi, brks)
-    }
-    c(seg_lo, seg_hi)
+    auto_rng <- compute_auto_yrange(floor_zero = FALSE)
+    if (is.null(auto_rng)) c(0, 1) else auto_rng
   }
   axis_segs <- data.frame(
     x    = c(x_lo,              x_lo),
@@ -882,7 +943,9 @@ if (is.null(label_sep)) {
   # Add legend as text annotation (left-aligned)
   if (show_legend && !is.null(legend_content)) {
     x_range <- range(summary_data$log_inhibitor, na.rm = TRUE)
-    y_range <- y_limits
+    # Position relative to the actually-rendered y range (y_seg_limits),
+    # not raw y_limits, which may be NULL in auto-range / y_from_zero modes.
+    y_range <- y_seg_limits
     
     x_pos <- x_range[1] + diff(x_range) * 0.02
     y_pos <- y_range[1] + diff(y_range) * 0.1
@@ -939,7 +1002,7 @@ if (is.null(label_sep)) {
     model_success = model_success,
     summary_data = summary_data,
     plot_config = plot_config,
-    y_limits_used = y_limits,
+    y_limits_used = y_seg_limits,   # the range actually rendered (matches the drawn axis)
     data_points = nrow(clean_data),
     concentration_levels = nrow(summary_data),
     file_saved = if (!is.null(save_plot)) filename else NULL,

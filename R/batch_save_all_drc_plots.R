@@ -35,7 +35,18 @@
 #' @param point_size Numeric. Size of data points in plots.
 #' @param y_limits Numeric vector of length 2 specifying the y-axis limits
 #'   (e.g. \code{c(0, 100)}).  If \code{NULL} (default), each plot auto-scales
-#'   to its own data range.  Passed directly to \code{\link{plot_dose_response}}.
+#'   to its own data range (unless \code{y_from_zero = TRUE}; see below).  An
+#'   explicit length-2 vector always takes precedence over \code{y_from_zero}.
+#'   Passed directly to \code{\link{plot_dose_response}}.
+#' @param y_from_zero Logical. Forwarded to \code{\link{plot_dose_response}}
+#'   and only consulted when \code{y_limits} is \code{NULL}. When
+#'   \code{FALSE} (default), each panel keeps the legacy auto-range behaviour
+#'   (lower bound floats just below that panel's smallest value). When
+#'   \code{TRUE}, every panel's y-axis is anchored at \code{min(0, data
+#'   minimum)} - i.e. 0 in the usual case, but dropping below 0 if that
+#'   panel's data genuinely go negative so nothing is clipped - while the top
+#'   is auto-fitted to the data. Useful for comparing panels on a common
+#'   zero-anchored baseline (e.g. flat high-signal compounds).
 #' @param y_axis_title Character string for the y-axis label.  If \code{NULL}
 #'   (default), auto-detected from the batch result: \code{"Cell Viability (\%)"}
 #'   or \code{"Luminescence"} for viability assays, \code{"Normalized BRET ratio [\%]"}
@@ -61,11 +72,23 @@
 #'   titles, filenames, and subplot labels. When \code{NULL} (default),
 #'   auto-detected from \code{attr(batch_drc_results, "label_sep")}; falls back
 #'   to \code{":"} if the attribute is absent. This only affects what the user
-#'   sees — the internal data separator used for parsing compound names is
+#'   sees - the internal data separator used for parsing compound names is
 #'   always read from the attribute. For example, \code{label_sep = "/"} renders
 #'   \code{"Kinase/Cpd1"} in titles while the data stores \code{"Kinase:Cpd1"}.
 #'   Also forwarded to \code{\link{plot_dose_response}} via \code{...} when not
 #'   explicitly set there.
+#' @param y_number_format Character string. How the y-axis tick labels are
+#'   formatted. Applied to every sub-plot via \code{\link{plot_dose_response}}.
+#'   One of
+#'   \code{"integer"} (default; plain integers with no thousands separator,
+#'   e.g. \code{100000}), \code{"scientific"} (scientific notation, e.g.
+#'   \code{1e+05}), or \code{"si"} (SI short-scale suffixes, e.g. \code{100K},
+#'   \code{1.5M}). ggplot2's default formatter chooses notation per panel from
+#'   each panel's break magnitudes, so a multi-panel figure can mix plain
+#'   integers and scientific notation; set this to force one consistent style
+#'   across every sub-plot in the panel. Example:
+#'   \code{batch_save_all_drc_plots(res, output_dir = "plots",}
+#'   \code{y_number_format = "integer")}.
 #' @param ... Additional arguments passed to \code{\link{plot_dose_response}}.
 #'
 #' @details
@@ -163,6 +186,7 @@ batch_save_all_drc_plots <- function(batch_drc_results,
                                      plot_title = FALSE,
                                      point_size = 2,
                                      y_limits        = NULL,
+                                     y_from_zero     = FALSE,
                                      y_axis_title    = NULL,
                                      save_panel      = TRUE,
                                      panel_ncol      = 4L,
@@ -171,6 +195,7 @@ batch_save_all_drc_plots <- function(batch_drc_results,
                                      panel_spacing        = 1,
                                      subplot_title = "auto",
                                      label_sep = NULL,
+                                     y_number_format = c("integer", "scientific", "si"),
                                      ...) {
   
   # ============================================================================
@@ -179,6 +204,11 @@ batch_save_all_drc_plots <- function(batch_drc_results,
   
 # Null-coalescing operator
   `%||%` <- function(a, b) if (is.null(a) || length(a) == 0 || all(is.na(a))) b else a
+
+  # Validate y-axis number format once, at the batch level, so an invalid
+  # value errors here with a clear message rather than deep inside a
+  # per-compound plot_dose_response() call. Forwarded explicitly below.
+  y_number_format <- match.arg(y_number_format)
 
 # Resolve label_sep: the separator used for DISPLAY purposes (titles, labels,
   # filenames). 
@@ -518,7 +548,9 @@ batch_save_all_drc_plots <- function(batch_drc_results,
         plot_title = indiv_title,
         point_size = point_size,
         y_limits     = y_limits,
+        y_from_zero  = y_from_zero,
         y_axis_title = y_axis_title,
+        y_number_format = y_number_format,
         ...
       )
       
@@ -550,8 +582,10 @@ batch_save_all_drc_plots <- function(batch_drc_results,
             plot_title = panel_label,
             point_size = point_size,
             y_limits     = y_limits,
+            y_from_zero  = y_from_zero,
             y_axis_title = y_axis_title,
             label_sep    = label_sep,
+            y_number_format = y_number_format,
             ...
           )
         }
