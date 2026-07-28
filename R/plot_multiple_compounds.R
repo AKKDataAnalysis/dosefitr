@@ -46,8 +46,8 @@
 #'   thickens the outline of OPEN/hollow shapes (e.g. shape codes 0,1,2,5,6
 #'   and the asterisk 8), making them far easier to see on busy overlays;
 #'   filled shapes (16,17,15,18) have no outline component and are unaffected.
-#'   \code{NULL} (default) leaves the ggplot2/theme default unchanged, so
-#'   existing plots render exactly as before. Try \code{point_stroke = 1.2}
+#'   \code{NULL} (default) uses a built-in width of 0.8, slightly bolder
+#'   than ggplot2's own 0.5 so open shapes read clearly. Try \code{1.2}
 #'   for clearly bold outlines when mixing open and filled shapes.
 #' @param colors Either a logical (`TRUE` for automatic colors), a character vector of
 #'   color names/hex codes, or a palette name (see Details for available palettes). If
@@ -1690,17 +1690,11 @@ plot_multiple_compounds <- function(results,
   # 10. CONFIGURE SHAPES AND COLORS
   # ============================================================================
 
-  # Resolve the effective default point outline width (`stroke`). Passing a
-  # NULL stroke to geom_point() warns ('Ignoring empty aesthetic: stroke'),
-  # so when point_stroke is NULL we substitute ggplot2's own active default
-  # (resolved at runtime so it is correct on both ggplot2 3.x and 4.0).
-  .default_stroke <- tryCatch({
-    .d <- ggplot2::ggplot_build(
-      ggplot2::ggplot(data.frame(x = 1, y = 1),
-                      ggplot2::aes(x = .data[["x"]], y = .data[["y"]])) +
-        ggplot2::geom_point())$data[[1]]$stroke[1]
-    if (is.null(.d) || !is.finite(.d)) 0.5 else .d
-  }, error = function(e) 0.5)
+  # Default point outline width (`stroke`). Passing NULL to geom_point()
+  # warns ('Ignoring empty aesthetic: stroke'), so when point_stroke is NULL
+  # we substitute a concrete default of 0.8 (slightly bolder than ggplot2's
+  # own 0.5, which makes open/hollow shapes read more clearly by default).
+  .default_stroke <- 0.8
   point_stroke_resolved <- point_stroke %||% .default_stroke
 
   # Point shape selection

@@ -137,8 +137,8 @@ plotting symbols, passed to \code{ggplot2::geom_point(stroke=)}. This
 thickens the outline of OPEN/hollow shapes (e.g. shape codes 0,1,2,5,6
 and the asterisk 8), making them far easier to see on busy overlays;
 filled shapes (16,17,15,18) have no outline component and are unaffected.
-\code{NULL} (default) leaves the ggplot2/theme default unchanged, so
-existing plots render exactly as before. Try \code{point_stroke = 1.2}
+\code{NULL} (default) uses a built-in width of 0.8, slightly bolder
+than ggplot2's own 0.5 so open shapes read clearly. Try \code{1.2}
 for clearly bold outlines when mixing open and filled shapes.}
 
 \item{show_error_bars}{Logical indicating whether to display error bars around data points}

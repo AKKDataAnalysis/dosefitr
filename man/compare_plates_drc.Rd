@@ -13,6 +13,7 @@ compare_plates_drc(
   plot_dpi = 600,
   y_limits = NULL,
   y_axis_title = NULL,
+  y_number_format = c("integer", "scientific", "si"),
   color_palette = "set1",
   show_error_bars = TRUE,
   show_grid = FALSE,
@@ -30,6 +31,7 @@ compare_plates_drc(
   colors = NULL,
   point_size = NULL,
   point_shapes = NULL,
+  point_stroke = NULL,
   error_bar_width = 0.05,
   selected_entities = NULL,
   min_plates = 2,
@@ -79,6 +81,12 @@ auto-detected from the batch result: \code{"Cell Viability (\%)"} or
 \code{"Luminescence"} for viability assays, \code{"Normalised BRET ratio [\%]"}
 or \code{"BRET ratio"} for NanoBRET assays (depending on whether
 \code{normalize} was \code{TRUE} or \code{FALSE}).}
+
+\item{y_number_format}{Character.  Y-axis tick-label number format,
+forwarded to [`plot_multiple_compounds()`]. One of \code{"integer"}
+(default; plain integers, e.g. \code{100000}), \code{"scientific"}
+(e.g. \code{1e+05}), or \code{"si"} (SI short-scale suffixes, e.g.
+\code{100K}, \code{1.5M}).}
 
 \item{color_palette}{Character.  Any palette name accepted by
 [`plot_multiple_compounds()`] (e.g. `"set1"`, `"okabe_ito"`,
@@ -130,6 +138,13 @@ hex/colour names (one per plate), or `TRUE` for automatic ggplot2 hues.}
 (filled circle) for all plates. `TRUE` activates a set of default
 distinct shapes, one per plate. A numeric vector assigns specific shape
 codes (recycled if needed).}
+
+\item{point_stroke}{Numeric or \code{NULL}. Outline (border) width of the
+plotting symbols, forwarded to [`plot_multiple_compounds()`]. Thickens the
+outline of OPEN/hollow shapes (e.g. codes 0,1,2,5,6 and asterisk 8) so they
+are easier to see; filled shapes (16,17,15,18) are unaffected. \code{NULL}
+(default) uses a built-in width of 0.8 (bolder than ggplot2's 0.5). Try
+\code{1.2} for even bolder outlines when mixing open and filled shapes.}
 
 \item{error_bar_width}{Numeric.  Width of the error bar caps.  Default:
 `0.05`.}
