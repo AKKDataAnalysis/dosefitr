@@ -27,7 +27,20 @@
 #'   or \code{"nM"} (nanomolar, e.g. \code{c(1, 25000)}).  Ignored when
 #'   \code{x_limits = NULL}.
 #' @param y_limits Numeric vector of length 2 specifying the y-axis limits
-#' @param point_shapes Numeric vector of point shapes for different compounds
+#' @param point_shapes Controls the plotting symbol(s) for the data points.
+#'   Accepts several forms:
+#'   \itemize{
+#'     \item \code{NULL} (default): every compound is drawn with shape 16
+#'       (filled circle) and shapes are NOT shown in the legend.
+#'     \item A single value (e.g. \code{point_shapes = 17}): that one shape is
+#'       used for ALL points (global), again without adding shapes to the
+#'       legend. See \code{?points} for valid shape codes.
+#'     \item A vector (e.g. \code{c(16, 17, 15)}): a per-compound shape
+#'       mapping; the vector is recycled to the number of compounds and the
+#'       distinct shapes are shown in the legend.
+#'     \item \code{TRUE}: auto-assign a distinct shape per compound from a
+#'       built-in palette of well-separated symbols, shown in the legend.
+#'   }
 #' @param colors Either a logical (`TRUE` for automatic colors), a character vector of
 #'   color names/hex codes, or a palette name (see Details for available palettes). If
 #'   `TRUE` or NULL, uses the palette specified by `color_palette` or default hue palette.
@@ -172,9 +185,6 @@
 #'   reference lines (default: 0.8).
 #' @param error_alpha Numeric between 0 and 1. Opacity of the error bars
 #'   (default: 0.6).
-#' @param point_shape Integer or character. Default shape of data points when
-#'   shape mapping is not active (default: 16, filled circle). See \code{?points}
-#'   for valid values. Ignored when \code{point_shapes} is provided.
 #' @param grid_color Character string. Colour of the major grid lines when
 #'   \code{show_grid = TRUE} (default: \code{"grey90"}).
 #' @param grid_minor_color Character string. Colour of the minor grid lines when
@@ -438,7 +448,6 @@ plot_multiple_compounds <- function(results,
                                     ic50_linewidth = 0.5,
                                     ic50_line_alpha = 0.8,
                                     error_alpha = 0.6,
-                                    point_shape = 16,
                                     grid_color = "grey90",
                                     grid_minor_color = "grey95",
                                     grid_linewidth = 0.5,
@@ -1676,6 +1685,7 @@ plot_multiple_compounds <- function(results,
   optimal_shapes <- c(16, 17, 15, 18, 8, 1, 2, 0, 5, 6, 7, 10, 11, 12, 13, 14)
 
   if (isTRUE(point_shapes)) {
+    # TRUE -> auto-assign a distinct shape per compound (per-compound mapping).
     use_shape_mapping <- TRUE
     point_shapes <- if (n_valid_compounds <= length(optimal_shapes)) {
       optimal_shapes[1:n_valid_compounds]
@@ -1683,9 +1693,17 @@ plot_multiple_compounds <- function(results,
       rep(optimal_shapes, length.out = n_valid_compounds)
     }
   } else if (is.null(point_shapes)) {
+    # NULL (default) -> all points shape 16, no shape mapping / no legend shapes.
     use_shape_mapping <- FALSE
     point_shapes <- rep(16L, n_valid_compounds)
+  } else if (length(point_shapes) == 1L) {
+    # A single scalar -> that shape for ALL points (global), NO shape mapping.
+    # This preserves the behaviour of the former `point_shape` scalar argument,
+    # including NOT adding shapes to the colour legend.
+    use_shape_mapping <- FALSE
+    point_shapes <- rep(point_shapes, n_valid_compounds)
   } else {
+    # An explicit vector -> per-compound shape mapping (recycled, shown in legend).
     use_shape_mapping <- TRUE
     point_shapes <- rep(point_shapes, length.out = n_valid_compounds)
   }
@@ -1870,7 +1888,7 @@ plot_multiple_compounds <- function(results,
         ggplot2::geom_point(data = plot_data$points,
                             ggplot2::aes(x = log_inhibitor, y = mean_response,
                                          color = compound),
-                            size = point_size, shape = point_shape, alpha = point_alpha)
+                            size = point_size, shape = point_shapes[1], alpha = point_alpha)
     }
 
     if (show_error_bars && "sd_response" %in% colnames(plot_data$points)) {

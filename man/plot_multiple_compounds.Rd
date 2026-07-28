@@ -62,7 +62,6 @@ plot_multiple_compounds(
   ic50_linewidth = 0.5,
   ic50_line_alpha = 0.8,
   error_alpha = 0.6,
-  point_shape = 16,
   grid_color = "grey90",
   grid_minor_color = "grey95",
   grid_linewidth = 0.5,
@@ -117,7 +116,20 @@ color names/hex codes, or a palette name (see Details for available palettes). I
 is `TRUE` or NULL. See Details for comprehensive list of available palettes including
 scientific journals, colorblind-friendly options, and gradient schemes.}
 
-\item{point_shapes}{Numeric vector of point shapes for different compounds}
+\item{point_shapes}{Controls the plotting symbol(s) for the data points.
+Accepts several forms:
+\itemize{
+  \item \code{NULL} (default): every compound is drawn with shape 16
+    (filled circle) and shapes are NOT shown in the legend.
+  \item A single value (e.g. \code{point_shapes = 17}): that one shape is
+    used for ALL points (global), again without adding shapes to the
+    legend. See \code{?points} for valid shape codes.
+  \item A vector (e.g. \code{c(16, 17, 15)}): a per-compound shape
+    mapping; the vector is recycled to the number of compounds and the
+    distinct shapes are shown in the legend.
+  \item \code{TRUE}: auto-assign a distinct shape per compound from a
+    built-in palette of well-separated symbols, shown in the legend.
+}}
 
 \item{show_error_bars}{Logical indicating whether to display error bars around data points}
 
@@ -298,10 +310,6 @@ reference lines (default: 0.8).}
 
 \item{error_alpha}{Numeric between 0 and 1. Opacity of the error bars
 (default: 0.6).}
-
-\item{point_shape}{Integer or character. Default shape of data points when
-shape mapping is not active (default: 16, filled circle). See \code{?points}
-for valid values. Ignored when \code{point_shapes} is provided.}
 
 \item{grid_color}{Character string. Colour of the major grid lines when
 \code{show_grid = TRUE} (default: \code{"grey90"}).}
