@@ -15,6 +15,7 @@ plot_multiple_compounds(
   colors = NULL,
   color_palette = NULL,
   point_shapes = NULL,
+  point_stroke = NULL,
   show_error_bars = TRUE,
   show_ic50_lines = FALSE,
   legend_position = "right",
@@ -130,6 +131,15 @@ Accepts several forms:
   \item \code{TRUE}: auto-assign a distinct shape per compound from a
     built-in palette of well-separated symbols, shown in the legend.
 }}
+
+\item{point_stroke}{Numeric or \code{NULL}. Border (outline) width of the
+plotting symbols, passed to \code{ggplot2::geom_point(stroke=)}. This
+thickens the outline of OPEN/hollow shapes (e.g. shape codes 0,1,2,5,6
+and the asterisk 8), making them far easier to see on busy overlays;
+filled shapes (16,17,15,18) have no outline component and are unaffected.
+\code{NULL} (default) leaves the ggplot2/theme default unchanged, so
+existing plots render exactly as before. Try \code{point_stroke = 1.2}
+for clearly bold outlines when mixing open and filled shapes.}
 
 \item{show_error_bars}{Logical indicating whether to display error bars around data points}
 

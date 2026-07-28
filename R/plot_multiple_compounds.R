@@ -41,6 +41,14 @@
 #'     \item \code{TRUE}: auto-assign a distinct shape per compound from a
 #'       built-in palette of well-separated symbols, shown in the legend.
 #'   }
+#' @param point_stroke Numeric or \code{NULL}. Border (outline) width of the
+#'   plotting symbols, passed to \code{ggplot2::geom_point(stroke=)}. This
+#'   thickens the outline of OPEN/hollow shapes (e.g. shape codes 0,1,2,5,6
+#'   and the asterisk 8), making them far easier to see on busy overlays;
+#'   filled shapes (16,17,15,18) have no outline component and are unaffected.
+#'   \code{NULL} (default) leaves the ggplot2/theme default unchanged, so
+#'   existing plots render exactly as before. Try \code{point_stroke = 1.2}
+#'   for clearly bold outlines when mixing open and filled shapes.
 #' @param colors Either a logical (`TRUE` for automatic colors), a character vector of
 #'   color names/hex codes, or a palette name (see Details for available palettes). If
 #'   `TRUE` or NULL, uses the palette specified by `color_palette` or default hue palette.
@@ -401,6 +409,7 @@ plot_multiple_compounds <- function(results,
                                     colors = NULL,
                                     color_palette = NULL,
                                     point_shapes = NULL,
+                                    point_stroke = NULL,
                                     show_error_bars = TRUE,
                                     show_ic50_lines = FALSE,
                                     legend_position = "right",
@@ -1681,6 +1690,19 @@ plot_multiple_compounds <- function(results,
   # 10. CONFIGURE SHAPES AND COLORS
   # ============================================================================
 
+  # Resolve the effective default point outline width (`stroke`). Passing a
+  # NULL stroke to geom_point() warns ('Ignoring empty aesthetic: stroke'),
+  # so when point_stroke is NULL we substitute ggplot2's own active default
+  # (resolved at runtime so it is correct on both ggplot2 3.x and 4.0).
+  .default_stroke <- tryCatch({
+    .d <- ggplot2::ggplot_build(
+      ggplot2::ggplot(data.frame(x = 1, y = 1),
+                      ggplot2::aes(x = .data[["x"]], y = .data[["y"]])) +
+        ggplot2::geom_point())$data[[1]]$stroke[1]
+    if (is.null(.d) || !is.finite(.d)) 0.5 else .d
+  }, error = function(e) 0.5)
+  point_stroke_resolved <- point_stroke %||% .default_stroke
+
   # Point shape selection
   optimal_shapes <- c(16, 17, 15, 18, 8, 1, 2, 0, 5, 6, 7, 10, 11, 12, 13, 14)
 
@@ -1877,7 +1899,7 @@ plot_multiple_compounds <- function(results,
         ggplot2::geom_point(data = plot_data$points,
                             ggplot2::aes(x = log_inhibitor, y = mean_response,
                                          shape = compound, color = compound),
-                            size = point_size, alpha = point_alpha)
+                            size = point_size, alpha = point_alpha, stroke = point_stroke_resolved)
 
       p <- p + ggplot2::scale_shape_manual(
         values = setNames(point_shapes[1:n_valid_compounds], compound_labels),
@@ -1888,7 +1910,7 @@ plot_multiple_compounds <- function(results,
         ggplot2::geom_point(data = plot_data$points,
                             ggplot2::aes(x = log_inhibitor, y = mean_response,
                                          color = compound),
-                            size = point_size, shape = point_shapes[1], alpha = point_alpha)
+                            size = point_size, shape = point_shapes[1], alpha = point_alpha, stroke = point_stroke_resolved)
     }
 
     if (show_error_bars && "sd_response" %in% colnames(plot_data$points)) {
