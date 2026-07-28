@@ -55,6 +55,7 @@ plot_multiple_compounds(
   aspect_ratio = NULL,
   byrow = FALSE,
   label_sep = NULL,
+  y_number_format = c("integer", "scientific", "si"),
   legend_label = "auto",
   legend_width = NULL,
   ic50_linetype = "dashed",
@@ -246,6 +247,16 @@ The data separator (used for parsing compound names) is always read from
 the attribute and is never overridden by this argument. This separation
 ensures that changing the display separator does not break title or legend
 logic, which was a bug in the previous single-separator design.}
+
+\item{y_number_format}{Character string. How the y-axis tick labels are
+formatted. One of \code{"integer"} (default; plain integers with no
+thousands separator, e.g. \code{100000}), \code{"scientific"} (scientific
+notation, e.g. \code{1e+05}), or \code{"si"} (SI short-scale suffixes,
+e.g. \code{100K}, \code{1.5M}). ggplot2's default formatter chooses
+notation based on the axis break magnitudes, so setting this forces one
+consistent style. On this function's default normalised 0--150\% y-axis
+the \code{"integer"} default renders identically to the previous default
+output; the argument becomes visible when plotting on a raw-ratio scale.}
 
 \item{legend_label}{Character string controlling the text shown in the
 side-legend entries.  One of:

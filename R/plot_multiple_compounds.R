@@ -133,6 +133,15 @@
 #'   the attribute and is never overridden by this argument. This separation
 #'   ensures that changing the display separator does not break title or legend
 #'   logic, which was a bug in the previous single-separator design.
+#' @param y_number_format Character string. How the y-axis tick labels are
+#'   formatted. One of \code{"integer"} (default; plain integers with no
+#'   thousands separator, e.g. \code{100000}), \code{"scientific"} (scientific
+#'   notation, e.g. \code{1e+05}), or \code{"si"} (SI short-scale suffixes,
+#'   e.g. \code{100K}, \code{1.5M}). ggplot2's default formatter chooses
+#'   notation based on the axis break magnitudes, so setting this forces one
+#'   consistent style. On this function's default normalised 0--150\% y-axis
+#'   the \code{"integer"} default renders identically to the previous default
+#'   output; the argument becomes visible when plotting on a raw-ratio scale.
 #' @param legend_label Character string controlling the text shown in the
 #'   side-legend entries.  One of:
 #'   \describe{
@@ -422,6 +431,7 @@ plot_multiple_compounds <- function(results,
                                     aspect_ratio = NULL,
                                     byrow = FALSE,
                                     label_sep = NULL,
+                                    y_number_format = c("integer", "scientific", "si"),
                                     legend_label = "auto",
                                     legend_width = NULL,
                                     ic50_linetype = "dashed",
@@ -447,6 +457,20 @@ plot_multiple_compounds <- function(results,
 
   # Null-coalescing operator
   `%||%` <- function(a, b) if (is.null(a) || length(a) == 0L || all(is.na(a))) b else a
+
+  # Resolve y_number_format: force one consistent y-axis tick-label style.
+  # ggplot2's default formatter picks notation from the break magnitudes,
+  # which can look inconsistent; an explicit labels= formatter keeps it fixed.
+  #   "integer"    -> plain integers, no thousands separator (e.g. 100000)  [default]
+  #   "scientific" -> scientific notation everywhere         (e.g. 1e+05)
+  #   "si"         -> SI short-scale suffixes                 (e.g. 100K, 1.5M)
+  y_number_format <- match.arg(y_number_format)
+  y_label_fun <- switch(
+    y_number_format,
+    integer    = scales::label_number(accuracy = 1, big.mark = ""),
+    scientific = scales::label_scientific(),
+    si         = scales::label_number(scale_cut = scales::cut_short_scale())
+  )
 
   # Resolve data separator (for parsing) and display separator (for titles/legends)
   # data_sep: the separator used in the actual compound names stored in the data.
@@ -1819,7 +1843,7 @@ plot_multiple_compounds <- function(results,
       title = plot_title_final,
       color = legend_title_final
     ) +
-    ggplot2::scale_y_continuous(expand = axis_expand) +
+    ggplot2::scale_y_continuous(expand = axis_expand, labels = y_label_fun) +
     ggplot2::scale_x_continuous(expand = axis_expand) +
     ggplot2::coord_cartesian(xlim = x_limits_final, ylim = y_limits_final, clip = "on")
 
