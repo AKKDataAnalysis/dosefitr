@@ -250,12 +250,12 @@ drc_res$drc_results$plate_01$drc_result$successful_fits
 ```
 
 The per-plate summary table reports each compound's fitted Bottom
-and Top (in percent), LogIC50, Hill slope, R^2, and a quality label:
+and Top (in percent), LogIC50/LogEC50, Hill slope, R^2, and a quality label:
 
 ```{r drc-summary}
 sum_01 <- drc_res$drc_results$plate_01$drc_result$summary_table
 
-sum_01[, c("Compound", "LogIC50", "HillSlope",
+sum_01[, c("Compound", "LogIC50/LogEC50", "HillSlope",
            "R_squared", "Curve_Quality")]
 ```
 
@@ -403,7 +403,7 @@ metrics, printed at run time when `verbose = TRUE`. Key numbers:
 The fit-level `Curve_Quality` column carries one of:
 
 -   `Good curve` -- everything passed.
--   `Wide logIC50 CI range` -- the IC50 95 % CI is wider than the
+-   `Wide LogIC50/LogEC50 CI range` -- the IC50 95 % CI is wider than the
     test concentration range; the IC50 is at or beyond a tested
     concentration.
 -   `Top too low` / `Bottom too high` -- the fitted plateaux do not

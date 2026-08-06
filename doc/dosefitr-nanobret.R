@@ -111,7 +111,7 @@ drc_res$drc_results$plate_01$drc_result$successful_fits
 ## ----drc-summary--------------------------------------------------------------
 sum_01 <- drc_res$drc_results$plate_01$drc_result$summary_table
 
-sum_01[, c("Compound", "LogIC50", "HillSlope",
+sum_01[, c("Compound", "LogIC50/LogEC50", "HillSlope",
            "R_squared", "Curve_Quality")]
 
 ## ----drc-quality--------------------------------------------------------------

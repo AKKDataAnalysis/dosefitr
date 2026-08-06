@@ -10,7 +10,7 @@
 
 
 
-<meta name="date" content="2026-07-23" />
+<meta name="date" content="2026-08-06" />
 
 <title>dosefitr walkthrough</title>
 
@@ -1832,7 +1832,7 @@ Department of Physiology and Pharmacology, Federal University of Ceará,
 Fortaleza, 60430-160, Brazil
 </p>
 <p class="author-email"><span class="affil-mark">*</span><a href="mailto:thiago-loreto@hotmail.com">thiago-loreto@hotmail.com</a></p>
-<h4 class="date">2026-07-23</h4>
+<h4 class="date">2026-08-06</h4>
 <h4 class="package">Package</h4>
 <p>dosefitr 1.0.0</p>
 
@@ -2013,48 +2013,62 @@ drc_res &lt;- batch_drc_analysis(
 )
 #&gt; Warning in stats::nls(response ~ four_param_model(log_inhibitor, Bottom, :
 #&gt; Convergence failure: false convergence (8)
-#&gt; Warning in regularize.values(x, y, ties, missing(ties), na.rm = na.rm):
-#&gt; colapsando para valores de &#39;x&#39; únicos
-#&gt; Warning in regularize.values(x, y, ties, missing(ties), na.rm = na.rm):
-#&gt; colapsando para valores de &#39;x&#39; únicos
-#&gt; Warning in regularize.values(x, y, ties, missing(ties), na.rm = na.rm):
-#&gt; colapsando para valores de &#39;x&#39; únicos
-#&gt; Warning in regularize.values(x, y, ties, missing(ties), na.rm = na.rm):
-#&gt; colapsando para valores de &#39;x&#39; únicos
 #&gt; Warning in stats::nls(response ~ four_param_model(log_inhibitor, Bottom, :
 #&gt; Convergence failure: false convergence (8)
-#&gt; Warning in regularize.values(x, y, ties, missing(ties), na.rm = na.rm):
-#&gt; colapsando para valores de &#39;x&#39; únicos
-#&gt; Warning in regularize.values(x, y, ties, missing(ties), na.rm = na.rm):
-#&gt; colapsando para valores de &#39;x&#39; únicos
-#&gt; Warning in regularize.values(x, y, ties, missing(ties), na.rm = na.rm):
-#&gt; colapsando para valores de &#39;x&#39; únicos
-#&gt; Warning in regularize.values(x, y, ties, missing(ties), na.rm = na.rm):
-#&gt; colapsando para valores de &#39;x&#39; únicos
+#&gt; Warning in stats::nls(response ~ four_param_model(log_inhibitor, Bottom, :
+#&gt; Convergence failure: false convergence (8)
+#&gt; Warning in stats::nls(response ~ four_param_model(log_inhibitor, Bottom, :
+#&gt; Convergence failure: false convergence (8)
+#&gt; Warning in stats::nls(response ~ four_param_model(log_inhibitor, Bottom, :
+#&gt; Convergence failure: singular convergence (7)
+#&gt; Warning in stats::nls(response ~ four_param_model(log_inhibitor, Bottom, :
+#&gt; Convergence failure: false convergence (8)
+#&gt; Warning in stats::nls(response ~ four_param_model(log_inhibitor, Bottom, :
+#&gt; Convergence failure: false convergence (8)
+#&gt; Warning in stats::nls(response ~ four_param_model(log_inhibitor, Bottom, :
+#&gt; Convergence failure: singular convergence (7)
+#&gt; Warning in stats::nls(response ~ four_param_model(log_inhibitor, Bottom, :
+#&gt; Convergence failure: false convergence (8)
+#&gt; Warning in stats::nls(response ~ four_param_model(log_inhibitor, Bottom, :
+#&gt; Convergence failure: singular convergence (7)
+#&gt; Warning in stats::nls(response ~ four_param_model(log_inhibitor, Bottom, :
+#&gt; Convergence failure: false convergence (8)
+#&gt; Warning in stats::nls(response ~ four_param_model(log_inhibitor, Bottom, :
+#&gt; Convergence failure: false convergence (8)
+#&gt; Warning in stats::nls(response ~ four_param_model(log_inhibitor, Bottom, :
+#&gt; Convergence failure: false convergence (8)
+#&gt; Warning in stats::nls(response ~ four_param_model(log_inhibitor, Bottom, :
+#&gt; Convergence failure: false convergence (8)
+#&gt; Warning in stats::nls(response ~ four_param_model(log_inhibitor, Bottom, :
+#&gt; Convergence failure: false convergence (8)
+#&gt; Warning in stats::nls(response ~ four_param_model(log_inhibitor, Bottom, :
+#&gt; Convergence failure: false convergence (8)
+#&gt; Warning in stats::nls(response ~ four_param_model(log_inhibitor, Bottom, :
+#&gt; Convergence failure: false convergence (8)
 
 # 3. Per-plate summary table
 sum_01 &lt;- drc_res$drc_results$plate_01$drc_result$summary_table
-sum_01[, c(&quot;Compound&quot;, &quot;LogIC50&quot;, &quot;HillSlope&quot;,
+sum_01[, c(&quot;Compound&quot;, &quot;LogIC50/LogEC50&quot;, &quot;HillSlope&quot;,
            &quot;R_squared&quot;, &quot;Curve_Quality&quot;)]
-#&gt;             Compound LogIC50 HillSlope R_squared         Curve_Quality
-#&gt; 1       KinaseA:Cpd1  -6.454    -1.031     0.985            Good curve
-#&gt; 2       KinaseA:Cpd2  -6.557    -1.539     0.885            Good curve
-#&gt; 3       KinaseA:Cpd3  -6.746    -1.411     0.856 Wide logIC50 CI range
-#&gt; 4       KinaseA:Cpd4  -7.005    -1.017     0.989            Good curve
-#&gt; 5       KinaseA:Cpd5  -7.067    -1.193     0.984            Good curve
-#&gt; 6       KinaseA:Cpd6  -7.346    -1.171     0.985            Good curve
-#&gt; 7       KinaseA:Cpd7  -7.472    -1.304     0.992            Good curve
-#&gt; 8       KinaseB:Cpd8  -6.881    -0.927     0.986            Good curve
-#&gt; 9       KinaseB:Cpd9  -7.146    -1.015     0.985            Good curve
-#&gt; 10     KinaseB:Cpd10  -7.170    -1.147     0.992            Good curve
-#&gt; 11     KinaseB:Cpd11  -7.548    -1.143     0.995            Good curve
-#&gt; 12     KinaseB:Cpd12  -7.780    -1.146     0.995            Good curve
-#&gt; 13     KinaseB:Cpd13  -7.958    -1.292     0.997            Good curve
-#&gt; 14     KinaseC:Cpd14  -5.700    -0.629     0.992            Good curve
-#&gt; Bottom KinaseC:Cpd15  -6.047    -1.308     0.809 Wide logIC50 CI range
-#&gt; 15     KinaseC:Cpd16  -6.429    -1.040     0.982            Good curve</code></pre>
+#&gt;         Compound LogIC50/LogEC50 HillSlope R_squared         Curve_Quality
+#&gt; 1   KinaseA:Cpd1          -6.454    -1.031     0.985            Good curve
+#&gt; 2   KinaseA:Cpd2          -6.557    -1.539     0.885            Good curve
+#&gt; 3   KinaseA:Cpd3          -6.746    -1.411     0.856 Wide logIC50 CI range
+#&gt; 4   KinaseA:Cpd4          -7.005    -1.017     0.989            Good curve
+#&gt; 5   KinaseA:Cpd5          -7.067    -1.193     0.984            Good curve
+#&gt; 6   KinaseA:Cpd6          -7.346    -1.171     0.985            Good curve
+#&gt; 7   KinaseA:Cpd7          -7.472    -1.304     0.992            Good curve
+#&gt; 8   KinaseB:Cpd8          -6.881    -0.927     0.986            Good curve
+#&gt; 9   KinaseB:Cpd9          -7.146    -1.015     0.985            Good curve
+#&gt; 10 KinaseB:Cpd10          -7.170    -1.147     0.992            Good curve
+#&gt; 11 KinaseB:Cpd11          -7.548    -1.143     0.995            Good curve
+#&gt; 12 KinaseB:Cpd12          -7.780    -1.146     0.995            Good curve
+#&gt; 13 KinaseB:Cpd13          -7.958    -1.292     0.997            Good curve
+#&gt; 14 KinaseC:Cpd14          -5.700    -0.629     0.992            Good curve
+#&gt; 15 KinaseC:Cpd15          -6.134    -0.787     0.969 Wide logIC50 CI range
+#&gt; 16 KinaseC:Cpd16          -6.429    -1.040     0.982            Good curve</code></pre>
 <p>The <code>Curve_Quality</code> column carries per-compound labels (<code>Good curve</code>,
-<code>Wide logIC50 CI range</code>, <code>Top too low</code>, <code>Bottom too high</code>, …) that
+<code>Wide LogIC50/LogEC50 CI range</code>, <code>Top too low</code>, <code>Bottom too high</code>, …) that
 distinguish clean fits from those with wide IC50 CIs, hill-slope
 problems, or plateaux that do not bracket the response range. For the
 bundled example plates almost every compound earns <code>Good curve</code>:</p>

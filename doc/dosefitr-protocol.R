@@ -126,7 +126,7 @@ drc_res <- batch_drc_analysis(
 )
 
 sum_01 <- drc_res$drc_results$plate_01$drc_result$summary_table
-sum_01[, c("Compound", "LogIC50", "R_squared", "Curve_Quality")]
+sum_01[, c("Compound", "LogIC50/LogEC50", "R_squared", "Curve_Quality")]
 
 ## ----save-plots---------------------------------------------------------------
 plots_out <- file.path(tempdir(), "dosefitr_protocol_plots")
