@@ -45,7 +45,7 @@ slope fixed at \eqn{\pm 1}).  `"4pl"` calls [`fit_drc_4pl()`]
 (4-parameter logistic, Hill slope freely estimated).}
 
 \item{nd_if_activation}{Logical. If `FALSE` (default), only flat curves have
-their IC50 and pIC50 replaced with `"N/D"` (not determined) in the
+their IC50/EC50 and pIC50/pEC50 replaced with `"N/D"` (not determined) in the
 Pharmacology_Summary table. If `TRUE`, curves classified as going up
 (activation) are also treated as N/D. Curve type is determined inside the
 fitting function: a curve is flat when the difference between the

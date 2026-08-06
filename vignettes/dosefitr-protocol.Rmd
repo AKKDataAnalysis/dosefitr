@@ -289,13 +289,13 @@ compounds that appear on both plates gain four columns
 `batch_drc_analysis()` fits every compound with a 3- or 4-parameter
 logistic model, using the `OptimModel`-based solver with assay-aware
 plausibility limits on Bottom, Top, and Hill-slope. Each fit is labelled
-with a `Curve_Quality` tag (`Good curve`, `Wide logIC50 CI range`,
+with a `Curve_Quality` tag (`Good curve`, `Wide LogIC50/LogEC50 CI range`,
 `Top too low`, `Bottom too high`, ...) that summarises the fit's health.
 
 ## `model = "3pl"` or `"4pl"`?
 
 The 3PL model fixes the Hill slope to 1 and estimates only Bottom, Top,
-and LogIC50. The 4PL model additionally estimates the Hill slope. Use
+and LogIC50/LogEC50. The 4PL model additionally estimates the Hill slope. Use
 3PL when you want a standard, comparable IC50 across many compounds and
 you have no strong prior evidence for cooperative binding; use 4PL when
 the slope itself is a parameter you care about, or when several
@@ -306,7 +306,7 @@ compounds visibly show slopes far from 1.
 For **NanoBRET** you can fit either the raw control-normalised ratio
 table (`normalize = FALSE`) or re-scale the fit output to a 0 - 100 %
 inhibition axis inside the fitter (`normalize = TRUE`). Both give the
-same `LogIC50` -- the difference is only whether the reported Bottom and
+same `LogIC50/LogEC50` -- the difference is only whether the reported Bottom and
 Top are in ratio units or in percent. `normalize = TRUE` is the more
 Prism-like presentation; `normalize = FALSE` keeps the numbers on the
 original BRET-ratio scale.
@@ -329,7 +329,7 @@ drc_res <- batch_drc_analysis(
 )
 
 sum_01 <- drc_res$drc_results$plate_01$drc_result$summary_table
-sum_01[, c("Compound", "LogIC50", "R_squared", "Curve_Quality")]
+sum_01[, c("Compound", "LogIC50/LogEC50", "R_squared", "Curve_Quality")]
 ```
 
 **In your own project.** Switch `model` to `"4pl"` if you want a

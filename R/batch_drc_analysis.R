@@ -34,7 +34,7 @@
 #' @param generate_reports Logical. If `TRUE` (default), generates a consolidated
 #'   Excel report summarizing all DRC fits.
 #' @param nd_if_activation Logical. If `FALSE` (default), only flat curves have
-#'   their IC50 and pIC50 replaced with `"N/D"` (not determined) in the
+#'   their IC50/EC50 and pIC50/pEC50 replaced with `"N/D"` (not determined) in the
 #'   Pharmacology_Summary table. If `TRUE`, curves classified as going up
 #'   (activation) are also treated as N/D. Curve type is determined inside the
 #'   fitting function: a curve is flat when the difference between the
@@ -539,6 +539,11 @@ batch_drc_analysis <- function(batch_results,
             pic50_diff_upper <- abs_pic50_upper - pic50
             pic50_diff_lower <- pic50 - abs_pic50_lower
           }
+
+          # Linear fold-change equivalents (for the Pharmacology_Summary_CI sheet,
+          # whose potency values are displayed on the linear uM/nM scale).
+          ci_fold_lower <- if (!is.na(pic50_diff_lower)) min(10^pic50_diff_lower, Inf) else NA_real_
+          ci_fold_upper <- if (!is.na(pic50_diff_upper)) min(10^pic50_diff_upper, Inf) else NA_real_
           
           # --- NORMALIZED SPAN CALCULATION ---
           span_ratio <- NA_real_
@@ -587,36 +592,54 @@ batch_drc_analysis <- function(batch_results,
           }
           
           # --- WARNING AND EXCLUSION FLAGS ---
+          # Two parallel collector sets: the main Pharmacology_Summary sheet keeps
+          # log10-scale CI notes; the Pharmacology_Summary_CI sheet reports the same
+          # CI deviations as linear fold-changes to match its uM/nM display.
           warning_collector <- character()
           exclusion_collector <- character()
-          
+          warning_collector_ci <- character()
+          exclusion_collector_ci <- character()
+
           # CI Analysis
           if (is.na(pic50_diff_lower) || is.na(pic50_diff_upper)) {
             exclusion_collector <- c(exclusion_collector, "Undefined CI")
+            exclusion_collector_ci <- c(exclusion_collector_ci, "Undefined CI")
           } else {
             ci_warnings <- character()
             ci_exclusions <- character()
-            
+            ci_warnings_fold <- character()
+            ci_exclusions_fold <- character()
+
             if (pic50_diff_lower > 0.69897) {  # 5-fold = log10(5) = 0.69897
               ci_exclusions <- c(ci_exclusions, sprintf("Lower CI >5-fold (%.3f)", pic50_diff_lower))
+              ci_exclusions_fold <- c(ci_exclusions_fold, sprintf("Lower CI >5-fold (%.1f-fold)", ci_fold_lower))
             } else if (pic50_diff_lower > 0.47712) {  # 3-fold = log10(3) = 0.47712
               ci_warnings <- c(ci_warnings, sprintf("Lower CI >3-fold (%.3f)", pic50_diff_lower))
+              ci_warnings_fold <- c(ci_warnings_fold, sprintf("Lower CI >3-fold (%.1f-fold)", ci_fold_lower))
             }
-            
+
             if (pic50_diff_upper > 0.69897) {
               ci_exclusions <- c(ci_exclusions, sprintf("Upper CI >5-fold (%.3f)", pic50_diff_upper))
+              ci_exclusions_fold <- c(ci_exclusions_fold, sprintf("Upper CI >5-fold (%.1f-fold)", ci_fold_upper))
             } else if (pic50_diff_upper > 0.47712) {
               ci_warnings <- c(ci_warnings, sprintf("Upper CI >3-fold (%.3f)", pic50_diff_upper))
+              ci_warnings_fold <- c(ci_warnings_fold, sprintf("Upper CI >3-fold (%.1f-fold)", ci_fold_upper))
             }
-            
+
             if (length(ci_warnings) > 0) {
               warning_collector <- c(warning_collector, paste(ci_warnings, collapse = "; "))
             }
             if (length(ci_exclusions) > 0) {
               exclusion_collector <- c(exclusion_collector, paste(ci_exclusions, collapse = "; "))
             }
+            if (length(ci_warnings_fold) > 0) {
+              warning_collector_ci <- c(warning_collector_ci, paste(ci_warnings_fold, collapse = "; "))
+            }
+            if (length(ci_exclusions_fold) > 0) {
+              exclusion_collector_ci <- c(exclusion_collector_ci, paste(ci_exclusions_fold, collapse = "; "))
+            }
           }
-          
+
           # Hill Slope Analysis
           if (!is.na(ideal_hill)) {
             curve_type <- res$curve_type %||% "unknown"
@@ -634,6 +657,7 @@ batch_drc_analysis <- function(batch_results,
             
             if (nchar(hill_message) > 0) {
               warning_collector <- c(warning_collector, hill_message)
+              warning_collector_ci <- c(warning_collector_ci, hill_message)
             }
           }
           
@@ -641,8 +665,10 @@ batch_drc_analysis <- function(batch_results,
           if (!is.na(span_ratio)) {
             if (span_ratio < 0.5) {
               exclusion_collector <- c(exclusion_collector, sprintf("Norm Span < 0.5 (%.2f)", span_ratio))
+              exclusion_collector_ci <- c(exclusion_collector_ci, sprintf("Norm Span < 0.5 (%.2f)", span_ratio))
             } else if (span_ratio > 1.5) {
               exclusion_collector <- c(exclusion_collector, sprintf("Norm Span > 1.5 (%.2f)", span_ratio))
+              exclusion_collector_ci <- c(exclusion_collector_ci, sprintf("Norm Span > 1.5 (%.2f)", span_ratio))
             }
           }
           
@@ -661,19 +687,26 @@ batch_drc_analysis <- function(batch_results,
                 insuf_metrics <- c(insuf_metrics, "Assay window insufficient")
               if (!is.na(zs_q) && startsWith(as.character(zs_q), "insufficient"))
                 insuf_metrics <- c(insuf_metrics, "Z' insufficient")
-              if (length(insuf_metrics) > 0)
+              if (length(insuf_metrics) > 0) {
                 exclusion_collector <- c(exclusion_collector, paste(insuf_metrics, collapse = "; "))
+                exclusion_collector_ci <- c(exclusion_collector_ci, paste(insuf_metrics, collapse = "; "))
+              }
             }
           }
           
           # IC50 above tested range -> add to exclusion
-          if (ic50_above_range)
+          if (ic50_above_range) {
             exclusion_collector <- c(exclusion_collector,
                                      sprintf("IC50 above tested range (>%g uM)", highest_conc_uM))
+            exclusion_collector_ci <- c(exclusion_collector_ci,
+                                        sprintf("IC50 above tested range (>%g uM)", highest_conc_uM))
+          }
           
           # Set "OK" for empty collectors
           final_warnings <- if (length(warning_collector) > 0) paste(warning_collector, collapse = "; ") else "OK"
           final_exclusions <- if (length(exclusion_collector) > 0) paste(exclusion_collector, collapse = "; ") else "OK"
+          final_warnings_ci <- if (length(warning_collector_ci) > 0) paste(warning_collector_ci, collapse = "; ") else "OK"
+          final_exclusions_ci <- if (length(exclusion_collector_ci) > 0) paste(exclusion_collector_ci, collapse = "; ") else "OK"
           
           # Apply N/D for flat (always) or activation (if nd_if_activation = TRUE)
           ic50_uM_final <- if (is_nd) "N/D" else ic50_uM_display
@@ -701,12 +734,12 @@ batch_drc_analysis <- function(batch_results,
             Plate = plate_name,
             Construct = construct_name,
             Compound = compound_name,
-            `IC50 (uM)` = ic50_uM_final,
-            `IC50 (nM)` = ic50_nM_final,
-            pIC50 = pic50_final,
+            `IC50/EC50 (uM)` = ic50_uM_final,
+            `IC50/EC50 (nM)` = ic50_nM_final,
+            `pIC50/pEC50` = pic50_final,
             check.names = FALSE,
-            CI_95_Upper = as.character(round(pic50_diff_upper, 3)),
-            CI_95_Lower = as.character(round(pic50_diff_lower, 3)),
+            `pIC50/pEC50_CI95_Upper` = as.character(round(pic50_diff_upper, 3)),
+            `pIC50/pEC50_CI95_Lower` = as.character(round(pic50_diff_lower, 3)),
             Ideal_Hill_Slope = as.character(round(ideal_hill, 3)),
             Normalized_Span = as.character(round(span_ratio, 3)),
             Outliers_Removed = n_outliers_removed,
@@ -759,13 +792,13 @@ batch_drc_analysis <- function(batch_results,
             Plate = plate_name,
             Construct = construct_name,
             Compound = compound_name,
-            `IC50 (uM) (CI95%)` = ic50_uM_ci_display,
-            `IC50 (nM) (CI95%)` = ic50_nM_ci_display,
+            `IC50/EC50 (uM) (CI95%)` = ic50_uM_ci_display,
+            `IC50/EC50 (nM) (CI95%)` = ic50_nM_ci_display,
             check.names = FALSE,
             Ideal_Hill_Slope = as.character(round(ideal_hill, 3)),
             Outliers_Removed = n_outliers_removed,
-            Warning = final_warnings,
-            Exclusion = final_exclusions,
+            Warning = final_warnings_ci,
+            Exclusion = final_exclusions_ci,
             Hook_Excluded_Conc = hook_excluded_str,
             stringsAsFactors = FALSE
           )
@@ -966,6 +999,34 @@ batch_drc_analysis <- function(batch_results,
           plate_drc_result$summary_table$HillSlope
       }
       
+      # -- Rename potency columns to assay-direction-neutral IC50/EC50 naming --
+      # Done LAST in the plate iteration: all internal logic above (N/D marking,
+      # hook-refit rebuilds, per-plate Excel, consolidated reports) still uses
+      # the fit_drc_3pl/4pl native names (LogIC50, IC50, ...), so those
+      # functions and their other consumers are unaffected.
+      .potency_rename <- c(
+        "LogIC50"             = "LogIC50/LogEC50",
+        "IC50"                = "IC50/EC50",
+        "LogIC50_Lower_95CI"  = "LogIC50/LogEC50_Lower_95CI",
+        "LogIC50_Upper_95CI"  = "LogIC50/LogEC50_Upper_95CI",
+        "IC50_Lower_95CI"     = "IC50/EC50_Lower_95CI",
+        "IC50_Upper_95CI"     = "IC50/EC50_Upper_95CI"
+      )
+      if (!is.null(plate_drc_result$summary_table) &&
+          nrow(plate_drc_result$summary_table) > 0) {
+        .st_names <- names(plate_drc_result$summary_table)
+        .hit <- .st_names %in% names(.potency_rename)
+        .st_names[.hit] <- .potency_rename[.st_names[.hit]]
+        names(plate_drc_result$summary_table) <- .st_names
+      }
+      if (!is.null(plate_drc_result$final_summary_table) &&
+          nrow(plate_drc_result$final_summary_table) > 0) {
+        .fst_rows <- rownames(plate_drc_result$final_summary_table)
+        .hit <- .fst_rows %in% names(.potency_rename)
+        .fst_rows[.hit] <- .potency_rename[.fst_rows[.hit]]
+        rownames(plate_drc_result$final_summary_table) <- .fst_rows
+      }
+
       # -- Apply N/D to Summary and Final_Summary for flat (always) and
       # activation (when nd_if_activation = TRUE) curves --------------------
       if (!is.null(plate_drc_result$detailed_results) &&
@@ -983,9 +1044,9 @@ batch_drc_analysis <- function(batch_results,
         }, character(1L))
         
         # Columns to set to "N/D" in summary_table
-        nd_cols <- c("LogIC50", "IC50",
-                     "LogIC50_Lower_95CI", "LogIC50_Upper_95CI",
-                     "IC50_Lower_95CI",    "IC50_Upper_95CI")
+        nd_cols <- c("LogIC50/LogEC50", "IC50/EC50",
+                     "LogIC50/LogEC50_Lower_95CI", "LogIC50/LogEC50_Upper_95CI",
+                     "IC50/EC50_Lower_95CI",       "IC50/EC50_Upper_95CI")
         nd_cols_present <- intersect(nd_cols, names(plate_drc_result$summary_table))
         
         if (length(nd_cols_present) > 0 && any(is_nd_vec)) {
@@ -1072,8 +1133,8 @@ batch_drc_analysis <- function(batch_results,
             if (!is.null(.p) && length(.p) >= 5L) {
               plate_drc_result$summary_table$Bottom[.row_idx]   <- round(.p[1], 3)
               plate_drc_result$summary_table$Top[.row_idx]      <- round(.p[2], 3)
-              plate_drc_result$summary_table$LogIC50[.row_idx]  <- round(.p[3], 3)
-              plate_drc_result$summary_table$IC50[.row_idx]     <- format(.p[4], scientific = TRUE)
+              plate_drc_result$summary_table$`LogIC50/LogEC50`[.row_idx] <- round(.p[3], 3)
+              plate_drc_result$summary_table$`IC50/EC50`[.row_idx]       <- format(.p[4], scientific = TRUE)
               plate_drc_result$summary_table$Span[.row_idx]     <- round(.p[5], 3)
             }
             .gof <- .res2$goodness_of_fit
