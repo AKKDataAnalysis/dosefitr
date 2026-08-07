@@ -546,7 +546,8 @@ batch_drc_analysis <- function(batch_results,
           # sheet's own display: 3 decimals, or ">25" when beyond the tested range.
           format_ci_uM <- function(x) {
             if (is.na(x)) return("N/D")
-            if (!is.finite(x) || x > 25) return(">25")
+            .cap <- if (!is.na(highest_conc_uM)) highest_conc_uM else 25
+            if (!is.finite(x) || x > .cap) return(paste0(">", .cap))
             if (x < 0.001) return("<0.001")
             sprintf("%.3f", x)
           }
@@ -568,11 +569,11 @@ batch_drc_analysis <- function(batch_results,
             
             if (length(rep_positions) > 0) {
               
-              # 1. Mean across ALL replicates at the FIRST concentration row
+              # 1. Mean across ALL replicates at the FIRST row (0% control)
               mean_start_row <- mean(
                 as.numeric(unlist(full_data_df[1, rep_positions])), na.rm = TRUE)
               
-              # 2. Mean across ALL replicates at the LAST concentration row
+              # 2. Mean across ALL replicates at the LAST row (100% control)
               last_idx <- nrow(full_data_df)
               mean_end_row <- mean(
                 as.numeric(unlist(full_data_df[last_idx, rep_positions])), na.rm = TRUE)
@@ -650,8 +651,8 @@ batch_drc_analysis <- function(batch_results,
             }
           }
 
-          # Hill Slope Analysis
-          if (!is.na(ideal_hill)) {
+          # Hill Slope Analysis (skip for flat/unknown curves — already N/D)
+          if (!is.na(ideal_hill) && res_curve_type %in% c("inhibition", "activation")) {
             curve_type <- res$curve_type %||% "unknown"
             hill_message <- ""
             
@@ -1146,6 +1147,20 @@ batch_drc_analysis <- function(batch_results,
               plate_drc_result$summary_table$`LogIC50/LogEC50`[.row_idx] <- round(.p[3], 3)
               plate_drc_result$summary_table$`IC50/EC50`[.row_idx]       <- format(.p[4], scientific = TRUE)
               plate_drc_result$summary_table$Span[.row_idx]     <- round(.p[5], 3)
+            }
+            # Also update CI columns from the second-pass fit
+            .ci <- .res2$confidence_intervals
+            if (!is.null(.ci) && !is.null(.ci$LogIC50)) {
+              .ci_lo <- .ci$LogIC50[1]; .ci_hi <- .ci$LogIC50[2]
+              .st_names <- names(plate_drc_result$summary_table)
+              if ("LogIC50/LogEC50_Lower_95CI" %in% .st_names)
+                plate_drc_result$summary_table$`LogIC50/LogEC50_Lower_95CI`[.row_idx] <- round(.ci_lo, 3)
+              if ("LogIC50/LogEC50_Upper_95CI" %in% .st_names)
+                plate_drc_result$summary_table$`LogIC50/LogEC50_Upper_95CI`[.row_idx] <- round(.ci_hi, 3)
+              if ("IC50/EC50_Lower_95CI" %in% .st_names)
+                plate_drc_result$summary_table$`IC50/EC50_Lower_95CI`[.row_idx] <- format(10^.ci_lo, scientific = TRUE)
+              if ("IC50/EC50_Upper_95CI" %in% .st_names)
+                plate_drc_result$summary_table$`IC50/EC50_Upper_95CI`[.row_idx] <- format(10^.ci_hi, scientific = TRUE)
             }
             .gof <- .res2$goodness_of_fit
             if (!is.null(.gof)) {
