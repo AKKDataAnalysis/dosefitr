@@ -8,7 +8,6 @@
 #   * ratio_dose_response_v2()    -- single-plate v2 ratio (numeric controls)
 #   * fit_drc_4pl() / fit_drc_3pl()  -- direct DRC on a modified_ratio_table
 #   * rout_outliers()             -- outlier detection on a single table
-#   * save_multiple_sheets()      -- workbook writing side effects
 #   * merge_plate_replicates()    -- cross-plate compound merging
 
 test_that("ratio_dose_response (v1) processes a single 384-well plate", {
@@ -156,34 +155,6 @@ test_that("rout_outliers flags at least the expected shape on synthetic data", {
   # Cpd2.2 has a huge outlier at row 6 (value = 400); ROUT should detect
   # at least one outlier on this synthetic table.
   expect_gte(nrow(rr$outlier_table), 1L)
-})
-
-test_that("save_multiple_sheets writes an xlsx with sheet names from variables", {
-  outfile <- tempfile(fileext = ".xlsx")
-  on.exit(unlink(outfile), add = TRUE)
-
-  # save_multiple_sheets derives sheet names from the DEPARSED variable name,
-  # not from the argument name (so `df1 = df1` and `df1` both become "df1").
-  # The test therefore uses variable names that we want to see on disk.
-  alpha_sheet <- data.frame(a = 1:3, b = letters[1:3])
-  beta_sheet  <- data.frame(x = c(1.1, 2.2, 3.3))
-
-  save_multiple_sheets(
-    file_name      = outfile,
-    alpha_sheet,
-    beta_sheet,
-    decimal_comma  = FALSE,
-    decimal_places = 3
-  )
-  expect_true(file.exists(outfile))
-
-  sheets <- openxlsx::getSheetNames(outfile)
-  expect_setequal(sheets, c("alpha_sheet", "beta_sheet"))
-
-  a_back <- openxlsx::read.xlsx(outfile, sheet = "alpha_sheet")
-  b_back <- openxlsx::read.xlsx(outfile, sheet = "beta_sheet")
-  expect_equal(nrow(a_back), 3L)
-  expect_equal(nrow(b_back), 3L)
 })
 
 test_that("merge_plate_replicates combines shared compounds across plates", {

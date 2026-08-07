@@ -165,14 +165,14 @@ test_that("batch_drc_analysis produces matching LogIC50s from imported plate", {
   # Same compounds, same set (order-independent).
   expect_setequal(st_orig$Compound, st_imp$Compound)
 
-  # LogIC50 must agree to numerical precision for compounds that fit
+  # LogIC50/LogEC50 must agree to numerical precision for compounds that fit
   # successfully on both branches (the imported plate carries the identical
   # ratio table, so every fit should reproduce).
   ord_imp <- st_imp[match(st_orig$Compound, st_imp$Compound), , drop = FALSE]
-  finite_both <- is.finite(st_orig$LogIC50) & is.finite(ord_imp$LogIC50)
+  finite_both <- is.finite(st_orig$`LogIC50/LogEC50`) & is.finite(ord_imp$`LogIC50/LogEC50`)
   expect_true(any(finite_both))
-  expect_equal(st_orig$LogIC50[finite_both],
-               ord_imp$LogIC50[finite_both],
+  expect_equal(st_orig$`LogIC50/LogEC50`[finite_both],
+               ord_imp$`LogIC50/LogEC50`[finite_both],
                tolerance = 1e-6)
 })
 

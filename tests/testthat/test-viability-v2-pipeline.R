@@ -716,10 +716,10 @@ test_that("batch v2 output is compatible with batch_drc_analysis(normalize=TRUE)
   expect_equal(length(drc$drc_results), 1L)
   sum_tbl <- drc$drc_results[[1]]$drc_result$summary_table
   expect_s3_class(sum_tbl, "data.frame")
-  expect_true(all(c("Compound", "Bottom", "Top", "LogIC50", "R_squared") %in%
+  expect_true(all(c("Compound", "Bottom", "Top", "LogIC50/LogEC50", "R_squared") %in%
                     colnames(sum_tbl)))
-  # At least one curve should fit (finite LogIC50) on this clean synthetic data.
-  logic50 <- suppressWarnings(as.numeric(sum_tbl$LogIC50))
+  # At least one curve should fit (finite LogIC50/LogEC50) on this clean synthetic data.
+  logic50 <- suppressWarnings(as.numeric(sum_tbl$`LogIC50/LogEC50`))
   expect_true(any(is.finite(logic50)))
 })
 

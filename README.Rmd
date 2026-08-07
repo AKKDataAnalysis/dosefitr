@@ -117,8 +117,7 @@ curve-fitting, and export tools:
   `batch_ratio_analysis`, `batch_viability_analysis`, and `batch_drc_analysis`
   each write their results to Excel (per-plate files plus a consolidated report)
   whenever `generate_reports = TRUE` (the default), so a standard run produces its
-  result workbooks with no extra step. `save_multiple_sheets` writes any number of
-  data frames to a single workbook. For laboratories that submit to the SGC
+  result workbooks with no extra step. For laboratories that submit to the SGC
   Scarab system, the optional `scarab_table` (NanoBRET) and `scarab_viability`
   helpers additionally emit lab-specific Scarab-format submission tables.
 
@@ -159,9 +158,9 @@ batch_drc_analysis()          <- fits dose-response curves (3PL or 4PL)
 | Reading / processing| `batch_ratio_analysis` `batch_viability_analysis` `process_viability_data` `process_viability_data_v2` `process_viability_data_v3` `ratio_dose_response` `ratio_dose_response_v2` `merge_plate_replicates` |
 | Import (pre-computed)| `batch_read_tables`                                                                                    |
 | Quality control      | `rout_outliers` `rout_outliers_batch`                                                                  |
-| Fitting              | `batch_drc_analysis` `fit_drc_4pl` `fit_drc_3pl` `reshape_dr_table`                                    |
+| Fitting              | `batch_drc_analysis` `fit_drc_4pl` `fit_drc_3pl`                                                        |
 | Plotting             | `batch_save_all_drc_plots` `plot_multiple_compounds` `plot_dose_response` `plot_all_dose_responses` `compare_plates_drc` `plot_outliers_curves` `plot_outliers_batch_curves` `plot_drc_batch` |
-| Export               | `save_multiple_sheets` `scarab_table` `scarab_viability` (batch functions also write result workbooks directly) |
+| Export               | `scarab_table` `scarab_viability` (batch functions also write result workbooks directly) |
 
 ## Documentation
 

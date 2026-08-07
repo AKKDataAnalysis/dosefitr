@@ -370,22 +370,6 @@ dim(sc_01)
 head(sc_01[, 1:5], 6)
 ```
 
-For a generic multi-sheet workbook, `save_multiple_sheets()` writes
-any number of data frames to one Excel file, one sheet per argument:
-
-```{r save-multi}
-xlsx_out <- file.path(tempdir(), "dosefitr_viability_export.xlsx")
-
-save_multiple_sheets(
-  file_name     = xlsx_out,
-  Viability     = mrt,
-  Fit_Summary   = sum_01,
-  decimal_comma = FALSE
-)
-
-file.exists(xlsx_out)
-```
-
 # Reading the quality metrics
 
 The output of `batch_viability_analysis()` includes per-plate quality

@@ -81,8 +81,7 @@ The eight stages of the pipeline:
 7.  Export the results. `batch_ratio_analysis()` and
     `batch_drc_analysis()` already write result workbooks and a
     consolidated report when `generate_reports = TRUE` (this vignette
-    sets `FALSE` to keep the knit clean); `save_multiple_sheets()` writes
-    arbitrary data frames to one workbook. Optionally, labs that submit
+    sets `FALSE` to keep the knit clean). Optionally, labs that submit
     to the SGC Scarab system emit a Scarab-format table with
     `scarab_table()`.
 8.  Read the quality metrics.
@@ -385,8 +384,7 @@ The main results are already exported by the batch functions: with
 `generate_reports = TRUE` (the default), `batch_ratio_analysis()` writes
 a per-plate result workbook plus a consolidated report, and
 `batch_drc_analysis()` writes the fitted `drc_results` and its own
-consolidated report. `save_multiple_sheets()` is available to write any
-set of data frames to a single workbook. The Scarab table below is an
+consolidated report. The Scarab table below is an
 **optional, lab-specific** step for groups that submit to the SGC Scarab
 system; skip it if you do not.
 
@@ -408,25 +406,6 @@ sc_01 <- scarab_table(
 dim(sc_01)
 
 head(sc_01[, 1:5], 6)
-```
-
-## Multi-sheet Excel workbook
-
-`save_multiple_sheets()` writes any number of data frames to a single
-Excel file, one sheet per argument. Here we export both the ratio
-table and the fit summary for plate 01:
-
-```{r save-multi}
-xlsx_out <- file.path(tempdir(), "dosefitr_nanobret_export.xlsx")
-
-save_multiple_sheets(
-  file_name     = xlsx_out,
-  Ratios        = mrt,
-  Fit_Summary   = sum_01,
-  decimal_comma = FALSE
-)
-
-file.exists(xlsx_out)
 ```
 
 # Reading the quality metrics

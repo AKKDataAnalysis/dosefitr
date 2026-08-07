@@ -107,8 +107,7 @@ together plate-parsing, curve-fitting, and export tools:
   `batch_drc_analysis` each write their results to Excel (per-plate files
   plus a consolidated report) whenever `generate_reports = TRUE` (the
   default), so a standard run produces its result workbooks with no extra
-  step. `save_multiple_sheets` writes any number of data frames to a
-  single workbook. For laboratories that submit to the SGC Scarab system,
+  step. For laboratories that submit to the SGC Scarab system,
   the optional `scarab_table` (NanoBRET) and `scarab_viability` helpers
   additionally emit lab-specific Scarab-format submission tables.
 
@@ -175,7 +174,7 @@ public screens, see `PharmacoGx` on Bioconductor.
 <tr>
 <td>Fitting</td>
 <td><code>batch_drc_analysis</code> <code>fit_drc_4pl</code>
-<code>fit_drc_3pl</code> <code>reshape_dr_table</code></td>
+<code>fit_drc_3pl</code></td>
 </tr>
 <tr>
 <td>Plotting</td>
@@ -187,7 +186,7 @@ public screens, see `PharmacoGx` on Bioconductor.
 </tr>
 <tr>
 <td>Export</td>
-<td><code>save_multiple_sheets</code> <code>scarab_table</code>
+<td><code>scarab_table</code>
 <code>scarab_viability</code> (batch functions also write result workbooks
 directly)</td>
 </tr>

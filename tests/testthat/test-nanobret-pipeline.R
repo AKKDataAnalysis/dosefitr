@@ -4,7 +4,7 @@
 #
 # Exercises the canonical NanoBRET route:
 #   batch_ratio_analysis()  ->  rout_outliers_batch()  ->  batch_drc_analysis()
-#   ->  reshape_dr_table() (side branch)  ->  compare_plates_drc() (bridging)
+#   ->  compare_plates_drc() (bridging)
 #
 # Uses the bundled 384-well fixtures (nanobret_info.xlsx, nanobret_plate_01.xlsx,
 # nanobret_plate_02.xlsx) copied into a fresh tempfile() staging directory by
@@ -147,7 +147,7 @@ test_that("batch_drc_analysis produces sensible LogIC50 and R^2 on bundled data"
   sum_01 <- drc_res$drc_results$plate_01$drc_result$summary_table
   expect_s3_class(sum_01, "data.frame")
   expect_true("Compound" %in% colnames(sum_01))
-  expect_true("LogIC50" %in% colnames(sum_01))
+  expect_true("LogIC50/LogEC50" %in% colnames(sum_01))
   expect_true("R_squared" %in% colnames(sum_01))
   expect_true("Curve_Quality" %in% colnames(sum_01))
 
@@ -155,10 +155,10 @@ test_that("batch_drc_analysis produces sensible LogIC50 and R^2 on bundled data"
   good_idx <- which(sum_01$Curve_Quality == "Good curve")
   expect_true(length(good_idx) >= 1L)
 
-  # LogIC50 for well-fit curves should sit in a biologically plausible range.
+  # LogIC50/LogEC50 for well-fit curves should sit in a biologically plausible range.
   # The bundled fixtures are simulated at IC50s spanning ~1e-9 to 1e-5 M, so
-  # LogIC50 must fall in [-10, -4] with plenty of buffer.
-  logic50_good <- suppressWarnings(as.numeric(sum_01$LogIC50[good_idx]))
+  # LogIC50/LogEC50 must fall in [-10, -4] with plenty of buffer.
+  logic50_good <- suppressWarnings(as.numeric(sum_01$`LogIC50/LogEC50`[good_idx]))
   expect_true(all(is.finite(logic50_good)))
   expect_true(all(logic50_good > -10))
   expect_true(all(logic50_good < -4))
@@ -214,34 +214,4 @@ test_that("compare_plates_drc detects bridging compounds between plate_01 and pl
                          logical(1L))))
 })
 
-test_that("reshape_dr_table converts summary_table to a long-format layout", {
-  work_dir <- stage_nanobret_dir()
-  on.exit(unlink(work_dir, recursive = TRUE), add = TRUE)
 
-  ratio_res <- batch_ratio_analysis(
-    directory        = work_dir,
-    info_file        = "nanobret_info.xlsx",
-    data_pattern     = "nanobret_plate_\\d+\\.xlsx$",
-    control_0perc    = "1",
-    control_100perc  = "24",
-    selected_columns = 1:24,
-    generate_reports = FALSE,
-    output_dir       = tempdir(),
-    verbose          = FALSE
-  )
-  drc_res <- suppressWarnings(batch_drc_analysis(
-    batch_results   = ratio_res,
-    model           = "4pl",
-    normalize       = FALSE,
-    generate_reports = FALSE,
-    output_dir      = tempdir(),
-    verbose         = FALSE
-  ))
-  sum_01 <- drc_res$drc_results$plate_01$drc_result$summary_table
-  long <- reshape_dr_table(results_table = sum_01)
-  expect_s3_class(long, "data.frame")
-  # Reshape organizes parameters into rows; compound columns become header
-  # rows. Just insist that rows/cols are non-trivial.
-  expect_true(nrow(long) > 5L)
-  expect_true(ncol(long) >= 2L)
-})

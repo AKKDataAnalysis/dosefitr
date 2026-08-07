@@ -100,19 +100,23 @@ get_modtable <- function(plate_res) {
 }
 
 # Given a DRC result list (one element per compound), return a data.frame
-# with LogIC50 + R_squared + Fit_type columns for easy assertion.
+# with LogIC50/LogEC50 + R_squared + Fit_type columns for easy assertion.
+# Handles both the internal fit_drc_3pl/4pl name (LogIC50) and the
+# batch_drc_analysis renamed version (LogIC50/LogEC50).
 drc_summary_frame <- function(drc_res) {
   if (is.null(drc_res) || length(drc_res) == 0L) {
     return(data.frame(
       Compound = character(0),
-      LogIC50 = numeric(0),
+      `LogIC50/LogEC50` = numeric(0),
       R_squared = numeric(0),
       Fit_type = character(0),
-      stringsAsFactors = FALSE
+      stringsAsFactors = FALSE,
+      check.names = FALSE
     ))
   }
   cmpd_names <- names(drc_res)
   # DRC output shape varies across the package -- try common slot names.
+  # Also handle both LogIC50 (internal) and LogIC50/LogEC50 (batch-renamed).
   extract_scalar <- function(x, key) {
     if (is.null(x)) return(NA_real_)
     if (!is.null(x[[key]])) return(x[[key]][[1L]])
@@ -126,12 +130,19 @@ drc_summary_frame <- function(drc_res) {
     if (is.null(v)) return(NA_character_)
     as.character(v)[[1L]]
   }
+  # Try both column names for potency
+  potency <- vapply(drc_res, function(x) {
+    v <- extract_scalar(x, "LogIC50/LogEC50")
+    if (is.na(v)) v <- extract_scalar(x, "LogIC50")
+    v
+  }, numeric(1L))
   data.frame(
     Compound  = cmpd_names,
-    LogIC50   = vapply(drc_res, extract_scalar, numeric(1L), key = "LogIC50"),
+    `LogIC50/LogEC50` = potency,
     R_squared = vapply(drc_res, extract_scalar, numeric(1L), key = "R_squared"),
     Fit_type  = vapply(drc_res, extract_str,    character(1L), key = "Fit_type"),
     stringsAsFactors = FALSE,
-    row.names = NULL
+    row.names = NULL,
+    check.names = FALSE
   )
 }

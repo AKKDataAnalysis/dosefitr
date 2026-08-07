@@ -73,7 +73,7 @@ test_that("viability DRC with normalize=TRUE produces plausible bottoms/tops", {
 
   sum_01 <- drc_via$drc_results$plate_01$drc_result$summary_table
   expect_s3_class(sum_01, "data.frame")
-  expect_true(all(c("Compound", "Bottom", "Top", "LogIC50", "R_squared",
+  expect_true(all(c("Compound", "Bottom", "Top", "LogIC50/LogEC50", "R_squared",
                     "Curve_Quality") %in% colnames(sum_01)))
 
   # -- Good-curve rate: >= 80% of the 16 fits should be "Good curve" ----
