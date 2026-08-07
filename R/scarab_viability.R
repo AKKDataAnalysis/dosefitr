@@ -450,11 +450,11 @@ scarab_viability <- function(results_list,
     if (!is.null(final_summary) && compound_full %in% colnames(final_summary)) {
       sc <- compound_full
 
-      v <- final_summary["LogIC50", sc]
+      v <- final_summary["LogIC50/LogEC50", sc]
       if (!is.na(v) && v != "<NA>")
         col_data[8] <- format_number(v, digits = 2)
 
-      v <- final_summary["IC50", sc]
+      v <- final_summary["IC50/EC50", sc]
       if (!is.na(v) && v != "<NA>")
         col_data[9] <- if (decimal_separator == ",") gsub("\\.", ",", v) else v
 

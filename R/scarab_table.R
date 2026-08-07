@@ -481,13 +481,13 @@ scarab_table <- function(results_list, drc_results_list,
     if(summary_col_name %in% colnames(final_summary)) {
 
       # Row 11: LogIC50
-      log_ic50 <- final_summary["LogIC50", summary_col_name]
+      log_ic50 <- final_summary["LogIC50/LogEC50", summary_col_name]
       if(!is.na(log_ic50) && log_ic50 != "<NA>") {
         col_data[11] <- format_number(log_ic50, digits = 2)
       }
 
       # Row 12: IC50, [M]
-      ic50 <- final_summary["IC50", summary_col_name]
+      ic50 <- final_summary["IC50/EC50", summary_col_name]
       if(!is.na(ic50) && ic50 != "<NA>") {
         if(decimal_separator == ",") {
           ic50 <- gsub("\\.", ",", ic50)
