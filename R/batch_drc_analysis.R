@@ -534,10 +534,11 @@ batch_drc_analysis <- function(batch_results,
           pic50_diff_upper <- NA_real_
           pic50_diff_lower <- NA_real_
           if (!is.na(pic50) && !is.na(ci_log_lower_bound) && !is.na(ci_log_upper_bound)) {
-            abs_pic50_upper <- -ci_log_lower_bound
-            abs_pic50_lower <- -ci_log_upper_bound
-            pic50_diff_upper <- abs_pic50_upper - pic50
-            pic50_diff_lower <- pic50 - abs_pic50_lower
+            # Fold distance from the estimate to each CI bound, on the log10 scale.
+            # pic50_diff_lower: how far the LOWER bound sits below the estimate
+            # pic50_diff_upper: how far the UPPER bound sits above the estimate
+            pic50_diff_lower <- (-ci_log_lower_bound) - pic50
+            pic50_diff_upper <- pic50 - (-ci_log_upper_bound)
           }
 
           # Actual CI bounds on the linear uM scale (for the Pharmacology_Summary_CI
