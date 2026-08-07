@@ -540,10 +540,19 @@ batch_drc_analysis <- function(batch_results,
             pic50_diff_lower <- pic50 - abs_pic50_lower
           }
 
-          # Linear fold-change equivalents (for the Pharmacology_Summary_CI sheet,
-          # whose potency values are displayed on the linear uM/nM scale).
-          ci_fold_lower <- if (!is.na(pic50_diff_lower)) min(10^pic50_diff_lower, Inf) else NA_real_
-          ci_fold_upper <- if (!is.na(pic50_diff_upper)) min(10^pic50_diff_upper, Inf) else NA_real_
+          # Actual CI bounds on the linear uM scale (for the Pharmacology_Summary_CI
+          # sheet, whose potency values are displayed as uM/nM). Formatted to match the
+          # sheet's own display: 3 decimals, or ">25" when beyond the tested range.
+          format_ci_uM <- function(x) {
+            if (is.na(x)) return("N/D")
+            if (!is.finite(x) || x > 25) return(">25")
+            if (x < 0.001) return("<0.001")
+            sprintf("%.3f", x)
+          }
+          ci_lower_uM <- if (!is.na(ci_log_lower_bound)) 10^ci_log_lower_bound * 1e6 else NA_real_
+          ci_upper_uM <- if (!is.na(ci_log_upper_bound)) 10^ci_log_upper_bound * 1e6 else NA_real_
+          ci_lower_uM_txt <- format_ci_uM(ci_lower_uM)
+          ci_upper_uM_txt <- format_ci_uM(ci_upper_uM)
           
           # --- NORMALIZED SPAN CALCULATION ---
           span_ratio <- NA_real_
@@ -593,8 +602,8 @@ batch_drc_analysis <- function(batch_results,
           
           # --- WARNING AND EXCLUSION FLAGS ---
           # Two parallel collector sets: the main Pharmacology_Summary sheet keeps
-          # log10-scale CI notes; the Pharmacology_Summary_CI sheet reports the same
-          # CI deviations as linear fold-changes to match its uM/nM display.
+          # log10-scale CI notes; the Pharmacology_Summary_CI sheet reports the actual
+          # CI bound in uM to match its uM/nM display.
           warning_collector <- character()
           exclusion_collector <- character()
           warning_collector_ci <- character()
@@ -607,23 +616,23 @@ batch_drc_analysis <- function(batch_results,
           } else {
             ci_warnings <- character()
             ci_exclusions <- character()
-            ci_warnings_fold <- character()
-            ci_exclusions_fold <- character()
+            ci_warnings_ci <- character()
+            ci_exclusions_ci <- character()
 
             if (pic50_diff_lower > 0.69897) {  # 5-fold = log10(5) = 0.69897
               ci_exclusions <- c(ci_exclusions, sprintf("Lower CI >5-fold (%.3f)", pic50_diff_lower))
-              ci_exclusions_fold <- c(ci_exclusions_fold, sprintf("Lower CI >5-fold (%.1f-fold)", ci_fold_lower))
+              ci_exclusions_ci <- c(ci_exclusions_ci, sprintf("Lower CI >5-fold (%s uM)", ci_lower_uM_txt))
             } else if (pic50_diff_lower > 0.47712) {  # 3-fold = log10(3) = 0.47712
               ci_warnings <- c(ci_warnings, sprintf("Lower CI >3-fold (%.3f)", pic50_diff_lower))
-              ci_warnings_fold <- c(ci_warnings_fold, sprintf("Lower CI >3-fold (%.1f-fold)", ci_fold_lower))
+              ci_warnings_ci <- c(ci_warnings_ci, sprintf("Lower CI >3-fold (%s uM)", ci_lower_uM_txt))
             }
 
             if (pic50_diff_upper > 0.69897) {
               ci_exclusions <- c(ci_exclusions, sprintf("Upper CI >5-fold (%.3f)", pic50_diff_upper))
-              ci_exclusions_fold <- c(ci_exclusions_fold, sprintf("Upper CI >5-fold (%.1f-fold)", ci_fold_upper))
+              ci_exclusions_ci <- c(ci_exclusions_ci, sprintf("Upper CI >5-fold (%s uM)", ci_upper_uM_txt))
             } else if (pic50_diff_upper > 0.47712) {
               ci_warnings <- c(ci_warnings, sprintf("Upper CI >3-fold (%.3f)", pic50_diff_upper))
-              ci_warnings_fold <- c(ci_warnings_fold, sprintf("Upper CI >3-fold (%.1f-fold)", ci_fold_upper))
+              ci_warnings_ci <- c(ci_warnings_ci, sprintf("Upper CI >3-fold (%s uM)", ci_upper_uM_txt))
             }
 
             if (length(ci_warnings) > 0) {
@@ -632,11 +641,11 @@ batch_drc_analysis <- function(batch_results,
             if (length(ci_exclusions) > 0) {
               exclusion_collector <- c(exclusion_collector, paste(ci_exclusions, collapse = "; "))
             }
-            if (length(ci_warnings_fold) > 0) {
-              warning_collector_ci <- c(warning_collector_ci, paste(ci_warnings_fold, collapse = "; "))
+            if (length(ci_warnings_ci) > 0) {
+              warning_collector_ci <- c(warning_collector_ci, paste(ci_warnings_ci, collapse = "; "))
             }
-            if (length(ci_exclusions_fold) > 0) {
-              exclusion_collector_ci <- c(exclusion_collector_ci, paste(ci_exclusions_fold, collapse = "; "))
+            if (length(ci_exclusions_ci) > 0) {
+              exclusion_collector_ci <- c(exclusion_collector_ci, paste(ci_exclusions_ci, collapse = "; "))
             }
           }
 
