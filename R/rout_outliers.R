@@ -348,15 +348,21 @@ rout_outliers <- function(data,
   
   if (verbose) cat(sprintf("Compounds found  : %d\n\n", length(unique_compounds)))
   
-  # ---- Seed RNG for reproducibility ----
+  # ---- Validate seed (actual set.seed is per-compound below) ----
   if (!is.null(seed)) {
     if (!is.numeric(seed) || length(seed) != 1)
       stop("seed must be a single integer or NULL")
-    set.seed(as.integer(seed))
   }
-  
-  results_list <- lapply(unique_compounds, function(cmpd) {
-    
+
+  results_list <- lapply(seq_along(unique_compounds), function(cmpd_idx) {
+    cmpd <- unique_compounds[cmpd_idx]
+
+    # Reset seed per compound so results are independent of processing order
+    # and of how many previous compounds needed random restarts.
+    if (!is.null(seed)) {
+      set.seed(as.integer(seed) + cmpd_idx - 1L)
+    }
+
     rep_cols   <- value_cols[base_names == cmpd]
     # Use [[col]][rows] not [rows, col]  --  the latter returns a tibble when data is
     # a tibble (e.g. from readxl), which cannot be coerced to numeric directly.

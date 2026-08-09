@@ -206,7 +206,10 @@ batch_drc_analysis <- function(batch_results,
     skipped <- names(batch_results)[!is_plate]
     message("Skipping non-plate elements: ", paste(skipped, collapse = ", "))
   }
+  # Preserve attributes (e.g. assay_source) that [ subsetting would drop.
+  saved_attrs <- attributes(batch_results)
   batch_results <- batch_results[is_plate]
+  attr(batch_results, "assay_source") <- saved_attrs$assay_source
   if (length(batch_results) == 0) {
     stop("No valid plate results found in batch_results.")
   }
