@@ -525,9 +525,9 @@ plot_outliers_batch_curves <- function(batch_rout_output,
         theme                = theme
       )
       saved_files[[plate_name]] <- out_file
-      if (verbose) cat(sprintf("saved (%d compounds, %dx%d in)\n",
+      if (verbose) cat(sprintf("saved (%d compounds, %.1fx%.1f in)\n",
                                n_compounds,
-                               round(plot_width), round(plot_height)))
+                               subplot_width, subplot_height))
     }, error = function(e) {
       warning(sprintf("Failed to save plot for plate '%s': %s", plate_name, e$message))
       if (verbose) cat(sprintf("FAILED (%s)\n", e$message))

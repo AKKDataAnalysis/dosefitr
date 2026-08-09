@@ -396,7 +396,26 @@ plot_outliers_curves <- function(rout_output,
   plot_list <- plot_list[!vapply(plot_list, is.null, logical(1L))]
 
   if (length(plot_list) == 0L) {
-    stop("No compounds could be plotted (all had NA or non-numeric log10_EC50)")
+    warning("No compounds could be plotted (all had NA or non-numeric log10_EC50). Returning empty plot.")
+    # Return an empty plot with a message
+    p_empty <- ggplot2::ggplot() +
+      ggplot2::annotate("text", x = 0.5, y = 0.5,
+                        label = "No valid compounds to plot\n(all had NA or non-numeric log10_EC50)",
+                        size = 5, colour = "grey50") +
+      ggplot2::theme_void() +
+      ggplot2::xlim(0, 1) + ggplot2::ylim(0, 1)
+
+    if (!is.null(file)) {
+      subplot_width  <- plot_width  %||% 3.2
+      subplot_height <- plot_height %||% 3.0
+      final_width    <- width  %||% (ncol * subplot_width)
+      final_height   <- height %||% (nrow_grid * subplot_height + 0.6)
+      ggplot2::ggsave(file, p_empty, width = final_width, height = final_height,
+                      dpi = dpi, bg = "white")
+      message(sprintf("Saved: %s", file))
+    }
+
+    return(invisible(p_empty))
   }
 
   # Resolve panel title: explicit panel_title > title > NULL
