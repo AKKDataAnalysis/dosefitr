@@ -175,7 +175,7 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
     if ("LogIC50" %in% names(corrections)) corrected_params[3] <- corrections$LogIC50
     if ("HillSlope" %in% names(corrections)) corrected_params[4] <- corrections$HillSlope
     
-    c(corrected_params[1:4], 10^corrected_params[3], corrected_params[2] - corrected_params[1])
+    c(corrected_params[1:4], if (!is.na(corrected_params[3])) 10^corrected_params[3] else NA_real_, corrected_params[2] - corrected_params[1])
   }
   
   # Recalculate confidence intervals after parameter corrections
@@ -299,10 +299,9 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
     
     # Check LogIC50
     if (params[3] < logIC50_limits[1] || params[3] > logIC50_limits[2] || !is.finite(params[3])) {
-      fallback <- median(data$log_inhibitor, na.rm = TRUE)
-      corrections$LogIC50 <- max(logIC50_limits[1], min(logIC50_limits[2], fallback))
-      reasons$LogIC50 <- sprintf("Biologically implausible (%.2f). Using median concentration: %.2f",
-                                 params[3], fallback)
+      corrections$LogIC50 <- NA_real_
+      reasons$LogIC50 <- sprintf("Biologically implausible (%.2f). Setting to NA.",
+                                 params[3])
     }
     
     # Check HillSlope

@@ -193,7 +193,24 @@ batch_drc_analysis <- function(batch_results,
   if (!is.list(batch_results) || length(batch_results) == 0) {
     stop("batch_results must be a non-empty list.")
   }
-  
+
+  # Filter out non-plate elements (e.g. outlier_summary, skipped_summary,
+  # rescued_summary, params) that rout_outliers_batch() adds to the list.
+  # A valid plate element has a $result$modified_ratio_table data frame.
+  is_plate <- vapply(batch_results, function(x) {
+    !is.null(x$result) &&
+      is.data.frame(x$result$modified_ratio_table) &&
+      nrow(x$result$modified_ratio_table) > 0
+  }, logical(1))
+  if (any(!is_plate) && verbose) {
+    skipped <- names(batch_results)[!is_plate]
+    message("Skipping non-plate elements: ", paste(skipped, collapse = ", "))
+  }
+  batch_results <- batch_results[is_plate]
+  if (length(batch_results) == 0) {
+    stop("No valid plate results found in batch_results.")
+  }
+
   # Detect the assay type from the source attribute stamped by
   # batch_ratio_analysis() ("nanobret") or batch_viability_analysis()
   # ("viability"). Falls back to "nanobret" with a warning for manually
@@ -705,6 +722,15 @@ batch_drc_analysis <- function(batch_results,
             }
           }
           
+          # Params corrected by biological plausibility check
+          bpc <- res$biological_plausibility_check
+          if (!is.null(bpc) && isTRUE(bpc$needs_correction)) {
+            corrected_names <- names(bpc$corrections_applied)
+            msg <- sprintf("Params corrected (%s)", paste(corrected_names, collapse = ", "))
+            exclusion_collector <- c(exclusion_collector, msg)
+            exclusion_collector_ci <- c(exclusion_collector_ci, msg)
+          }
+
           # IC50 above tested range -> add to exclusion
           if (ic50_above_range) {
             exclusion_collector <- c(exclusion_collector,

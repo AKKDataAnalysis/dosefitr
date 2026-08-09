@@ -252,9 +252,8 @@ fit_drc_3pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       reasons$Top <- sprintf("Biologically implausible (%.2f). Using max: %.2f", params[2], exp_max)
     }
     if (params[3] < logIC50_limits[1] || params[3] > logIC50_limits[2] || !is.finite(params[3])) {
-      fallback <- median(df_clean$log_inhibitor, na.rm = TRUE)
-      corrections$LogIC50 <- max(logIC50_limits[1], min(logIC50_limits[2], fallback))
-      reasons$LogIC50 <- sprintf("Biologically implausible (%.2f). Using median: %.2f", params[3], fallback)
+      corrections$LogIC50 <- NA_real_
+      reasons$LogIC50 <- sprintf("Biologically implausible (%.2f). Setting to NA.", params[3])
     }
     
     if (length(corrections) > 0) {
@@ -264,7 +263,7 @@ fit_drc_3pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       if ("LogIC50" %in% names(corrections)) new_p[3] <- corrections$LogIC50
       
       return(list(
-        corrected_params    = c(new_p[1:3], 10^new_p[3], new_p[2] - new_p[1]),
+        corrected_params    = c(new_p[1:3], if (!is.na(new_p[3])) 10^new_p[3] else NA_real_, new_p[2] - new_p[1]),
         corrections_applied = corrections,
         correction_reasons  = reasons,
         needs_correction    = TRUE
