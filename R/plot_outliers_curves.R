@@ -250,13 +250,23 @@ plot_outliers_curves <- function(rout_output,
     # par[3] is log10(EC50) directly  --  no log(10^x) round-trip needed.
     # Detect concentration column name from results ("log10_conc" or "ln_conc").
     conc_col_name <- intersect(c("log10_conc", "ln_conc"), names(df))[1L]
-    x_smooth <- seq(min(df[[conc_col_name]]), max(df[[conc_col_name]]), length.out = 200L)
+    # Safety check: ensure concentration column is numeric and has no NA
+    conc_values <- df[[conc_col_name]]
+    if (!is.numeric(conc_values) || any(!is.finite(conc_values))) {
+      warning(sprintf("Skipping compound '%s': concentration column '%s' contains NA or non-numeric values", cmpd, conc_col_name))
+      return(NULL)
+    }
+    x_smooth <- seq(min(conc_values), max(conc_values), length.out = 200L)
     # hill_model expects ln(EC50) for par[3]; $log10_EC50 is in log10 scale.
     # Convert: ln(EC50) = log10_EC50 * log(10)
-    # Safety check: if log10_EC50 is NA or non-numeric, skip this compound
-    if (is.null(df$log10_EC50) || length(df$log10_EC50) == 0 || !is.numeric(df$log10_EC50[1L]) || !is.finite(df$log10_EC50[1L])) {
-      warning(sprintf("Skipping compound '%s': log10_EC50 is NA or non-numeric", cmpd))
-      return(NULL)
+    # Safety check: if any required parameter is NA or non-numeric, skip this compound
+    required_params <- c("log10_EC50", "bottom", "top", "hill_slope")
+    for (param in required_params) {
+      if (!param %in% names(df) || is.null(df[[param]]) || length(df[[param]]) == 0 ||
+          !is.numeric(df[[param]][1L]) || !is.finite(df[[param]][1L])) {
+        warning(sprintf("Skipping compound '%s': %s is NA or non-numeric", cmpd, param))
+        return(NULL)
+      }
     }
     ln_ec50 <- df$log10_EC50[1L] * log(10)
     # x_smooth is in log10 or ln units; hill_model expects linear concentration.
@@ -273,10 +283,27 @@ plot_outliers_curves <- function(rout_output,
     }
     curve_df <- data.frame(x_smooth = x_smooth, y = y_smooth)
     
+    # Safety check: ensure model_used and dynamic_range_pct are valid
+    if (is.null(df$model_used) || length(df$model_used) == 0 || is.na(df$model_used[1L])) {
+      warning(sprintf("Skipping compound '%s': model_used is NA", cmpd))
+      return(NULL)
+    }
+    if (is.null(df$dynamic_range_pct) || length(df$dynamic_range_pct) == 0 ||
+        !is.numeric(df$dynamic_range_pct[1L]) || !is.finite(df$dynamic_range_pct[1L])) {
+      warning(sprintf("Skipping compound '%s': dynamic_range_pct is NA or non-numeric", cmpd))
+      return(NULL)
+    }
+
     conv_label  <- if (!all(df$converged)) " \u26a0 no conv." else ""
     n_label     <- if (show_n) sprintf(" | n=%d", sum(!df$outlier_fdr)) else ""
     subtitle    <- sprintf("%s | DR: %.0f%%%s%s",
                            df$model_used[1L], df$dynamic_range_pct[1L], conv_label, n_label)
+
+    # Safety check: ensure bret_ratio is numeric
+    if (!is.numeric(df$bret_ratio) || all(!is.finite(df$bret_ratio))) {
+      warning(sprintf("Skipping compound '%s': bret_ratio contains only NA or non-numeric values", cmpd))
+      return(NULL)
+    }
 
     y_all  <- c(df$bret_ratio, y_smooth)
     y_pad  <- diff(range(y_all, na.rm = TRUE)) * 0.12
