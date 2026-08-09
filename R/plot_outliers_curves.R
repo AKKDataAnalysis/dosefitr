@@ -253,6 +253,11 @@ plot_outliers_curves <- function(rout_output,
     x_smooth <- seq(min(df[[conc_col_name]]), max(df[[conc_col_name]]), length.out = 200L)
     # hill_model expects ln(EC50) for par[3]; $log10_EC50 is in log10 scale.
     # Convert: ln(EC50) = log10_EC50 * log(10)
+    # Safety check: if log10_EC50 is NA or non-numeric, skip this compound
+    if (is.null(df$log10_EC50) || length(df$log10_EC50) == 0 || !is.numeric(df$log10_EC50[1L]) || !is.finite(df$log10_EC50[1L])) {
+      warning(sprintf("Skipping compound '%s': log10_EC50 is NA or non-numeric", cmpd))
+      return(NULL)
+    }
     ln_ec50 <- df$log10_EC50[1L] * log(10)
     # x_smooth is in log10 or ln units; hill_model expects linear concentration.
     # Use the correct inverse transform based on log_base stored in params.
@@ -287,7 +292,7 @@ plot_outliers_curves <- function(rout_output,
         data = curve_df,
         ggplot2::aes(x = .data[[conc_col_name]], y = y),
         colour = "grey40", linewidth = line_width, alpha = curve_alpha) +
-      {if (show_ic50 && is.finite(df$log10_EC50[1L]))
+      {if (show_ic50 && !is.null(df$log10_EC50) && length(df$log10_EC50) > 0 && is.numeric(df$log10_EC50[1L]) && is.finite(df$log10_EC50[1L]))
         ggplot2::geom_vline(
           xintercept = df$log10_EC50[1L],
           linetype = "dashed", colour = "grey50", linewidth = 0.5)
@@ -359,7 +364,14 @@ plot_outliers_curves <- function(rout_output,
         inherit.aes = FALSE)
     p
   })
-  
+
+  # Remove NULL elements (skipped compounds)
+  plot_list <- plot_list[!vapply(plot_list, is.null, logical(1L))]
+
+  if (length(plot_list) == 0L) {
+    stop("No compounds could be plotted (all had NA or non-numeric log10_EC50)")
+  }
+
   # Resolve panel title: explicit panel_title > title > NULL
   final_title <- panel_title %||% title
 
