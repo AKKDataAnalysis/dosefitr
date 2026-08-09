@@ -13,7 +13,33 @@ plot_outliers_curves(
   file = NULL,
   width = NULL,
   height = NULL,
-  label_sep = ":"
+  plot_width = NULL,
+  plot_height = NULL,
+  label_sep = ":",
+  panel_title = NULL,
+  axis_label_size = 8,
+  axis_text_size = 7,
+  plot_title_size = 13,
+  subplot_title_size = 9,
+  subplot_subtitle_size = 7,
+  legend_text_size = 7,
+  caption_size = 8,
+  point_size = 2.2,
+  outlier_point_size = 3.5,
+  outlier_label_size = 2.6,
+  line_width = 0.7,
+  axis_line_width = 0.8,
+  legend_key_size = 0.35,
+  dpi = 150,
+  show_ic50 = TRUE,
+  y_limits = NULL,
+  x_limits = NULL,
+  show_grid = FALSE,
+  base_family = "Liberation Sans",
+  outlier_alpha = 0.7,
+  curve_alpha = 1,
+  show_n = TRUE,
+  theme = "prism"
 )
 }
 \arguments{
@@ -38,16 +64,78 @@ plots.}
 (e.g. \code{"curves.png"}).  If \code{NULL} (default), the combined
 \pkg{patchwork} object is returned invisibly without saving.}
 
-\item{width}{Plot width in inches.  Default: \code{ncol * 3.2}.}
+\item{width}{Numeric. Width of the entire panel in inches. If \code{NULL}
+(default), computed as \code{ncol * plot_width}.}
 
-\item{height}{Plot height in inches.  Default:
-\code{ceiling(n_compounds / ncol) * 3.0 + 0.6}.}
+\item{height}{Numeric. Height of the entire panel in inches. If \code{NULL}
+(default), computed as \code{ceiling(n_compounds / ncol) * plot_height + 0.6}.}
+
+\item{plot_width}{Numeric. Width of each individual subplot in inches. Default: 3.2.}
+
+\item{plot_height}{Numeric. Height of each individual subplot in inches. Default: 3.0.}
 
 \item{label_sep}{Character separator used in display labels between
 construct and compound names.  Defaults to \code{":"}.  Change to
 e.g. \code{"/"} to show \code{"Kinase/Cpd1"} instead of
 \code{"Kinase:Cpd1"} in plot titles and legends.  The internal data
 always uses \code{":"}; this parameter only affects display.}
+
+\item{panel_title}{Character string for the overall panel title. If
+\code{NULL} (default), uses \code{title}. Overrides \code{title} when
+both are provided.}
+
+\item{axis_label_size}{Numeric. Font size for axis titles (default: 8).}
+
+\item{axis_text_size}{Numeric. Font size for axis tick labels (default: 7).}
+
+\item{plot_title_size}{Numeric. Font size for the overall plot title
+(default: 13).}
+
+\item{subplot_title_size}{Numeric. Font size for per-compound subplot
+titles (default: 9).}
+
+\item{subplot_subtitle_size}{Numeric. Font size for per-compound subplot
+subtitles (default: 7).}
+
+\item{legend_text_size}{Numeric. Font size for legend text (default: 7).}
+
+\item{caption_size}{Numeric. Font size for the plot caption (default: 8).}
+
+\item{point_size}{Numeric. Size of data points (default: 2.2).}
+
+\item{outlier_point_size}{Numeric. Size of outlier points (default: 3.5).}
+
+\item{outlier_label_size}{Numeric. Font size for outlier labels (default: 2.6).}
+
+\item{line_width}{Numeric. Line width for the fitted curve (default: 0.7).}
+
+\item{axis_line_width}{Numeric. Line width for axis lines (default: 0.8).}
+
+\item{legend_key_size}{Numeric. Size of legend keys in cm (default: 0.35).}
+
+\item{dpi}{Integer. Resolution of saved PNG files (default: 150).}
+
+\item{show_ic50}{Logical. Add vertical dashed line at IC50/EC50 (default: TRUE).}
+
+\item{y_limits}{Numeric vector of length 2. Force y-axis limits (default: NULL,
+auto-computed from data).}
+
+\item{x_limits}{Numeric vector of length 2. Force x-axis limits (default: NULL,
+auto-computed from data).}
+
+\item{show_grid}{Logical. Add major grid lines (default: FALSE).}
+
+\item{base_family}{Character. Font family for all text (default: "Liberation Sans").}
+
+\item{outlier_alpha}{Numeric. Transparency of outlier points (default: 0.7).}
+
+\item{curve_alpha}{Numeric. Transparency of fitted curve (default: 1.0).}
+
+\item{show_n}{Logical. Show number of non-outlier replicates in subtitle
+(default: TRUE).}
+
+\item{theme}{Character. Plot theme: "prism" (default, ggprism) or "bw"
+(classic black-and-white).}
 }
 \value{
 Invisibly returns the combined \pkg{patchwork} ggplot object.

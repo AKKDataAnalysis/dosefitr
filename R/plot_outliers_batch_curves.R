@@ -51,6 +51,46 @@
 #'   e.g. \code{"/"} to show \code{"EPHA1/KK135"} instead of
 #'   \code{"EPHA1:KK135"} in plot titles and legends.  The internal data
 #'   always uses \code{":"}; this parameter only affects display.
+#' @param panel_title Character string for the overall panel title. If
+#'   \code{NULL} (default), uses the auto-generated plate title
+#'   (\code{plate_name | data_file}). Overrides the default when provided.
+#' @param axis_label_size Numeric. Font size for axis titles (default: 8).
+#' @param axis_text_size Numeric. Font size for axis tick labels (default: 7).
+#' @param plot_title_size Numeric. Font size for the overall plot title
+#'   (default: 13).
+#' @param subplot_title_size Numeric. Font size for per-compound subplot
+#'   titles (default: 9).
+#' @param subplot_subtitle_size Numeric. Font size for per-compound subplot
+#'   subtitles (default: 7).
+#' @param legend_text_size Numeric. Font size for legend text (default: 7).
+#' @param caption_size Numeric. Font size for the plot caption (default: 8).
+#' @param point_size Numeric. Size of data points (default: 2.2).
+#' @param outlier_point_size Numeric. Size of outlier points (default: 3.5).
+#' @param outlier_label_size Numeric. Font size for outlier labels (default: 2.6).
+#' @param line_width Numeric. Line width for the fitted curve (default: 0.7).
+#' @param axis_line_width Numeric. Line width for axis lines (default: 0.8).
+#' @param legend_key_size Numeric. Size of legend keys in cm (default: 0.35).
+#' @param width Numeric. Width of the entire panel in inches. If \code{NULL}
+#'   (default), computed as \code{ncol * plot_width}.
+#' @param height Numeric. Height of the entire panel in inches. If \code{NULL}
+#'   (default), computed as \code{ceiling(n_compounds / ncol) * plot_height + 0.8}.
+#' @param plot_width Numeric. Width of each individual subplot in inches.
+#'   Default: \code{width_per_col} (3.2).
+#' @param plot_height Numeric. Height of each individual subplot in inches.
+#'   Default: \code{height_per_row} (3.0).
+#' @param show_ic50 Logical. Add vertical dashed line at IC50/EC50 (default: TRUE).
+#' @param y_limits Numeric vector of length 2. Force y-axis limits (default: NULL,
+#'   auto-computed from data).
+#' @param x_limits Numeric vector of length 2. Force x-axis limits (default: NULL,
+#'   auto-computed from data).
+#' @param show_grid Logical. Add major grid lines (default: FALSE).
+#' @param base_family Character. Font family for all text (default: "Liberation Sans").
+#' @param outlier_alpha Numeric. Transparency of outlier points (default: 0.7).
+#' @param curve_alpha Numeric. Transparency of fitted curve (default: 1.0).
+#' @param show_n Logical. Show number of non-outlier replicates in subtitle
+#'   (default: TRUE).
+#' @param theme Character. Plot theme: "prism" (default, ggprism) or "bw"
+#'   (classic black-and-white).
 #'
 #' @return Invisibly returns a character vector of the PNG file paths
 #'   written to \code{output_dir} (one path per successfully processed
@@ -162,7 +202,34 @@ plot_outliers_batch_curves <- function(batch_rout_output,
                                        verbose         = TRUE,
                                        panel_spacing   = 0.5,
                                        subplot_title   = "auto",
-                                       label_sep       = ":") {
+                                       label_sep       = ":",
+                                       panel_title     = NULL,
+                                       axis_label_size      = 8,
+                                       axis_text_size       = 7,
+                                       plot_title_size      = 13,
+                                       subplot_title_size   = 9,
+                                       subplot_subtitle_size = 7,
+                                       legend_text_size     = 7,
+                                       caption_size         = 8,
+                                       point_size           = 2.2,
+                                       outlier_point_size   = 3.5,
+                                       outlier_label_size   = 2.6,
+                                       line_width           = 0.7,
+                                       axis_line_width      = 0.8,
+                                       legend_key_size      = 0.35,
+                                       width                = NULL,
+                                       height               = NULL,
+                                       plot_width           = NULL,
+                                       plot_height          = NULL,
+                                       show_ic50            = TRUE,
+                                       y_limits             = NULL,
+                                       x_limits             = NULL,
+                                       show_grid            = FALSE,
+                                       base_family          = "Liberation Sans",
+                                       outlier_alpha        = 0.7,
+                                       curve_alpha          = 1.0,
+                                       show_n               = TRUE,
+                                       theme                = "prism") {
   
   # --------------------------------------------------------------------------
   # 1. Dependency checks
@@ -402,8 +469,11 @@ plot_outliers_batch_curves <- function(batch_rout_output,
     # ---- 5g. Compute plot dimensions ----
     n_compounds <- length(unique(rout_out$results$compound))
     n_rows_grid <- ceiling(n_compounds / ncol)
-    plot_width  <- ncol * width_per_col
-    plot_height <- n_rows_grid * height_per_row + 0.8   # +0.8 for title/caption
+    # Use explicit width/height if provided, otherwise compute from plot_width/plot_height or defaults
+    subplot_width  <- plot_width  %||% width_per_col
+    subplot_height <- plot_height %||% height_per_row
+    panel_width    <- width  %||% (ncol * subplot_width)
+    panel_height   <- height %||% (n_rows_grid * subplot_height + 0.8)   # +0.8 for title/caption
     
     # ---- 5f. Build plate title (include data_file if available) ----
     data_file  <- plate$data_file %||% ""
@@ -422,11 +492,37 @@ plot_outliers_batch_curves <- function(batch_rout_output,
         title          = plate_title,
         ncol           = ncol,
         file           = out_file,
-        width          = plot_width,
-        height         = plot_height,
+        width          = panel_width,
+        height         = panel_height,
+        plot_width     = plot_width,
+        plot_height    = plot_height,
         subplot_title  = effective_subplot_mode,
         panel_spacing  = panel_spacing,
-        label_sep      = label_sep
+        label_sep      = label_sep,
+        panel_title    = panel_title,
+        axis_label_size      = axis_label_size,
+        axis_text_size       = axis_text_size,
+        plot_title_size      = plot_title_size,
+        subplot_title_size   = subplot_title_size,
+        subplot_subtitle_size = subplot_subtitle_size,
+        legend_text_size     = legend_text_size,
+        caption_size         = caption_size,
+        point_size           = point_size,
+        outlier_point_size   = outlier_point_size,
+        outlier_label_size   = outlier_label_size,
+        line_width           = line_width,
+        axis_line_width      = axis_line_width,
+        legend_key_size      = legend_key_size,
+        dpi                  = dpi,
+        show_ic50            = show_ic50,
+        y_limits             = y_limits,
+        x_limits             = x_limits,
+        show_grid            = show_grid,
+        base_family          = base_family,
+        outlier_alpha        = outlier_alpha,
+        curve_alpha          = curve_alpha,
+        show_n               = show_n,
+        theme                = theme
       )
       saved_files[[plate_name]] <- out_file
       if (verbose) cat(sprintf("saved (%d compounds, %dx%d in)\n",

@@ -24,15 +24,59 @@
 #'   (e.g. \code{"curves.png"}).  If \code{NULL} (default), the combined
 #'   \pkg{patchwork} object is returned invisibly without saving.
 #'
-#' @param width Plot width in inches.  Default: \code{ncol * 3.2}.
+#' @param width Panel width in inches. If \code{NULL} (default), computed as
+#'   \code{ncol * plot_width}.
 #'
-#' @param height Plot height in inches.  Default:
-#'   \code{ceiling(n_compounds / ncol) * 3.0 + 0.6}.
+#' @param height Panel height in inches. If \code{NULL} (default), computed as
+#'   \code{ceiling(n_compounds / ncol) * plot_height + 0.6}.
+#'
+#' @param plot_width Width of each individual subplot in inches. Default: 3.2.
+#'
+#' @param plot_height Height of each individual subplot in inches. Default: 3.0.
 #' @param label_sep Character separator used in display labels between
 #'   construct and compound names.  Defaults to \code{":"}.  Change to
 #'   e.g. \code{"/"} to show \code{"Kinase/Cpd1"} instead of
 #'   \code{"Kinase:Cpd1"} in plot titles and legends.  The internal data
 #'   always uses \code{":"}; this parameter only affects display.
+#' @param panel_title Character string for the overall panel title. If
+#'   \code{NULL} (default), uses \code{title}. Overrides \code{title} when
+#'   both are provided.
+#' @param axis_label_size Numeric. Font size for axis titles (default: 8).
+#' @param axis_text_size Numeric. Font size for axis tick labels (default: 7).
+#' @param plot_title_size Numeric. Font size for the overall plot title
+#'   (default: 13).
+#' @param subplot_title_size Numeric. Font size for per-compound subplot
+#'   titles (default: 9).
+#' @param subplot_subtitle_size Numeric. Font size for per-compound subplot
+#'   subtitles (default: 7).
+#' @param legend_text_size Numeric. Font size for legend text (default: 7).
+#' @param caption_size Numeric. Font size for the plot caption (default: 8).
+#' @param point_size Numeric. Size of data points (default: 2.2).
+#' @param outlier_point_size Numeric. Size of outlier points (default: 3.5).
+#' @param outlier_label_size Numeric. Font size for outlier labels (default: 2.6).
+#' @param line_width Numeric. Line width for the fitted curve (default: 0.7).
+#' @param axis_line_width Numeric. Line width for axis lines (default: 0.8).
+#' @param legend_key_size Numeric. Size of legend keys in cm (default: 0.35).
+#' @param dpi Integer. Resolution of saved PNG files (default: 150).
+#' @param width Numeric. Width of the entire panel in inches. If \code{NULL}
+#'   (default), computed as \code{ncol * plot_width}.
+#' @param height Numeric. Height of the entire panel in inches. If \code{NULL}
+#'   (default), computed as \code{ceiling(n_compounds / ncol) * plot_height + 0.6}.
+#' @param plot_width Numeric. Width of each individual subplot in inches. Default: 3.2.
+#' @param plot_height Numeric. Height of each individual subplot in inches. Default: 3.0.
+#' @param show_ic50 Logical. Add vertical dashed line at IC50/EC50 (default: TRUE).
+#' @param y_limits Numeric vector of length 2. Force y-axis limits (default: NULL,
+#'   auto-computed from data).
+#' @param x_limits Numeric vector of length 2. Force x-axis limits (default: NULL,
+#'   auto-computed from data).
+#' @param show_grid Logical. Add major grid lines (default: FALSE).
+#' @param base_family Character. Font family for all text (default: "Liberation Sans").
+#' @param outlier_alpha Numeric. Transparency of outlier points (default: 0.7).
+#' @param curve_alpha Numeric. Transparency of fitted curve (default: 1.0).
+#' @param show_n Logical. Show number of non-outlier replicates in subtitle
+#'   (default: TRUE).
+#' @param theme Character. Plot theme: "prism" (default, ggprism) or "bw"
+#'   (classic black-and-white).
 #'
 #' @return Invisibly returns the combined \pkg{patchwork} ggplot object.
 #'   Each panel shows:
@@ -101,7 +145,33 @@ plot_outliers_curves <- function(rout_output,
                                  file   = NULL,
                                  width  = NULL,
                                  height = NULL,
-                                 label_sep     = ":") {
+                                 plot_width     = NULL,
+                                 plot_height    = NULL,
+                                 label_sep     = ":",
+                                 panel_title   = NULL,
+                                 axis_label_size      = 8,
+                                 axis_text_size       = 7,
+                                 plot_title_size      = 13,
+                                 subplot_title_size   = 9,
+                                 subplot_subtitle_size = 7,
+                                 legend_text_size     = 7,
+                                 caption_size         = 8,
+                                 point_size           = 2.2,
+                                 outlier_point_size   = 3.5,
+                                 outlier_label_size   = 2.6,
+                                 line_width           = 0.7,
+                                 axis_line_width      = 0.8,
+                                 legend_key_size      = 0.35,
+                                 dpi                  = 150,
+                                 show_ic50            = TRUE,
+                                 y_limits             = NULL,
+                                 x_limits             = NULL,
+                                 show_grid            = FALSE,
+                                 base_family          = "Liberation Sans",
+                                 outlier_alpha        = 0.7,
+                                 curve_alpha          = 1.0,
+                                 show_n               = TRUE,
+                                 theme                = "prism") {
   
   subplot_title <- match.arg(subplot_title, c("full", "compound", "construct"))
   
@@ -199,12 +269,14 @@ plot_outliers_curves <- function(rout_output,
     curve_df <- data.frame(x_smooth = x_smooth, y = y_smooth)
     
     conv_label  <- if (!all(df$converged)) " \u26a0 no conv." else ""
-    subtitle    <- sprintf("%s | DR: %.0f%%%s",
-                           df$model_used[1L], df$dynamic_range_pct[1L], conv_label)
-    
+    n_label     <- if (show_n) sprintf(" | n=%d", sum(!df$outlier_fdr)) else ""
+    subtitle    <- sprintf("%s | DR: %.0f%%%s%s",
+                           df$model_used[1L], df$dynamic_range_pct[1L], conv_label, n_label)
+
     y_all  <- c(df$bret_ratio, y_smooth)
     y_pad  <- diff(range(y_all, na.rm = TRUE)) * 0.12
-    y_lims <- c(min(y_all, na.rm = TRUE) - y_pad, max(y_all, na.rm = TRUE) + y_pad)
+    y_lims <- if (!is.null(y_limits)) y_limits else c(min(y_all, na.rm = TRUE) - y_pad, max(y_all, na.rm = TRUE) + y_pad)
+    x_lims <- if (!is.null(x_limits)) x_limits else range(df[[conc_col_name]], na.rm = TRUE)
     
     # Rename curve_df x column to match the concentration column name in df
     # so aes() references are consistent regardless of log_base setting.
@@ -214,23 +286,29 @@ plot_outliers_curves <- function(rout_output,
       ggplot2::geom_line(
         data = curve_df,
         ggplot2::aes(x = .data[[conc_col_name]], y = y),
-        colour = "grey40", linewidth = 0.7) +
+        colour = "grey40", linewidth = line_width, alpha = curve_alpha) +
+      {if (show_ic50 && is.finite(df$log10_EC50[1L]))
+        ggplot2::geom_vline(
+          xintercept = df$log10_EC50[1L],
+          linetype = "dashed", colour = "grey50", linewidth = 0.5)
+      } +
       ggplot2::geom_point(
         data = df[!df$outlier_fdr, ],
         ggplot2::aes(x = .data[[conc_col_name]], y = bret_ratio,
                      colour = as.character(replicate),
                      shape  = as.character(replicate)),
-        size = 2.2, stroke = 0.6) +
+        size = point_size, stroke = 0.6) +
       ggplot2::geom_point(
         data = df[df$outlier_fdr, ],
         ggplot2::aes(x = .data[[conc_col_name]], y = bret_ratio),
-        colour = "#D62728", shape = 4, size = 3.5, stroke = 1.4) +
+        colour = "#D62728", shape = 4, size = outlier_point_size, stroke = 1.4,
+        alpha = outlier_alpha) +
       {if (any(df$outlier_fdr))
         ggrepel::geom_text_repel(
           data = df[df$outlier_fdr, ],
           ggplot2::aes(x = .data[[conc_col_name]], y = bret_ratio,
                        label = sprintf("%.1f SD", abs(std_residual))),
-          colour = "#D62728", size = 2.6, fontface = "bold",
+          colour = "#D62728", size = outlier_label_size, fontface = "bold",
           box.padding = 0.4, point.padding = 0.3,
           min.segment.length = 0.2, max.overlaps = 20)
       } +
@@ -241,25 +319,27 @@ plot_outliers_curves <- function(rout_output,
         values = c("1" = 16, "2" = 17),
         labels = c("1" = "Rep 1", "2" = "Rep 2"), name = NULL) +
       ggplot2::scale_x_continuous(
-        breaks = pretty(range(df[[conc_col_name]]), n = 5),
+        breaks = pretty(x_lims, n = 5),
         labels = function(x) parse(text = paste0("10^{", x, "}")),
         expand = c(0, 0)) +
       ggplot2::scale_y_continuous(expand = c(0, 0)) +
-      ggplot2::coord_cartesian(ylim = y_lims, clip = "on") +
+      ggplot2::coord_cartesian(xlim = x_lims, ylim = y_lims, clip = "on") +
       ggplot2::labs(
         title    = .make_subplot_label(cmpd),
         subtitle = subtitle,
         x        = "Concentration (M)",
         y        = "BRET ratio") +
-      ggprism::theme_prism(base_size = 9) +
+      {if (theme == "prism") ggprism::theme_prism(base_size = axis_text_size, base_family = base_family)
+        else ggplot2::theme_bw(base_size = axis_text_size, base_family = base_family)} +
       ggplot2::theme(
-        plot.title      = ggplot2::element_text(size = 9,  face = "bold",  hjust = 0.5),
-        plot.subtitle   = ggplot2::element_text(size = 7,  colour = "grey50", hjust = 0.5),
+        plot.title      = ggplot2::element_text(size = subplot_title_size,  face = "bold",  hjust = 0.5),
+        plot.subtitle   = ggplot2::element_text(size = subplot_subtitle_size,  colour = "grey50", hjust = 0.5),
         legend.position = "bottom",
-        legend.key.size = ggplot2::unit(0.35, "cm"),
-        legend.text     = ggplot2::element_text(size = 7),
-        axis.title      = ggplot2::element_text(size = 8),
-        axis.text       = ggplot2::element_text(size = 7),
+        legend.key.size = ggplot2::unit(legend_key_size, "cm"),
+        legend.text     = ggplot2::element_text(size = legend_text_size),
+        panel.grid.major = if (show_grid) ggplot2::element_line(colour = "grey90", linewidth = 0.3) else ggplot2::element_blank(),
+        axis.title      = ggplot2::element_text(size = axis_label_size),
+        axis.text       = ggplot2::element_text(size = axis_text_size),
         axis.line       = ggplot2::element_blank(),
         panel.border    = ggplot2::element_blank(),
         plot.margin     = ggplot2::margin(t = 10, r = 8, b = 4, l = 6, unit = "pt"))
@@ -275,29 +355,36 @@ plot_outliers_curves <- function(rout_output,
       ggplot2::geom_segment(
         data = axis_segs_oc,
         ggplot2::aes(x = .data$x, xend = .data$xend, y = .data$y, yend = .data$yend),
-        colour = "black", linewidth = 0.8,
+        colour = "black", linewidth = axis_line_width,
         inherit.aes = FALSE)
     p
   })
   
+  # Resolve panel title: explicit panel_title > title > NULL
+  final_title <- panel_title %||% title
+
   combined <- (patchwork::wrap_plots(plot_list, ncol = ncol) &
                  ggplot2::theme(plot.margin = ggplot2::margin(
                    t = panel_spacing * 0.5, r = panel_spacing * 0.5,
                    b = panel_spacing * 0.5, l = panel_spacing * 0.5,
                    unit = "cm"))) +
     patchwork::plot_annotation(
-      title   = title,
+      title   = final_title,
       caption = caption_txt,
       theme   = ggplot2::theme(
-        plot.title   = ggplot2::element_text(size = 13, face = "bold", hjust = 0.5),
-        plot.caption = ggplot2::element_text(size = 8,  colour = "grey50", hjust = 0)))
+        plot.title   = ggplot2::element_text(size = plot_title_size, face = "bold", hjust = 0.5),
+        plot.caption = ggplot2::element_text(size = caption_size,  colour = "grey50", hjust = 0)))
   
-  if (is.null(width))  width  <- ncol * 3.2
-  if (is.null(height)) height <- nrow_grid * 3.0 + 0.6
-  
+  # Resolve panel dimensions: explicit width/height > plot_width/plot_height * ncol/nrow > defaults
+  # plot_width/plot_height control individual subplot size; width/height control the whole panel
+  subplot_width  <- plot_width  %||% 3.2
+  subplot_height <- plot_height %||% 3.0
+  final_width    <- width  %||% (ncol * subplot_width)
+  final_height   <- height %||% (nrow_grid * subplot_height + 0.6)
+
   if (!is.null(file)) {
-    ggplot2::ggsave(file, combined, width = width, height = height,
-                    dpi = 150, bg = "white")
+    ggplot2::ggsave(file, combined, width = final_width, height = final_height,
+                    dpi = dpi, bg = "white")
     message(sprintf("Saved: %s", file))
   }
   
