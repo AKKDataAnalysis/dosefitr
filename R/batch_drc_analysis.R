@@ -58,6 +58,13 @@
 #' @param hook_threshold Numeric. Number of residual standard errors
 #'   (Syx) above the fitted curve that a candidate point must exceed to be
 #'   classified as a hook. Default `2` (approximately a 2-SE exceedance).
+#' @param bottom_limits_nanobret_inhibition,bottom_limits_nanobret_activation,top_limits_nanobret_inhibition,top_limits_nanobret_activation,bottom_limits_viability_inhibition,bottom_limits_viability_activation,top_limits_viability_inhibition,top_limits_viability_activation,logIC50_limits,hill_slope_limits
+#'   Plausibility-limit arguments forwarded unchanged to [`fit_drc_3pl()`] or
+#'   [`fit_drc_4pl()`] (including the hook-effect second-pass fits). Each must
+#'   be a numeric vector of length 2 with `lower <= upper` (`-Inf`/`Inf`
+#'   allowed); invalid values cause an immediate error before any plate is
+#'   processed. See those functions' documentation for the per-argument
+#'   defaults, which reproduce the previously hardcoded limits.
 #'   Only used when `hook_effect` is not `FALSE`.
 #'
 #'
@@ -154,7 +161,17 @@ batch_drc_analysis <- function(batch_results,
                                nd_if_activation = FALSE,
                                verbose = TRUE,
                                hook_effect    = FALSE,
-                               hook_threshold = 2) {
+                               hook_threshold = 2,
+                               bottom_limits_nanobret_inhibition = c(-100, 600),
+                               bottom_limits_nanobret_activation = c(-100, Inf),
+                               top_limits_nanobret_inhibition = c(0, 700),
+                               top_limits_nanobret_activation = c(0, 700),
+                               bottom_limits_viability_inhibition = c(-20, 60),
+                               bottom_limits_viability_activation = c(-20, 60),
+                               top_limits_viability_inhibition = c(50, 130),
+                               top_limits_viability_activation = c(50, 130),
+                               logIC50_limits = c(-20, 5),
+                               hill_slope_limits = c(-5, 5)) {
   
   # ============================================================================
   # 1. SETUP & DEPENDENCIES
@@ -179,6 +196,9 @@ batch_drc_analysis <- function(batch_results,
   model <- tolower(model)
   if (!model %in% c("3pl", "4pl"))
     stop("model must be either '3pl' or '4pl'.")
+
+  # Fail fast on malformed plausibility-limit arguments (before any fitting).
+  .validate_all_limit_args(environment())
 
   # hook_effect / hook_threshold validation
   if (!isFALSE(hook_effect) && !isTRUE(hook_effect) && !is.character(hook_effect))
@@ -351,7 +371,17 @@ batch_drc_analysis <- function(batch_results,
           enforce_bottom_threshold = enforce_bottom_threshold,
           bottom_threshold         = bottom_threshold,
           r_sqr_threshold          = r_sqr_threshold,
-          assay_type               = assay_type
+          assay_type               = assay_type,
+          bottom_limits_nanobret_inhibition  = bottom_limits_nanobret_inhibition,
+          bottom_limits_nanobret_activation  = bottom_limits_nanobret_activation,
+          top_limits_nanobret_inhibition     = top_limits_nanobret_inhibition,
+          top_limits_nanobret_activation     = top_limits_nanobret_activation,
+          bottom_limits_viability_inhibition = bottom_limits_viability_inhibition,
+          bottom_limits_viability_activation = bottom_limits_viability_activation,
+          top_limits_viability_inhibition    = top_limits_viability_inhibition,
+          top_limits_viability_activation    = top_limits_viability_activation,
+          logIC50_limits           = logIC50_limits,
+          hill_slope_limits        = hill_slope_limits
         )
       } else {
         fit_drc_4pl(
@@ -362,7 +392,17 @@ batch_drc_analysis <- function(batch_results,
           enforce_bottom_threshold = enforce_bottom_threshold,
           bottom_threshold         = bottom_threshold,
           r_sqr_threshold          = r_sqr_threshold,
-          assay_type               = assay_type
+          assay_type               = assay_type,
+          bottom_limits_nanobret_inhibition  = bottom_limits_nanobret_inhibition,
+          bottom_limits_nanobret_activation  = bottom_limits_nanobret_activation,
+          top_limits_nanobret_inhibition     = top_limits_nanobret_inhibition,
+          top_limits_nanobret_activation     = top_limits_nanobret_activation,
+          bottom_limits_viability_inhibition = bottom_limits_viability_inhibition,
+          bottom_limits_viability_activation = bottom_limits_viability_activation,
+          top_limits_viability_inhibition    = top_limits_viability_inhibition,
+          top_limits_viability_activation    = top_limits_viability_activation,
+          logIC50_limits           = logIC50_limits,
+          hill_slope_limits        = hill_slope_limits
         )
       }
     }, error = function(e) NULL)
@@ -1005,7 +1045,17 @@ batch_drc_analysis <- function(batch_results,
             enforce_bottom_threshold = enforce_bottom_threshold,
             bottom_threshold         = bottom_threshold,
             r_sqr_threshold          = r_sqr_threshold,
-            assay_type               = assay_type
+            assay_type               = assay_type,
+            bottom_limits_nanobret_inhibition  = bottom_limits_nanobret_inhibition,
+            bottom_limits_nanobret_activation  = bottom_limits_nanobret_activation,
+            top_limits_nanobret_inhibition     = top_limits_nanobret_inhibition,
+            top_limits_nanobret_activation     = top_limits_nanobret_activation,
+            bottom_limits_viability_inhibition = bottom_limits_viability_inhibition,
+            bottom_limits_viability_activation = bottom_limits_viability_activation,
+            top_limits_viability_inhibition    = top_limits_viability_inhibition,
+            top_limits_viability_activation    = top_limits_viability_activation,
+            logIC50_limits           = logIC50_limits,
+            hill_slope_limits        = hill_slope_limits
           )
         } else {
           fit_drc_4pl(
@@ -1016,7 +1066,17 @@ batch_drc_analysis <- function(batch_results,
             enforce_bottom_threshold = enforce_bottom_threshold,
             bottom_threshold         = bottom_threshold,
             r_sqr_threshold          = r_sqr_threshold,
-            assay_type               = assay_type
+            assay_type               = assay_type,
+            bottom_limits_nanobret_inhibition  = bottom_limits_nanobret_inhibition,
+            bottom_limits_nanobret_activation  = bottom_limits_nanobret_activation,
+            top_limits_nanobret_inhibition     = top_limits_nanobret_inhibition,
+            top_limits_nanobret_activation     = top_limits_nanobret_activation,
+            bottom_limits_viability_inhibition = bottom_limits_viability_inhibition,
+            bottom_limits_viability_activation = bottom_limits_viability_activation,
+            top_limits_viability_inhibition    = top_limits_viability_inhibition,
+            top_limits_viability_activation    = top_limits_viability_activation,
+            logIC50_limits           = logIC50_limits,
+            hill_slope_limits        = hill_slope_limits
           )
         }
       }, error = function(e) {

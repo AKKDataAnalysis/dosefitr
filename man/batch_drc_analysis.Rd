@@ -16,7 +16,17 @@ batch_drc_analysis(
   nd_if_activation = FALSE,
   verbose = TRUE,
   hook_effect = FALSE,
-  hook_threshold = 2
+  hook_threshold = 2,
+  bottom_limits_nanobret_inhibition = c(-100, 600),
+  bottom_limits_nanobret_activation = c(-100, Inf),
+  top_limits_nanobret_inhibition = c(0, 700),
+  top_limits_nanobret_activation = c(0, 700),
+  bottom_limits_viability_inhibition = c(-20, 60),
+  bottom_limits_viability_activation = c(-20, 60),
+  top_limits_viability_inhibition = c(50, 130),
+  top_limits_viability_activation = c(50, 130),
+  logIC50_limits = c(-20, 5),
+  hill_slope_limits = c(-5, 5)
 )
 }
 \arguments{
@@ -71,7 +81,14 @@ Detected hook points are excluded from fitting but still plotted as red
 
 \item{hook_threshold}{Numeric. Number of residual standard errors
 (Syx) above the fitted curve that a candidate point must exceed to be
-classified as a hook. Default `2` (approximately a 2-SE exceedance).
+classified as a hook. Default `2` (approximately a 2-SE exceedance).}
+
+\item{bottom_limits_nanobret_inhibition, bottom_limits_nanobret_activation, top_limits_nanobret_inhibition, top_limits_nanobret_activation, bottom_limits_viability_inhibition, bottom_limits_viability_activation, top_limits_viability_inhibition, top_limits_viability_activation, logIC50_limits, hill_slope_limits}{Plausibility-limit arguments forwarded unchanged to [`fit_drc_3pl()`] or
+[`fit_drc_4pl()`] (including the hook-effect second-pass fits). Each must
+be a numeric vector of length 2 with `lower <= upper` (`-Inf`/`Inf`
+allowed); invalid values cause an immediate error before any plate is
+processed. See those functions' documentation for the per-argument
+defaults, which reproduce the previously hardcoded limits.
 Only used when `hook_effect` is not `FALSE`.}
 }
 \value{

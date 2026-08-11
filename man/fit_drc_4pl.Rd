@@ -12,7 +12,17 @@ fit_drc_4pl(
   enforce_bottom_threshold = FALSE,
   bottom_threshold = 60,
   r_sqr_threshold = 0.8,
-  assay_type = "nanobret"
+  assay_type = "nanobret",
+  bottom_limits_nanobret_inhibition = c(-100, 600),
+  bottom_limits_nanobret_activation = c(-100, Inf),
+  top_limits_nanobret_inhibition = c(0, 700),
+  top_limits_nanobret_activation = c(0, 700),
+  bottom_limits_viability_inhibition = c(-20, 60),
+  bottom_limits_viability_activation = c(-20, 60),
+  top_limits_viability_inhibition = c(50, 130),
+  top_limits_viability_activation = c(50, 130),
+  logIC50_limits = c(-20, 5),
+  hill_slope_limits = c(-5, 5)
 )
 }
 \arguments{
@@ -49,6 +59,54 @@ allowing a small tolerance for over/undershoot.
 entirely -- raw count data has no meaningful absolute limits since the
 scale is instrument-dependent.
 Any other value also disables the check entirely.}
+
+\item{bottom_limits_nanobret_inhibition}{Numeric length-2 vector
+\code{c(lower, upper)} with the plausible Bottom range for
+\code{assay_type = "nanobret"} inhibition/flat/unknown curves.
+Default \code{c(-100, 600)}.}
+
+\item{bottom_limits_nanobret_activation}{Numeric length-2 vector with the
+plausible Bottom range for \code{assay_type = "nanobret"} activation
+curves. Default \code{c(-100, Inf)}.}
+
+\item{top_limits_nanobret_inhibition}{Numeric length-2 vector with the
+plausible Top range for \code{assay_type = "nanobret"}
+inhibition/flat/unknown curves. Default \code{c(0, 700)}.}
+
+\item{top_limits_nanobret_activation}{Numeric length-2 vector with the
+plausible Top range for \code{assay_type = "nanobret"} activation curves.
+Default \code{c(0, 700)}.}
+
+\item{bottom_limits_viability_inhibition}{Numeric length-2 vector with the
+plausible Bottom range for \code{assay_type = "viability"} (only applied
+when \code{normalize = TRUE}) inhibition/flat/unknown curves.
+Default \code{c(-20, 60)}.}
+
+\item{bottom_limits_viability_activation}{Numeric length-2 vector with the
+plausible Bottom range for \code{assay_type = "viability"} (only applied
+when \code{normalize = TRUE}) activation curves. Default \code{c(-20, 60)}.}
+
+\item{top_limits_viability_inhibition}{Numeric length-2 vector with the
+plausible Top range for \code{assay_type = "viability"} (only applied
+when \code{normalize = TRUE}) inhibition/flat/unknown curves.
+Default \code{c(50, 130)}.}
+
+\item{top_limits_viability_activation}{Numeric length-2 vector with the
+plausible Top range for \code{assay_type = "viability"} (only applied
+when \code{normalize = TRUE}) activation curves. Default \code{c(50, 130)}.}
+
+\item{logIC50_limits}{Numeric length-2 vector with the plausible LogIC50
+range, shared by all assay types. Fits outside this range have LogIC50
+set to \code{NA}. Default \code{c(-20, 5)}.}
+
+\item{hill_slope_limits}{Numeric length-2 vector with the plausible
+  HillSlope range, shared by all assay types. Fits outside this range are
+  reset to the default sign convention (\eqn{\pm 1}) clamped to these
+  limits. Default \code{c(-5, 5)}.
+
+  All limit arguments must be numeric vectors of length 2 with
+  \code{lower <= upper}; \code{-Inf}/\code{Inf} are allowed as open bounds.
+  Invalid values cause an immediate error before any fitting.}
 }
 \value{
 A list containing:

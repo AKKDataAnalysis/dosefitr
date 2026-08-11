@@ -30,6 +30,44 @@
 #'   entirely -- raw count data has no meaningful absolute limits since the
 #'   scale is instrument-dependent.
 #'   Any other value also disables the check entirely.
+#' @param bottom_limits_nanobret_inhibition Numeric length-2 vector
+#'   \code{c(lower, upper)} with the plausible Bottom range for
+#'   \code{assay_type = "nanobret"} inhibition/flat/unknown curves.
+#'   Default \code{c(-100, 600)}.
+#' @param bottom_limits_nanobret_activation Numeric length-2 vector with the
+#'   plausible Bottom range for \code{assay_type = "nanobret"} activation
+#'   curves. Default \code{c(-100, Inf)}.
+#' @param top_limits_nanobret_inhibition Numeric length-2 vector with the
+#'   plausible Top range for \code{assay_type = "nanobret"}
+#'   inhibition/flat/unknown curves. Default \code{c(0, 700)}.
+#' @param top_limits_nanobret_activation Numeric length-2 vector with the
+#'   plausible Top range for \code{assay_type = "nanobret"} activation curves.
+#'   Default \code{c(0, 700)}.
+#' @param bottom_limits_viability_inhibition Numeric length-2 vector with the
+#'   plausible Bottom range for \code{assay_type = "viability"} (only applied
+#'   when \code{normalize = TRUE}) inhibition/flat/unknown curves.
+#'   Default \code{c(-20, 60)}.
+#' @param bottom_limits_viability_activation Numeric length-2 vector with the
+#'   plausible Bottom range for \code{assay_type = "viability"} (only applied
+#'   when \code{normalize = TRUE}) activation curves. Default \code{c(-20, 60)}.
+#' @param top_limits_viability_inhibition Numeric length-2 vector with the
+#'   plausible Top range for \code{assay_type = "viability"} (only applied
+#'   when \code{normalize = TRUE}) inhibition/flat/unknown curves.
+#'   Default \code{c(50, 130)}.
+#' @param top_limits_viability_activation Numeric length-2 vector with the
+#'   plausible Top range for \code{assay_type = "viability"} (only applied
+#'   when \code{normalize = TRUE}) activation curves. Default \code{c(50, 130)}.
+#' @param logIC50_limits Numeric length-2 vector with the plausible LogIC50
+#'   range, shared by all assay types. Fits outside this range have LogIC50
+#'   set to \code{NA}. Default \code{c(-20, 5)}.
+#' @param hill_slope_limits Numeric length-2 vector with the plausible
+#'   HillSlope range, shared by all assay types. Fits outside this range are
+#'   reset to the default sign convention (\eqn{\pm 1}) clamped to these
+#'   limits. Default \code{c(-5, 5)}.
+#'
+#'   All limit arguments must be numeric vectors of length 2 with
+#'   \code{lower <= upper}; \code{-Inf}/\code{Inf} are allowed as open bounds.
+#'   Invalid values cause an immediate error before any fitting.
 #'
 #' @return A list containing:
 #' \itemize{
@@ -113,8 +151,21 @@
 fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = TRUE,
                         enforce_bottom_threshold = FALSE, bottom_threshold = 60,
                         r_sqr_threshold = 0.8,
-                        assay_type = "nanobret") {
-  
+                        assay_type = "nanobret",
+                        bottom_limits_nanobret_inhibition = c(-100, 600),
+                        bottom_limits_nanobret_activation = c(-100, Inf),
+                        top_limits_nanobret_inhibition = c(0, 700),
+                        top_limits_nanobret_activation = c(0, 700),
+                        bottom_limits_viability_inhibition = c(-20, 60),
+                        bottom_limits_viability_activation = c(-20, 60),
+                        top_limits_viability_inhibition = c(50, 130),
+                        top_limits_viability_activation = c(50, 130),
+                        logIC50_limits = c(-20, 5),
+                        hill_slope_limits = c(-5, 5)) {
+
+  # Fail fast on malformed plausibility-limit arguments (before any fitting).
+  .validate_all_limit_args(environment())
+
   # Check and load required packages
   required_packages <- c("dplyr", "stats", "grDevices")
   missing_packages <- required_packages[!sapply(required_packages, requireNamespace, quietly = TRUE)]
@@ -270,15 +321,30 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
     curve_type <- detect_curve_type(data)
     
     if (assay_type == "nanobret") {
-      bottom_limits <- if (curve_type == "activation") c(-100, Inf) else c(-100, 600)
-      top_limits    <- c(0, 700)
+      bottom_limits <- if (curve_type == "activation") {
+        bottom_limits_nanobret_activation
+      } else {
+        bottom_limits_nanobret_inhibition
+      }
+      top_limits <- if (curve_type == "activation") {
+        top_limits_nanobret_activation
+      } else {
+        top_limits_nanobret_inhibition
+      }
     } else {
       # viability + normalize=TRUE
-      bottom_limits <- c(-20, 60)
-      top_limits    <- c(50, 130)
+      bottom_limits <- if (curve_type == "activation") {
+        bottom_limits_viability_activation
+      } else {
+        bottom_limits_viability_inhibition
+      }
+      top_limits <- if (curve_type == "activation") {
+        top_limits_viability_activation
+      } else {
+        top_limits_viability_inhibition
+      }
     }
-    logIC50_limits    <- c(-20, 5)
-    hill_slope_limits <- c(-5, 5)
+    # logIC50_limits and hill_slope_limits are used directly (function args).
     
     corrections <- list()
     reasons     <- list()

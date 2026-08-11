@@ -49,6 +49,53 @@ optim_sign_for <- function(direction, param = c("optim", "drc")) {
 }
 
 
+# --- Plausibility-limit validation -------------------------------------------
+
+#' Validate a user-supplied plausibility-limit argument
+#'
+#' Every configurable limit in \code{fit_drc_3pl()}, \code{fit_drc_4pl()} and
+#' \code{batch_drc_analysis()} must be a numeric vector of length 2 with
+#' \code{lower <= upper}. \code{-Inf}/\code{Inf} are allowed (open bounds);
+#' \code{NA}/\code{NaN} are not. Fails fast with an error naming the argument.
+#'
+#' @param x The argument value supplied by the user.
+#' @param name Character string: the argument name, used in the error message.
+#' @return \code{x}, invisibly, when valid.
+#' @keywords internal
+.validate_limit_arg <- function(x, name) {
+  if (!is.numeric(x) || length(x) != 2L || any(is.na(x)) || x[1] > x[2]) {
+    stop(sprintf(
+      "`%s` must be a numeric vector of length 2 with lower <= upper (got: %s).",
+      name,
+      paste(format(x), collapse = ", ")
+    ), call. = FALSE)
+  }
+  invisible(x)
+}
+
+#' Validate the full set of plausibility-limit arguments
+#'
+#' Convenience wrapper around \code{.validate_limit_arg()} for the ten limit
+#' arguments shared by \code{fit_drc_3pl()}, \code{fit_drc_4pl()} and
+#' \code{batch_drc_analysis()}. Values are read from \code{env} (the calling
+#' function's environment) by name.
+#'
+#' @param env An environment containing the ten limit arguments.
+#' @return Invisibly \code{TRUE} when all are valid.
+#' @keywords internal
+.validate_all_limit_args <- function(env) {
+  limit_arg_names <- c(
+    "bottom_limits_nanobret_inhibition", "bottom_limits_nanobret_activation",
+    "top_limits_nanobret_inhibition",    "top_limits_nanobret_activation",
+    "bottom_limits_viability_inhibition", "bottom_limits_viability_activation",
+    "top_limits_viability_inhibition",   "top_limits_viability_activation",
+    "logIC50_limits", "hill_slope_limits"
+  )
+  for (nm in limit_arg_names) .validate_limit_arg(get(nm, envir = env), nm)
+  invisible(TRUE)
+}
+
+
 # --- Starting-value grid ------------------------------------------------------
 
 #' Build a grid of robust starting values (mirrors fit_drc_4pl.R strategy)
