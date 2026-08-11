@@ -2,12 +2,12 @@
 #'
 #' @description
 #' `batch_drc_analysis()` performs automated dose-response curve (DRC) fitting
-#' across multiple plates previously processed by `batch_ratio_analysis()`, 
-#' `batch_viability_analysis()` or `batch_read_tables()`.
+#' across multiple plates previously processed by \code{\link{batch_ratio_analysis}}, 
+#' \code{\link{batch_viability_analysis}} or \code{\link{batch_read_tables}}.
 #'
 #' It extracts the `modified_ratio_table` from each plate, applies a
-#' 3-parameter logistic regression via [`fit_drc_3pl()`] (default) or a
-#' 4-parameter logistic regression via [`fit_drc_4pl()`] (selected via the
+#' 3-parameter logistic regression via \code{\link{fit_drc_3pl}} (default) or a
+#' 4-parameter logistic regression via  \code{\link{fit_drc_4pl}} (selected via the
 #' `model` argument), and generates:
 #'
 #' * Per-plate DRC result files (optional)
@@ -18,7 +18,7 @@
 #'
 #'
 #' @param batch_results A named list containing results from
-#'   [`batch_ratio_analysis()`]. Each element must contain the field
+#'   \code{\link{batch_ratio_analysis}}. Each element must contain the field
 #'   `result$modified_ratio_table`, which will be used for the DRC fit.
 #' @param normalize Logical. Whether to normalize responses inside `fit_drc_3pl()` or `fit_drc_4pl()`. Values TRUE or FALSE
 #' @param enforce_bottom_threshold Logical. If `TRUE`, forces the lower plateau of
@@ -26,8 +26,8 @@
 #' @param bottom_threshold Numeric. Minimum acceptable bottom asymptote value.
 #' @param r_sqr_threshold Numeric. Minimum acceptable R-squared for accepting a curve fit.
 #' @param model Character. Which dose-response model to use for fitting.
-#'   `"3pl"` (default) calls [`fit_drc_3pl()`] (3-parameter logistic, Hill
-#'   slope fixed at \eqn{\pm 1}).  `"4pl"` calls [`fit_drc_4pl()`]
+#'   `"3pl"` (default) calls \code{\link{fit_drc_3pl}} (3-parameter logistic, Hill
+#'   slope fixed at \eqn{\pm 1}).  `"4pl"` calls \code{\link{fit_drc_4pl}}
 #'   (4-parameter logistic, Hill slope freely estimated).
 #' @param output_dir Directory where individual plate results and consolidated
 #'   batch reports will be saved. Defaults to the working directory.
@@ -58,14 +58,44 @@
 #' @param hook_threshold Numeric. Number of residual standard errors
 #'   (Syx) above the fitted curve that a candidate point must exceed to be
 #'   classified as a hook. Default `2` (approximately a 2-SE exceedance).
-#' @param bottom_limits_nanobret_inhibition,bottom_limits_nanobret_activation,top_limits_nanobret_inhibition,top_limits_nanobret_activation,bottom_limits_viability_inhibition,bottom_limits_viability_activation,top_limits_viability_inhibition,top_limits_viability_activation,logIC50_limits,hill_slope_limits
-#'   Plausibility-limit arguments forwarded unchanged to [`fit_drc_3pl()`] or
-#'   [`fit_drc_4pl()`] (including the hook-effect second-pass fits). Each must
-#'   be a numeric vector of length 2 with `lower <= upper` (`-Inf`/`Inf`
-#'   allowed); invalid values cause an immediate error before any plate is
-#'   processed. See those functions' documentation for the per-argument
-#'   defaults, which reproduce the previously hardcoded limits.
-#'   Only used when `hook_effect` is not `FALSE`.
+#' @param bottom_limits_nanobret_inhibition Numeric length-2 vector
+#'   \code{c(lower, upper)} with the plausible Bottom range for
+#'   \code{assay_type = "nanobret"} inhibition/flat/unknown curves.
+#'   Default \code{c(-100, 600)}.
+#' @param bottom_limits_nanobret_activation Numeric length-2 vector with the
+#'   plausible Bottom range for \code{assay_type = "nanobret"} activation
+#'   curves. Default \code{c(-100, Inf)}.
+#' @param top_limits_nanobret_inhibition Numeric length-2 vector with the
+#'   plausible Top range for \code{assay_type = "nanobret"}
+#'   inhibition/flat/unknown curves. Default \code{c(0, 700)}.
+#' @param top_limits_nanobret_activation Numeric length-2 vector with the
+#'   plausible Top range for \code{assay_type = "nanobret"} activation curves.
+#'   Default \code{c(0, 700)}.
+#' @param bottom_limits_viability_inhibition Numeric length-2 vector with the
+#'   plausible Bottom range for \code{assay_type = "viability"} (only applied
+#'   when \code{normalize = TRUE}) inhibition/flat/unknown curves.
+#'   Default \code{c(-20, 60)}.
+#' @param bottom_limits_viability_activation Numeric length-2 vector with the
+#'   plausible Bottom range for \code{assay_type = "viability"} (only applied
+#'   when \code{normalize = TRUE}) activation curves. Default \code{c(-20, 60)}.
+#' @param top_limits_viability_inhibition Numeric length-2 vector with the
+#'   plausible Top range for \code{assay_type = "viability"} (only applied
+#'   when \code{normalize = TRUE}) inhibition/flat/unknown curves.
+#'   Default \code{c(50, 130)}.
+#' @param top_limits_viability_activation Numeric length-2 vector with the
+#'   plausible Top range for \code{assay_type = "viability"} (only applied
+#'   when \code{normalize = TRUE}) activation curves. Default \code{c(50, 130)}.
+#' @param logIC50_limits Numeric length-2 vector with the plausible LogIC50
+#'   range, shared by all assay types. Fits outside this range have LogIC50
+#'   set to \code{NA}. Default \code{c(-20, 5)}.
+#' @param hill_slope_limits Numeric length-2 vector with the plausible
+#'   HillSlope range, shared by all assay types. Fits outside this range are
+#'   reset to the default sign convention (\eqn{\pm 1}) clamped to these
+#'   limits. Default \code{c(-5, 5)}.
+#'
+#'   All limit arguments must be numeric vectors of length 2 with
+#'   \code{lower <= upper}; \code{-Inf}/\code{Inf} are allowed as open bounds.
+#'   Invalid values cause an immediate error before any fitting.
 #'
 #'
 #' @details
@@ -73,8 +103,8 @@
 #'
 #' 1. Extracts the `modified_ratio_table` produced during ratio normalization.
 #' 2. Ensures the table contains valid data (non-empty and with column names).
-#' 3. Performs a dose-response fit via [`fit_drc_3pl()`] (default) or
-#'    [`fit_drc_4pl()`] (when `model = "4pl"`), where:
+#' 3. Performs a dose-response fit via \code{\link{fit_drc_3pl}} (default) or
+#'    \code{\link{fit_drc_4pl}} (when `model = "4pl"`), where:
 #'    * The first column is assumed to be log(inhibitor concentration)
 #'    * Remaining columns are compound responses
 #' 4. Stores:
@@ -142,9 +172,9 @@
 #' drc_res$drc_results$plate_01$drc_result$successful_fits
 #' }
 #' @seealso
-#' * [`fit_drc_3pl()`] - Fits the dose-response curve for a single plate.
-#' * [`fit_drc_4pl()`] - 4-parameter logistic fit for a single plate.
-#' * [`batch_ratio_analysis()`] - Preprocessing step generating modified ratio tables.
+#' * \code{\link{fit_drc_3pl}} - Fits the dose-response curve for a single plate.
+#' * \code{\link{fit_drc_4pl}} - 4-parameter logistic fit for a single plate.
+#' * \code{\link{batch_ratio_analysis}} - Preprocessing step generating modified ratio tables.
 #' * `openxlsx` - Excel manipulation used for reporting.
 #'
 #'
