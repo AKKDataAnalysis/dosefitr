@@ -114,7 +114,12 @@
 #' \item Maximum slope < 5: "Very shallow slope"
 #' \item Maximum slope < 15: "Shallow slope"
 #' \item Span < 20: "Small span"
-#' \item Parameter corrections: "Parameters corrected"
+#' \item Parameter corrections: "Parameters corrected (...)" — the reason in
+#'   parentheses distinguishes a converged but out-of-limits fit
+#'   ("biologically implausible") from a diverged/unidentifiable fit on flat
+#'   data ("inactive compound: no dose response detected") or on a response
+#'   that only begins at the highest doses
+#'   ("fit unidentifiable: response at edge of tested range")
 #' \item logIC50 range (>0.666 flagged)
 #' }
 #'
@@ -379,14 +384,60 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
     }
     
     if (length(corrections) > 0) {
+      # Classify WHY the correction fired, for a more informative quality
+      # label.  Two different situations both end up here:
+      #   (a) the nls fit converged but a parameter sits just outside the
+      #       plausibility limits -> genuine "biologically implausible";
+      #   (b) the fit DIVERGED or is unidentifiable (asymptotes exploded far
+      #       beyond the data, or LogIC50 landed outside the tested doses),
+      #       which typically means the compound is simply inactive, or the
+      #       response only begins at the edge of the dose range.
+      doses <- data$log_inhibitor[!is.na(data$log_inhibitor)]
+      resp_range <- exp_max - exp_min
+      asymp_lo <- exp_min - 3 * resp_range
+      asymp_hi <- exp_max + 3 * resp_range
+      fit_diverged <- !is.finite(params[1]) || !is.finite(params[2]) ||
+                      params[1] < asymp_lo || params[1] > asymp_hi ||
+                      params[2] < asymp_lo || params[2] > asymp_hi
+      ic50_outside_range <- !is.finite(params[3]) ||
+                            params[3] < min(doses) - 1 || params[3] > max(doses) + 1
+
+      # Does the data itself show a response at the two highest doses?
+      # Threshold combines the observed data range with a minimum 20% change
+      # relative to the plateau level, so noisy flat data (small range) does
+      # not register as a response.
+      hi_doses  <- utils::tail(sort(unique(doses)), 2)
+      edge_mean <- mean(data$response[data$log_inhibitor %in% hi_doses], na.rm = TRUE)
+      base_mean <- mean(data$response[!data$log_inhibitor %in% hi_doses], na.rm = TRUE)
+      min_effect <- max(0.25 * resp_range, 0.20 * abs(base_mean))
+      edge_response <- if (curve_type == "activation") {
+        is.finite(edge_mean) && is.finite(base_mean) &&
+          (edge_mean - base_mean) > min_effect
+      } else {
+        is.finite(edge_mean) && is.finite(base_mean) &&
+          (base_mean - edge_mean) > min_effect
+      }
+
+      fit_label <- if ((fit_diverged || ic50_outside_range) && !edge_response) {
+        "inactive compound: no dose response detected"
+      } else if ((fit_diverged || ic50_outside_range) && edge_response) {
+        "fit unidentifiable: response at edge of tested range"
+      } else {
+        "biologically implausible"
+      }
+
       return(list(
         corrected_params = recalculate_dependent_params(params, corrections),
         corrections_applied = corrections,
         correction_reasons = reasons,
-        needs_correction = TRUE
+        needs_correction = TRUE,
+        fit_diverged = fit_diverged,
+        ic50_outside_range = ic50_outside_range,
+        edge_response_detected = edge_response,
+        fit_label = fit_label
       ))
     }
-    
+
     list(needs_correction = FALSE)
   }
   
@@ -549,7 +600,9 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       }
       
       if (!is.null(plausibility_check) && plausibility_check$needs_correction) {
-        quality_flags <- c(quality_flags, "Parameters corrected (biologically implausible)")
+        fit_label <- plausibility_check$fit_label
+        if (is.null(fit_label)) fit_label <- "biologically implausible"
+        quality_flags <- c(quality_flags, paste0("Parameters corrected (", fit_label, ")"))
       }
       
       # Flag extreme Hill slopes, direction-aware

@@ -161,7 +161,12 @@ Curves are classified based on:
 \item Maximum slope < 5: "Very shallow slope"
 \item Maximum slope < 15: "Shallow slope"
 \item Span < 20: "Small span"
-\item Parameter corrections: "Parameters corrected"
+\item Parameter corrections: "Parameters corrected (...)" — the reason in
+  parentheses distinguishes a converged but out-of-limits fit
+  ("biologically implausible") from a diverged/unidentifiable fit on flat
+  data ("inactive compound: no dose response detected") or on a response
+  that only begins at the highest doses
+  ("fit unidentifiable: response at edge of tested range")
 \item logIC50 range (>0.666 flagged)
 }
 }

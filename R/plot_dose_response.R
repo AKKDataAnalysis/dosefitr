@@ -542,11 +542,12 @@ y_label_fun <- switch(
   
   plot_config <- setup_plot_config()
   
-  # Generate fitted curve data.  When the biological plausibility check
-  # corrected any parameter (res$biological_plausibility_check$needs_correction
-  # == TRUE), draw the curve analytically from the corrected parameters so it
-  # matches the batch report.  Otherwise use predict(model, ...) which returns
-  # the raw drm fit (identical to the corrected fit when no correction fired).
+  # Generate fitted curve data.  Single source of truth: always draw the
+  # curve analytically from the stored parameter table (res$parameters), so
+  # the rendered curve matches the batch report exactly -- whether or not the
+  # plausibility check fired.  predict(model, ...) is kept only as a fallback
+  # for legacy result objects that lack a parameter table.  Results without a
+  # model (failed fits with approximate parameters) draw no curve, as before.
   generate_fitted_curve <- function(res) {
     if (is.null(res) || is.null(res$model)) return(NULL)
 
@@ -555,16 +556,11 @@ y_label_fun <- switch(
 
     x_seq <- seq(x_range[1], x_range[2], length.out = 300)
 
-    corrected <- isTRUE(res$biological_plausibility_check$needs_correction)
-
-    predictions <- NULL
-    if (corrected && !is.null(res$parameters)) {
-      hs_default <- if (isTRUE(res$curve_type == "activation")) 1 else -1
-      predictions <- tryCatch(
-        analytic_dose_response(x_seq, res$parameters, hill_default = hs_default),
-        error = function(e) NULL
-      )
-    }
+    hs_default <- if (isTRUE(res$curve_type == "activation")) 1 else -1
+    predictions <- tryCatch(
+      analytic_dose_response(x_seq, res$parameters, hill_default = hs_default),
+      error = function(e) NULL
+    )
 
     if (is.null(predictions)) {
       predictions <- tryCatch(

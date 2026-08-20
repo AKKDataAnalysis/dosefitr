@@ -1422,19 +1422,16 @@ plot_multiple_compounds <- function(results,
       x_range <- range(valid_data$log_inhibitor, na.rm = TRUE)
       x_seq <- seq(x_range[1], x_range[2], length.out = 100)
 
-      # Draw the fitted curve analytically from the corrected parameters
-      # (result$parameters) when the biological plausibility check fired.
-      # Otherwise use predict(model, ...) — identical to the corrected fit
-      # when no correction fired, matches the batch report either way.
-      corrected <- isTRUE(result$biological_plausibility_check$needs_correction)
-      curve_y <- NULL
-      if (corrected && !is.null(result$parameters)) {
-        hs_default <- if (isTRUE(result$curve_type == "activation")) 1 else -1
-        curve_y <- tryCatch(
-          analytic_dose_response(x_seq, result$parameters, hill_default = hs_default),
-          error = function(e) NULL
-        )
-      }
+      # Single source of truth: draw the fitted curve analytically from the
+      # stored parameter table (result$parameters), so the overlay matches the
+      # batch report exactly -- whether or not the plausibility check fired.
+      # predict(model, ...) is kept only as a fallback for legacy result
+      # objects that lack a parameter table.
+      hs_default <- if (isTRUE(result$curve_type == "activation")) 1 else -1
+      curve_y <- tryCatch(
+        analytic_dose_response(x_seq, result$parameters, hill_default = hs_default),
+        error = function(e) NULL
+      )
       if (is.null(curve_y)) {
         curve_y <- tryCatch(
           predict(result$model, newdata = data.frame(log_inhibitor = x_seq)),

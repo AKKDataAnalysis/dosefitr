@@ -412,7 +412,14 @@ plot_drc_batch <- function(batch_drc_results,
 
             x_seq <- seq(x_range[1], x_range[2], length.out = 100)
 
-            pred_y <- predict(model_obj, newdata = data.frame(log_inhibitor = x_seq))
+            # Draw from the stored parameter table (single source of truth:
+            # the curve matches the batch report).  predict() is only a
+            # fallback for legacy result objects without a parameter table.
+            hs_default <- if (isTRUE(res$curve_type == "activation")) 1 else -1
+            pred_y <- analytic_dose_response(x_seq, res$parameters, hill_default = hs_default)
+            if (is.null(pred_y)) {
+              pred_y <- predict(model_obj, newdata = data.frame(log_inhibitor = x_seq))
+            }
 
             curve_data_list[[counter]] <- data.frame(
               log_inhibitor = x_seq, response = pred_y, plate = plate_name,

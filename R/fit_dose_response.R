@@ -159,6 +159,20 @@
 #'   \item logIC50 range (>0.666 flagged)
 #' }
 #'
+#' When parameter corrections are applied, the quality string explains why,
+#' using the same labels as the 4PL engine (\code{fit_drc_4pl}):
+#' \itemize{
+#'   \item \code{"Parameters corrected (inactive compound: no dose response detected)"}
+#'     -- the fit diverged or LogIC50 fell outside the tested doses, and the
+#'     data itself shows no response at the highest doses.
+#'   \item \code{"Parameters corrected (fit unidentifiable: response at edge of tested range)"}
+#'     -- the fit diverged or LogIC50 fell outside the tested doses, but the
+#'     data DOES respond at the highest doses (extend the dose range).
+#'   \item \code{"Parameters corrected (biologically implausible)"}
+#'     -- the fit converged but a parameter sits just outside the
+#'     plausibility limits.
+#' }
+#'
 #' @export
 #' @seealso
 #' Useful related functions:
@@ -333,12 +347,59 @@ fit_drc_3pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       if ("Bottom"  %in% names(corrections)) new_p[1] <- corrections$Bottom
       if ("Top"     %in% names(corrections)) new_p[2] <- corrections$Top
       if ("LogIC50" %in% names(corrections)) new_p[3] <- corrections$LogIC50
-      
+
+      # Classify WHY the correction fired, for a more informative quality
+      # label (mirrors fit_drc_4pl.R).  Two different situations both end up
+      # here:
+      #   (a) the nls fit converged but a parameter sits just outside the
+      #       plausibility limits -> genuine "biologically implausible";
+      #   (b) the fit DIVERGED or is unidentifiable (asymptotes exploded far
+      #       beyond the data, or LogIC50 landed outside the tested doses),
+      #       which typically means the compound is simply inactive, or the
+      #       response only begins at the edge of the dose range.
+      doses <- df_clean$log_inhibitor[!is.na(df_clean$log_inhibitor)]
+      resp_range <- exp_max - exp_min
+      asymp_lo <- exp_min - 3 * resp_range
+      asymp_hi <- exp_max + 3 * resp_range
+      fit_diverged <- !is.finite(params[1]) || !is.finite(params[2]) ||
+                      params[1] < asymp_lo || params[1] > asymp_hi ||
+                      params[2] < asymp_lo || params[2] > asymp_hi
+      ic50_outside_range <- !is.finite(params[3]) ||
+                            params[3] < min(doses) - 1 || params[3] > max(doses) + 1
+
+      # Does the data itself show a response at the two highest doses?
+      # Threshold combines the observed data range with a minimum 20% change
+      # relative to the plateau level, so noisy flat data (small range) does
+      # not register as a response.
+      hi_doses  <- utils::tail(sort(unique(doses)), 2)
+      edge_mean <- mean(df_clean$response[df_clean$log_inhibitor %in% hi_doses], na.rm = TRUE)
+      base_mean <- mean(df_clean$response[!df_clean$log_inhibitor %in% hi_doses], na.rm = TRUE)
+      min_effect <- max(0.25 * resp_range, 0.20 * abs(base_mean))
+      edge_response <- if (ctype == "activation") {
+        is.finite(edge_mean) && is.finite(base_mean) &&
+          (edge_mean - base_mean) > min_effect
+      } else {
+        is.finite(edge_mean) && is.finite(base_mean) &&
+          (base_mean - edge_mean) > min_effect
+      }
+
+      fit_label <- if ((fit_diverged || ic50_outside_range) && !edge_response) {
+        "inactive compound: no dose response detected"
+      } else if ((fit_diverged || ic50_outside_range) && edge_response) {
+        "fit unidentifiable: response at edge of tested range"
+      } else {
+        "biologically implausible"
+      }
+
       return(list(
         corrected_params    = c(new_p[1:3], if (!is.na(new_p[3])) 10^new_p[3] else NA_real_, new_p[2] - new_p[1]),
         corrections_applied = corrections,
         correction_reasons  = reasons,
-        needs_correction    = TRUE
+        needs_correction    = TRUE,
+        fit_diverged = fit_diverged,
+        ic50_outside_range = ic50_outside_range,
+        edge_response_detected = edge_response,
+        fit_label = fit_label
       ))
     }
     list(needs_correction = FALSE)
@@ -577,7 +638,11 @@ fit_drc_3pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
     if (!is.na(gof_results$R_squared) && gof_results$R_squared < r_sqr_threshold) {
       q_flags <- c(q_flags, "Low R2")
     }
-    if (check$needs_correction) q_flags <- c(q_flags, "Params corrected")
+    if (check$needs_correction) {
+      fit_label <- check$fit_label
+      if (is.null(fit_label)) fit_label <- "biologically implausible"
+      q_flags <- c(q_flags, paste0("Parameters corrected (", fit_label, ")"))
+    }
     
     # Return complete result
     list(
