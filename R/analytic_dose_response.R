@@ -32,5 +32,5 @@ analytic_dose_response <- function(x, parameters, hill_default = -1) {
     v <- parameters$Value[parameters$Parameter == "HillSlope"][1]
     if (is.finite(v) && v != 0) v else hill_default
   } else hill_default
-  b + (t - b) / (1 + 10^((x - li) * hs))
+  b + (t - b) / (1 + 10^((li - x) * hs))
 }

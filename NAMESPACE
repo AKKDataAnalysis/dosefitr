@@ -28,43 +28,53 @@ import(dplyr)
 import(ggplot2)
 import(scales)
 importFrom(RColorBrewer,brewer.pal)
-importFrom(dplyr,"%>%")
-importFrom(dplyr,across)
-importFrom(dplyr,mutate)
+importFrom(dplyr,
+  "%>%",
+  across,
+  mutate
+)
 importFrom(ggplot2,aes)
-importFrom(ggsci,pal_aaas)
-importFrom(ggsci,pal_d3)
-importFrom(ggsci,pal_futurama)
-importFrom(ggsci,pal_gsea)
-importFrom(ggsci,pal_igv)
-importFrom(ggsci,pal_jama)
-importFrom(ggsci,pal_lancet)
-importFrom(ggsci,pal_locuszoom)
-importFrom(ggsci,pal_nejm)
-importFrom(ggsci,pal_npg)
-importFrom(ggsci,pal_rickandmorty)
-importFrom(ggsci,pal_simpsons)
-importFrom(ggsci,pal_startrek)
-importFrom(ggsci,pal_tron)
-importFrom(ggsci,pal_uchicago)
-importFrom(grDevices,cm.colors)
-importFrom(grDevices,colorRampPalette)
-importFrom(grDevices,heat.colors)
-importFrom(grDevices,rainbow)
-importFrom(grDevices,terrain.colors)
-importFrom(grDevices,topo.colors)
+importFrom(ggsci,
+  pal_aaas,
+  pal_d3,
+  pal_futurama,
+  pal_gsea,
+  pal_igv,
+  pal_jama,
+  pal_lancet,
+  pal_locuszoom,
+  pal_nejm,
+  pal_npg,
+  pal_rickandmorty,
+  pal_simpsons,
+  pal_startrek,
+  pal_tron,
+  pal_uchicago
+)
+importFrom(grDevices,
+  cm.colors,
+  colorRampPalette,
+  heat.colors,
+  rainbow,
+  terrain.colors,
+  topo.colors
+)
 importFrom(openxlsx,write.xlsx)
-importFrom(stats,as.formula)
-importFrom(stats,ave)
-importFrom(stats,coef)
-importFrom(stats,lm)
-importFrom(stats,median)
-importFrom(stats,predict)
-importFrom(stats,sd)
-importFrom(stats,setNames)
-importFrom(utils,head)
-importFrom(utils,setTxtProgressBar)
-importFrom(utils,tail)
-importFrom(utils,txtProgressBar)
-importFrom(utils,write.csv)
+importFrom(stats,
+  as.formula,
+  ave,
+  coef,
+  lm,
+  median,
+  predict,
+  sd,
+  setNames
+)
+importFrom(utils,
+  head,
+  setTxtProgressBar,
+  tail,
+  txtProgressBar,
+  write.csv
+)
 importFrom(viridisLite,viridis)

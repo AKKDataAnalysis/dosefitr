@@ -18,7 +18,7 @@ behave identically across the package's fitting engines:
 }
 
 Two parameterisations are supported so the same strategy can seed either engine:
-  * \strong{drc}      : y = Bottom + (Top-Bottom)/(1 + 10^((log10x - LogIC50)*Hill))
+  * \strong{drc}      : y = Bottom + (Top-Bottom)/(1 + 10^((LogIC50 - log10x)*Hill))
                         x on log10 scale, LogIC50 on log10 scale.
   * \strong{optim}    : OptimModel::hill_model, x linear, lec50 = ln(EC50),
                         slope m on the SAME numeric scale as drc's Hill

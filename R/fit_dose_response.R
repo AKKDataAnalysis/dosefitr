@@ -235,7 +235,7 @@ fit_drc_3pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
   )
   
   four_param_model <- function(log_inhibitor, Bottom, Top, LogIC50, HillSlope) {
-    Bottom + (Top - Bottom) / (1 + 10^((log_inhibitor - LogIC50) * HillSlope))
+    Bottom + (Top - Bottom) / (1 + 10^((LogIC50 - log_inhibitor) * HillSlope))
   }
   
   # ============================================================================

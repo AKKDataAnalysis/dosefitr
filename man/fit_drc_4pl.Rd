@@ -130,7 +130,7 @@ plausibility checks, and provides comprehensive curve quality assessment.
 }
 \details{
 The function uses a 4-parameter logistic model:
-\deqn{Response = Bottom + \frac{Top - Bottom}{1 + 10^{(log_{10}(inhibitor) - LogIC50) \times HillSlope}}}
+\deqn{Response = Bottom + \frac{Top - Bottom}{1 + 10^{(LogIC50 - log_{10}(inhibitor)) \times HillSlope}}}
 
 Key features:
 \itemize{
