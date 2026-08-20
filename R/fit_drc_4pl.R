@@ -114,12 +114,17 @@
 #' \item Maximum slope < 5: "Very shallow slope"
 #' \item Maximum slope < 15: "Shallow slope"
 #' \item Span < 20: "Small span"
-#' \item Parameter corrections: "Parameters corrected (...)" — the reason in
-#'   parentheses distinguishes a converged but out-of-limits fit
-#'   ("biologically implausible") from a diverged/unidentifiable fit on flat
-#'   data ("inactive compound: no dose response detected") or on a response
-#'   that only begins at the highest doses
-#'   ("fit unidentifiable: response at edge of tested range")
+#' \item Parameter corrections: the quality string states the reason directly:
+#'   "Implausible fit" (converged but out-of-limits), "No dose response
+#'   (inactive compound)" (diverged/unidentifiable fit on flat data), or
+#'   "Partial response at highest doses only" (diverged/unidentifiable fit on
+#'   a response that only begins at the highest doses).
+#' \item Constrained refit: for the "partial response" case the fit is
+#'   retried with constraints (plateau bounds, then Bottom fixed at 0 for
+#'   inhibition curves).  A successful refit is flagged "IC50 from
+#'   constrained fit (plateaus bounded)" or "IC50 from constrained fit
+#'   (Bottom fixed at 0)" — the IC50 is real but rests on the constraint
+#'   assumption.
 #' \item logIC50 range (>0.666 flagged)
 #' }
 #'
@@ -312,19 +317,10 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
   # Check biological plausibility and apply corrections if needed.
   # Limits depend on assay_type and normalize, matching fit_drc_3pl behaviour.
   #   anything else               : check disabled.
-  check_biological_plausibility <- function(params, data) {
-    if (assay_type == "viability" && !normalize)
-      return(list(needs_correction = FALSE))
-    
-    if (!assay_type %in% c("nanobret", "viability"))
-      return(list(needs_correction = FALSE))
-    
-    responses <- data$response[!is.na(data$response)]
-    exp_min <- min(responses, na.rm = TRUE)
-    exp_max <- max(responses, na.rm = TRUE)
-    
-    curve_type <- detect_curve_type(data)
-    
+  # Select the Bottom/Top plausibility limits for this assay type and curve
+  # direction.  Single source of truth: used by check_biological_plausibility()
+  # for post-hoc correction AND by try_constrained_fit() as port bounds.
+  select_plausibility_limits <- function(curve_type) {
     if (assay_type == "nanobret") {
       bottom_limits <- if (curve_type == "activation") {
         bottom_limits_nanobret_activation
@@ -349,6 +345,25 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
         top_limits_viability_inhibition
       }
     }
+    list(bottom_limits = bottom_limits, top_limits = top_limits)
+  }
+
+  check_biological_plausibility <- function(params, data) {
+    if (assay_type == "viability" && !normalize)
+      return(list(needs_correction = FALSE))
+
+    if (!assay_type %in% c("nanobret", "viability"))
+      return(list(needs_correction = FALSE))
+
+    responses <- data$response[!is.na(data$response)]
+    exp_min <- min(responses, na.rm = TRUE)
+    exp_max <- max(responses, na.rm = TRUE)
+
+    curve_type <- detect_curve_type(data)
+
+    lims <- select_plausibility_limits(curve_type)
+    bottom_limits <- lims$bottom_limits
+    top_limits    <- lims$top_limits
     # logIC50_limits and hill_slope_limits are used directly (function args).
     
     corrections <- list()
@@ -419,11 +434,11 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       }
 
       fit_label <- if ((fit_diverged || ic50_outside_range) && !edge_response) {
-        "inactive compound: no dose response detected"
+        "No dose response (inactive compound)"
       } else if ((fit_diverged || ic50_outside_range) && edge_response) {
-        "fit unidentifiable: response at edge of tested range"
+        "Partial response at highest doses only"
       } else {
-        "biologically implausible"
+        "Implausible fit"
       }
 
       return(list(
@@ -526,6 +541,126 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
     # Final attempt with relaxed control from the first start (fallback).
     fit_one(start_strategies[[1]], control_configs$relaxed)
   }
+
+  # Constrained refit for diverged "edge response" fits.
+  #
+  # When the unconstrained fit diverges but the data DO respond at the
+  # highest doses, the plateau past the edge is unidentifiable and nls
+  # wanders to absurd values.  This automates GraphPad's recommended remedy
+  # (constrain a parameter), weakest assumption first:
+  #   1. "bounds": refit with port box constraints -- Bottom/Top bounded to
+  #      the plausibility limits, LogIC50 to the tested doses +/- 1 log,
+  #      HillSlope to hill_slope_limits;
+  #   2. "bottom_fixed": if the bounded fit still fails the plausibility
+  #      check, fix Bottom = 0 (complete killing; inhibition curves only)
+  #      and refit the remaining three parameters.
+  # Returns list(fit = <nls>, method = "bounds"|"bottom_fixed") when the
+  # constrained fit passes check_biological_plausibility(), else NULL.
+  try_constrained_fit <- function(df_clean, curve_type) {
+    if (nrow(df_clean) < 5) return(NULL)
+
+    lims  <- select_plausibility_limits(curve_type)
+    doses <- df_clean$log_inhibitor[!is.na(df_clean$log_inhibitor)]
+    resp  <- df_clean$response[!is.na(df_clean$response)]
+    resp_range <- max(resp) - min(resp)
+
+    # port bounds must be finite; replace any infinite plausibility limit
+    # with a generous data-driven sentinel.
+    lo_b <- lims$bottom_limits[1]; hi_b <- lims$bottom_limits[2]
+    lo_t <- lims$top_limits[1];    hi_t <- lims$top_limits[2]
+    if (!is.finite(lo_b)) lo_b <- min(resp) - 10 * resp_range
+    if (!is.finite(hi_b)) hi_b <- max(resp) + 10 * resp_range
+    if (!is.finite(lo_t)) lo_t <- min(resp) - 10 * resp_range
+    if (!is.finite(hi_t)) hi_t <- max(resp) + 10 * resp_range
+
+    lower4 <- c(Bottom = lo_b, Top = lo_t,
+                LogIC50 = min(doses) - 1, HillSlope = hill_slope_limits[1])
+    upper4 <- c(Bottom = hi_b, Top = hi_t,
+                LogIC50 = max(doses) + 1, HillSlope = hill_slope_limits[2])
+
+    # Same multi-start grid as the unconstrained fit, clamped into bounds
+    # (nudged slightly off the exact boundary so port starts feasible).
+    clamp_start <- function(s) {
+      v <- pmin(pmax(s[names(lower4)], lower4), upper4)
+      eps <- 1e-6 * pmax(1, abs(upper4 - lower4))
+      pmin(pmax(v, lower4 + eps), upper4 - eps)
+    }
+    if (curve_type == "inhibition") {
+      grids <- make_start_grid(doses, df_clean$response, direction = "inhibition", param = "drc")
+    } else if (curve_type == "activation") {
+      grids <- make_start_grid(doses, df_clean$response, direction = "activation", param = "drc")
+    } else {
+      grids <- c(make_start_grid(doses, df_clean$response, direction = "inhibition", param = "drc"),
+                 make_start_grid(doses, df_clean$response, direction = "activation", param = "drc"))
+    }
+
+    control <- stats::nls.control(maxiter = 500, warnOnly = TRUE)
+
+    fit_bounded <- function(s) {
+      tryCatch(
+        stats::nls(
+          response ~ four_param_model(log_inhibitor, Bottom, Top, LogIC50, HillSlope),
+          data = df_clean,
+          start = list(Bottom = s[["Bottom"]], Top = s[["Top"]],
+                       LogIC50 = s[["LogIC50"]], HillSlope = s[["HillSlope"]]),
+          control = control, algorithm = "port", lower = lower4, upper = upper4
+        ),
+        error = function(e) NULL
+      )
+    }
+
+    best <- NULL; best_rss <- Inf
+    for (s0 in grids) {
+      f <- fit_bounded(clamp_start(s0))
+      if (is.null(f)) next
+      rss <- tryCatch(sum(stats::resid(f)^2), error = function(e) Inf)
+      if (is.finite(rss) && rss < best_rss) { best <- f; best_rss <- rss }
+    }
+
+    # Accept the bounded fit only if its parameters need no correction.
+    if (!is.null(best)) {
+      p <- tryCatch(unname(stats::coef(best)), error = function(e) NULL)
+      if (!is.null(p) && length(p) == 4 && !any(is.na(p)) &&
+          !isTRUE(check_biological_plausibility(p, df_clean)$needs_correction)) {
+        return(list(fit = best, method = "bounds"))
+      }
+    }
+
+    # Step 2: fix Bottom = 0 (inhibition only -- no sensible constant for an
+    # unreached upper plateau on activation curves).
+    if (curve_type != "inhibition") return(NULL)
+
+    fit_fixed <- function(s) {
+      tryCatch(
+        stats::nls(
+          response ~ four_param_model(log_inhibitor, 0, Top, LogIC50, HillSlope),
+          data = df_clean,
+          start = list(Top = s[["Top"]], LogIC50 = s[["LogIC50"]],
+                       HillSlope = s[["HillSlope"]]),
+          control = control, algorithm = "port",
+          lower = lower4[c("Top", "LogIC50", "HillSlope")],
+          upper = upper4[c("Top", "LogIC50", "HillSlope")]
+        ),
+        error = function(e) NULL
+      )
+    }
+
+    best2 <- NULL; best_rss2 <- Inf
+    for (s0 in grids) {
+      f <- fit_fixed(clamp_start(s0))
+      if (is.null(f)) next
+      rss <- tryCatch(sum(stats::resid(f)^2), error = function(e) Inf)
+      if (is.finite(rss) && rss < best_rss2) { best2 <- f; best_rss2 <- rss }
+    }
+    if (is.null(best2)) return(NULL)
+
+    p2 <- tryCatch(unname(stats::coef(best2)), error = function(e) NULL)
+    if (is.null(p2) || length(p2) != 3 || any(is.na(p2))) return(NULL)
+    if (!isTRUE(check_biological_plausibility(c(0, p2), df_clean)$needs_correction)) {
+      return(list(fit = best2, method = "bottom_fixed"))
+    }
+    NULL
+  }
   # Calculate goodness of fit metrics
   calculate_goodness_of_fit <- function(fit, df_clean) {
     tryCatch({
@@ -599,10 +734,16 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
         }
       }
       
-      if (!is.null(plausibility_check) && plausibility_check$needs_correction) {
+      if (!is.null(plausibility_check) && isTRUE(plausibility_check$needs_correction)) {
         fit_label <- plausibility_check$fit_label
-        if (is.null(fit_label)) fit_label <- "biologically implausible"
-        quality_flags <- c(quality_flags, paste0("Parameters corrected (", fit_label, ")"))
+        if (is.null(fit_label)) fit_label <- "Implausible fit"
+        quality_flags <- c(quality_flags, fit_label)
+      }
+
+      # Constrained-refit success: the IC50 is real but rests on the
+      # constraint assumption -- say so explicitly.
+      if (!is.null(plausibility_check) && !is.null(plausibility_check$constrained_label)) {
+        quality_flags <- c(quality_flags, plausibility_check$constrained_label)
       }
       
       # Flag extreme Hill slopes, direction-aware
@@ -681,7 +822,60 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
     
     gof_results <- calculate_goodness_of_fit(fit, prepared$df_clean)
     plausibility_check <- check_biological_plausibility(params, prepared$df_clean)
-    
+
+    # Constrained-refit fallback: when the unconstrained fit diverged (or its
+    # LogIC50 left the tested range) but the data show a real edge response,
+    # retry with constraints (bounds first, then Bottom fixed at 0) instead of
+    # patching parameters post-hoc.  Flat/inactive compounds are NOT refit --
+    # an inactive compound should not get an IC50.
+    constrained_info <- NULL
+    if (isTRUE(plausibility_check$needs_correction) &&
+        isTRUE(plausibility_check$edge_response_detected) &&
+        (isTRUE(plausibility_check$fit_diverged) ||
+         isTRUE(plausibility_check$ic50_outside_range))) {
+      cf <- try_constrained_fit(prepared$df_clean, curve_type)
+      if (!is.null(cf)) {
+        cf_params <- unname(stats::coef(cf$fit))
+        # bottom_fixed fits have no Bottom coefficient; re-insert the fixed 0
+        if (cf$method == "bottom_fixed") cf_params <- c(0, cf_params)
+        cf_order <- correct_parameter_order(cf_params, prepared$df_clean, curve_type)
+        if (cf_order$was_corrected) cf_params <- cf_order$corrected_params
+        cf_check <- check_biological_plausibility(cf_params, prepared$df_clean)
+        if (!isTRUE(cf_check$needs_correction)) {
+          # Accept the constrained fit: rebuild all derived quantities
+          fit <- cf$fit
+          params <- cf_params
+          order_correction <- cf_order
+          initial_params <- c(params, 10^params[3], params[2] - params[1])
+          ci_results <- calculate_ci(fit)
+          # Same HillSlope CI sign fix as for the unconstrained path
+          if (cf_order$was_corrected &&
+              grepl("Hill Slope inconsistent", cf_order$correction_reason %||% "")) {
+            hs_ci <- ci_results$HillSlope
+            if (!any(is.na(hs_ci))) {
+              ci_results$HillSlope <- sort(-hs_ci)
+            }
+          }
+          gof_results <- calculate_goodness_of_fit(fit, prepared$df_clean)
+          plausibility_check <- cf_check
+          constrained_info <- list(
+            applied = TRUE,
+            method = cf$method,
+            label = if (cf$method == "bottom_fixed") {
+              "IC50 from constrained fit (Bottom fixed at 0)"
+            } else {
+              "IC50 from constrained fit (plateaus bounded)"
+            }
+          )
+          plausibility_check$constrained_label <- constrained_info$label
+          if (verbose) {
+            cat("Constrained refit accepted for ", comp_name, " (", cf$method, ")
+", sep = "")
+          }
+        }
+      }
+    }
+
     # Apply corrections if needed
     if (plausibility_check$needs_correction) {
       if (verbose) {
@@ -709,6 +903,7 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       compound = comp_name,
       biological_plausibility_check = plausibility_check,
       parameter_order_correction = order_correction,
+      constrained_fit = constrained_info,
       data = prepared$df_clean,
       curve_type = curve_type
     )

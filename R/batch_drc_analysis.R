@@ -795,11 +795,17 @@ batch_drc_analysis <- function(batch_results,
             }
           }
           
-          # Params corrected by biological plausibility check
+          # Correction / constrained-fit flags: use the plain-language fit
+          # label (same wording as the curve_quality string) instead of
+          # listing corrected parameter names.
           bpc <- res$biological_plausibility_check
-          if (!is.null(bpc) && isTRUE(bpc$needs_correction)) {
-            corrected_names <- names(bpc$corrections_applied)
-            msg <- sprintf("Params corrected (%s)", paste(corrected_names, collapse = ", "))
+          cf  <- res$constrained_fit
+          if (!is.null(cf) && isTRUE(cf$applied)) {
+            msg <- cf$label %||% "IC50 from constrained fit"
+            exclusion_collector <- c(exclusion_collector, msg)
+            exclusion_collector_ci <- c(exclusion_collector_ci, msg)
+          } else if (!is.null(bpc) && isTRUE(bpc$needs_correction)) {
+            msg <- bpc$fit_label %||% "Implausible fit"
             exclusion_collector <- c(exclusion_collector, msg)
             exclusion_collector_ci <- c(exclusion_collector_ci, msg)
           }

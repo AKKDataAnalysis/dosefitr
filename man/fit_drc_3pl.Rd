@@ -180,16 +180,16 @@ Curves are automatically assessed for quality based on:
   \item logIC50 range (>0.666 flagged)
 }
 
-When parameter corrections are applied, the quality string explains why,
-using the same labels as the 4PL engine (\code{fit_drc_4pl}):
+When parameter corrections are applied, the quality string states why,
+using the same plain-language labels as the 4PL engine (\code{fit_drc_4pl}):
 \itemize{
-  \item \code{"Parameters corrected (inactive compound: no dose response detected)"}
+  \item \code{"No dose response (inactive compound)"}
     -- the fit diverged or LogIC50 fell outside the tested doses, and the
     data itself shows no response at the highest doses.
-  \item \code{"Parameters corrected (fit unidentifiable: response at edge of tested range)"}
+  \item \code{"Partial response at highest doses only"}
     -- the fit diverged or LogIC50 fell outside the tested doses, but the
     data DOES respond at the highest doses (extend the dose range).
-  \item \code{"Parameters corrected (biologically implausible)"}
+  \item \code{"Implausible fit"}
     -- the fit converged but a parameter sits just outside the
     plausibility limits.
 }

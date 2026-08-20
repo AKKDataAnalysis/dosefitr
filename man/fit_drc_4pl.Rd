@@ -161,12 +161,17 @@ Curves are classified based on:
 \item Maximum slope < 5: "Very shallow slope"
 \item Maximum slope < 15: "Shallow slope"
 \item Span < 20: "Small span"
-\item Parameter corrections: "Parameters corrected (...)" — the reason in
-  parentheses distinguishes a converged but out-of-limits fit
-  ("biologically implausible") from a diverged/unidentifiable fit on flat
-  data ("inactive compound: no dose response detected") or on a response
-  that only begins at the highest doses
-  ("fit unidentifiable: response at edge of tested range")
+\item Parameter corrections: the quality string states the reason directly:
+  "Implausible fit" (converged but out-of-limits), "No dose response
+  (inactive compound)" (diverged/unidentifiable fit on flat data), or
+  "Partial response at highest doses only" (diverged/unidentifiable fit on
+  a response that only begins at the highest doses).
+\item Constrained refit: for the "partial response" case the fit is
+  retried with constraints (plateau bounds, then Bottom fixed at 0 for
+  inhibition curves).  A successful refit is flagged "IC50 from
+  constrained fit (plateaus bounded)" or "IC50 from constrained fit
+  (Bottom fixed at 0)" — the IC50 is real but rests on the constraint
+  assumption.
 \item logIC50 range (>0.666 flagged)
 }
 }
