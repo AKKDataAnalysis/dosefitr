@@ -251,7 +251,99 @@ fit_drc_3pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
   four_param_model <- function(log_inhibitor, Bottom, Top, LogIC50, HillSlope) {
     Bottom + (Top - Bottom) / (1 + 10^((LogIC50 - log_inhibitor) * HillSlope))
   }
-  
+
+  # Manual profile-likelihood extension for bounds profile() cannot reach.
+  # Same rationale as the 4PL engine (fit_drc_4pl.R): profile.nls() often
+  # stalls on near-singular gradients (its nested refits die before tau
+  # crosses the 95% threshold) and returns NA for a bound that actually
+  # exists.  Fix the parameter on an outward grid, refit the remaining ones,
+  # and interpolate where |tau| = sqrt((RSS - RSS0) / s2) crosses
+  # qnorm(0.975).  A side that never crosses within generous limits stays
+  # NA -- an honest "unbounded", not a fabricated number.
+  extend_profile_side <- function(fit, df_clean, model_func, param_name, side) {
+    est_all <- stats::coef(fit)
+    if (!param_name %in% names(est_all)) return(NA_real_)
+    est  <- unname(est_all[param_name])
+    rss0 <- sum(stats::resid(fit)^2)
+    s2   <- rss0 / stats::df.residual(fit)
+    thr  <- stats::qnorm(0.975)
+
+    resp  <- df_clean$response
+    doses <- df_clean$log_inhibitor
+    rng   <- diff(range(resp, na.rm = TRUE))
+    if (!is.finite(rng) || rng <= 0) rng <- max(abs(resp), na.rm = TRUE)
+
+    limit <- switch(param_name,
+      Bottom  = ,
+      Top     = if (side == "lower") min(resp, na.rm = TRUE) - rng
+                else max(resp, na.rm = TRUE) + rng,
+      LogIC50 = if (side == "lower") min(doses, na.rm = TRUE) - 3
+                else max(doses, na.rm = TRUE) + 3,
+      NA_real_)
+    if (is.na(limit) || (side == "upper" && limit <= est) ||
+        (side == "lower" && limit >= est)) return(NA_real_)
+
+    all_params  <- c("Bottom", "Top", "LogIC50")
+    free_params <- setdiff(all_params, param_name)
+
+    # tau of the fit with param_name fixed at v (constant baked into formula)
+    tau_at <- function(v) {
+      rhs <- all_params
+      rhs[rhs == param_name] <- format(v, digits = 12)
+      fml <- stats::as.formula(
+        sprintf("response ~ model_func(log_inhibitor, %s)",
+                paste(rhs, collapse = ", ")))
+      # suppressWarnings: nested-fit convergence notes are diagnostic noise
+      # here -- a stalled nested fit just yields a conservative tau via RSS.
+      nested <- tryCatch(
+        suppressWarnings(
+          stats::nls(fml, data = df_clean, start = as.list(est_all[free_params]),
+                     algorithm = "port",
+                     control = stats::nls.control(maxiter = 500, warnOnly = TRUE))),
+        error = function(e) NULL)
+      if (is.null(nested)) return(NA_real_)
+      sign(v - est) * sqrt(max(sum(stats::resid(nested)^2) - rss0, 0) / s2)
+    }
+
+    # Outward scan for the first crossing of +/-thr
+    fracs <- c(0.03, 0.06, 0.10, 0.16, 0.24, 0.34, 0.46, 0.60, 0.76, 1.0)
+    grid  <- est + (limit - est) * fracs
+    taus  <- vapply(grid, tau_at, numeric(1))
+    crossed <- which(if (side == "upper") taus >= thr else taus <= -thr)
+    if (length(crossed) == 0) return(NA_real_)
+    i <- crossed[1]
+    v_lo <- if (i == 1) est else grid[i - 1]  # bracket: no crossing .. crossing
+    v_hi <- grid[i]
+
+    # Bisection refinement
+    for (k in seq_len(6)) {
+      v_mid <- (v_lo + v_hi) / 2
+      t_mid <- tau_at(v_mid)
+      if (is.na(t_mid)) break
+      if (if (side == "upper") t_mid >= thr else t_mid <= -thr) v_hi <- v_mid
+      else v_lo <- v_mid
+    }
+    (v_lo + v_hi) / 2
+  }
+
+  # After a plausibility correction, the CIs belong to the uncorrected fit
+  # and no longer match the reported parameters -- NA the affected ones
+  # (mirrors recalculate_ci() in fit_drc_4pl.R).  This also discards any
+  # manual-extension bounds recovered from a diverged fit.
+  recalculate_ci <- function(original_ci, corrections) {
+    ci <- original_ci
+    if ("Bottom" %in% names(corrections)) {
+      ci$Bottom <- ci$Bottom_Lower <- ci$Bottom_Upper <- NA
+    }
+    if ("Top" %in% names(corrections)) {
+      ci$Top <- ci$Top_Lower <- ci$Top_Upper <- NA
+    }
+    if ("LogIC50" %in% names(corrections)) {
+      ci$LogIC50 <- ci$IC50 <- c(NA, NA)
+    }
+    ci
+  }
+
   # ============================================================================
   # 3. HELPER FUNCTIONS
   # ============================================================================
@@ -548,6 +640,18 @@ fit_drc_3pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
         ci_b <- unname(stats::confint(stats::profile(fit, "Bottom"), level = 0.95))
         ci_t <- unname(stats::confint(stats::profile(fit, "Top"), level = 0.95))
         ci_l <- unname(stats::confint(stats::profile(fit, "LogIC50"), level = 0.95))
+
+        # Recover bounds profile() dropped (stalled nested refits), when they exist
+        fix_side <- function(ci, param_name, side) {
+          idx <- if (side == "lower") 1L else 2L
+          if (!is.na(ci[idx])) return(ci)
+          v <- extend_profile_side(fit, df_clean, model_func, param_name, side)
+          if (!is.na(v)) ci[idx] <- v
+          ci
+        }
+        ci_b <- fix_side(fix_side(ci_b, "Bottom", "lower"), "Bottom", "upper")
+        ci_t <- fix_side(fix_side(ci_t, "Top", "lower"), "Top", "upper")
+        ci_l <- fix_side(fix_side(ci_l, "LogIC50", "lower"), "LogIC50", "upper")
         
         # Safe IC50 calculation from log values
         ic50_ci <- if (!any(is.na(ci_l))) 10^ci_l else c(NA_real_, NA_real_)
@@ -611,6 +715,13 @@ fit_drc_3pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
     # Plausibility Check
     check <- check_biological_plausibility(params, df_clean)
     final_params <- if (check$needs_correction) check$corrected_params else initial_params
+
+    # If parameters were corrected, the CIs (computed on the uncorrected fit)
+    # no longer match the reported parameters -- NA them, mirroring the 4PL
+    # engine.  Also discards manual-extension bounds from a diverged fit.
+    if (isTRUE(check$needs_correction)) {
+      ci_results <- recalculate_ci(ci_results, check$corrections_applied)
+    }
     
     # Quality & Hill Slope
     ideal_hs <- tryCatch({

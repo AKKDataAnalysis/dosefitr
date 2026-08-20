@@ -684,9 +684,85 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
   }
   
   # Calculate confidence intervals safely
-  calculate_ci <- function(fit) {
+  # Manual profile-likelihood extension for bounds profile() cannot reach.
+  # profile.nls() often stalls on near-singular gradients (its nested refits
+  # die before tau crosses the 95% threshold) and returns NA for a bound that
+  # actually exists.  When a side comes back NA, redo the profiling manually
+  # on that side: fix the parameter on an outward grid, refit the remaining
+  # parameters, and interpolate where |tau| = sqrt((RSS - RSS0) / s2) crosses
+  # qnorm(0.975).  A side that never crosses within generous limits stays
+  # NA -- an honest "unbounded", not a fabricated number.
+  extend_profile_side <- function(fit, df_clean, param_name, side) {
+    est_all <- stats::coef(fit)
+    if (!param_name %in% names(est_all)) return(NA_real_)
+    est  <- unname(est_all[param_name])
+    rss0 <- sum(stats::resid(fit)^2)
+    s2   <- rss0 / stats::df.residual(fit)
+    thr  <- stats::qnorm(0.975)
+
+    resp  <- df_clean$response
+    doses <- df_clean$log_inhibitor
+    rng   <- diff(range(resp, na.rm = TRUE))
+    if (!is.finite(rng) || rng <= 0) rng <- max(abs(resp), na.rm = TRUE)
+
+    limit <- switch(param_name,
+      Bottom    = ,
+      Top       = if (side == "lower") min(resp, na.rm = TRUE) - rng
+                  else max(resp, na.rm = TRUE) + rng,
+      LogIC50   = if (side == "lower") min(doses, na.rm = TRUE) - 3
+                  else max(doses, na.rm = TRUE) + 3,
+      HillSlope = if (side == "lower") -max(abs(hill_slope_limits))
+                  else max(abs(hill_slope_limits)),
+      NA_real_)
+    if (is.na(limit) || (side == "upper" && limit <= est) ||
+        (side == "lower" && limit >= est)) return(NA_real_)
+
+    all_params  <- c("Bottom", "Top", "LogIC50", "HillSlope")
+    free_params <- setdiff(all_params, param_name)
+
+    # tau of the fit with param_name fixed at v (constant baked into formula)
+    tau_at <- function(v) {
+      rhs <- all_params
+      rhs[rhs == param_name] <- format(v, digits = 12)
+      fml <- stats::as.formula(
+        sprintf("response ~ four_param_model(log_inhibitor, %s)",
+                paste(rhs, collapse = ", ")))
+      # suppressWarnings: nested-fit convergence notes are diagnostic noise
+      # here -- a stalled nested fit just yields a conservative tau via RSS.
+      nested <- tryCatch(
+        suppressWarnings(
+          stats::nls(fml, data = df_clean, start = as.list(est_all[free_params]),
+                     algorithm = "port",
+                     control = stats::nls.control(maxiter = 500, warnOnly = TRUE))),
+        error = function(e) NULL)
+      if (is.null(nested)) return(NA_real_)
+      sign(v - est) * sqrt(max(sum(stats::resid(nested)^2) - rss0, 0) / s2)
+    }
+
+    # Outward scan for the first crossing of +/-thr
+    fracs <- c(0.03, 0.06, 0.10, 0.16, 0.24, 0.34, 0.46, 0.60, 0.76, 1.0)
+    grid  <- est + (limit - est) * fracs
+    taus  <- vapply(grid, tau_at, numeric(1))
+    crossed <- which(if (side == "upper") taus >= thr else taus <= -thr)
+    if (length(crossed) == 0) return(NA_real_)
+    i <- crossed[1]
+    v_lo <- if (i == 1) est else grid[i - 1]  # bracket: no crossing .. crossing
+    v_hi <- grid[i]
+
+    # Bisection refinement
+    for (k in seq_len(6)) {
+      v_mid <- (v_lo + v_hi) / 2
+      t_mid <- tau_at(v_mid)
+      if (is.na(t_mid)) break
+      if (if (side == "upper") t_mid >= thr else t_mid <= -thr) v_hi <- v_mid
+      else v_lo <- v_mid
+    }
+    (v_lo + v_hi) / 2
+  }
+
+  calculate_ci <- function(fit, df_clean = NULL) {
     safe_ci <- function(param_name) {
-      tryCatch({
+      ci <- tryCatch({
         prof <- stats::profile(fit, which = param_name, alpha = 0.05)
         unname(stats::confint(prof, level = 0.95))
       }, error = function(e) {
@@ -697,6 +773,18 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
           c(est - z * se, est + z * se)
         }, error = function(e2) c(NA, NA))
       })
+      # Recover bounds profile() dropped (stalled nested refits), when they exist
+      if (!is.null(df_clean) && any(is.na(ci))) {
+        if (is.na(ci[1])) {
+          lo <- extend_profile_side(fit, df_clean, param_name, "lower")
+          if (!is.na(lo)) ci[1] <- lo
+        }
+        if (is.na(ci[2])) {
+          hi <- extend_profile_side(fit, df_clean, param_name, "upper")
+          if (!is.na(hi)) ci[2] <- hi
+        }
+      }
+      ci
     }
     
     bottom_ci <- safe_ci("Bottom")
@@ -808,7 +896,7 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
     
     # Process results
     initial_params <- c(params, 10^params[3], params[2] - params[1])
-    ci_results <- calculate_ci(fit)
+    ci_results <- calculate_ci(fit, prepared$df_clean)
     
     # If correct_parameter_order() flipped the HillSlope sign, the CI bounds
     # were computed on the original (wrong-sign) fit and must be negated.
@@ -847,7 +935,7 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
           params <- cf_params
           order_correction <- cf_order
           initial_params <- c(params, 10^params[3], params[2] - params[1])
-          ci_results <- calculate_ci(fit)
+          ci_results <- calculate_ci(fit, prepared$df_clean)
           # Same HillSlope CI sign fix as for the unconstrained path
           if (cf_order$was_corrected &&
               grepl("Hill Slope inconsistent", cf_order$correction_reason %||% "")) {
