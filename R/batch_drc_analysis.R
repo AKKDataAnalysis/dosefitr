@@ -509,7 +509,11 @@ batch_drc_analysis <- function(batch_results,
       
       # 1. Standard Summary
       n_compounds <- nrow(drc_summary)
-      successful_fits <- sum(!is.na(drc_summary$IC50))
+      # Potency column was renamed to assay-neutral 'IC50/EC50' upstream;
+      # fall back to 'IC50'. Count only real fits (exclude NA and 'N/D').
+      .ic50_col <- if ('IC50/EC50' %in% names(drc_summary)) 'IC50/EC50' else 'IC50'
+      .ic50_vals <- drc_summary[[.ic50_col]]
+      successful_fits <- if (!is.null(.ic50_vals)) sum(!is.na(.ic50_vals) & as.character(.ic50_vals) != 'N/D') else 0L
       
       summary_list[[length(summary_list) + 1]] <- data.frame(
         Plate_Name = plate_name,
@@ -527,9 +531,15 @@ batch_drc_analysis <- function(batch_results,
       drc_summary_copy$Plate <- plate_name
       cols_order <- c("Plate", setdiff(names(drc_summary_copy), "Plate"))
       drc_summary_copy <- drc_summary_copy[, cols_order, drop = FALSE]
-      mixed_cols <- c("LogIC50", "IC50",
-                      "LogIC50_Lower_95CI", "LogIC50_Upper_95CI",
-                      "IC50_Lower_95CI", "IC50_Upper_95CI")
+      # Coerce potency columns to character BEFORE bind_rows: N/D marking and
+      # '>highest' strings make them character on some plates, numeric on others.
+      # Include BOTH pre-rename and post-rename (assay-neutral) column names.
+      mixed_cols <- c('LogIC50', 'IC50',
+                      'LogIC50_Lower_95CI', 'LogIC50_Upper_95CI',
+                      'IC50_Lower_95CI', 'IC50_Upper_95CI',
+                      'LogIC50/LogEC50', 'IC50/EC50',
+                      'LogIC50/LogEC50_Lower_95CI', 'LogIC50/LogEC50_Upper_95CI',
+                      'IC50/EC50_Lower_95CI', 'IC50/EC50_Upper_95CI')
       for (.col in intersect(mixed_cols, names(drc_summary_copy))) {
         drc_summary_copy[[.col]] <- as.character(drc_summary_copy[[.col]])
       }
@@ -539,7 +549,7 @@ batch_drc_analysis <- function(batch_results,
       desired_cols <- c("Plate", "Compound", "Curve_Quality", "R_squared", "Max_Slope",
                         "Ideal_Hill_Slope", "HillSlope",
                         "HillSlope_Lower_95CI", "HillSlope_Upper_95CI",
-                        "Bottom", "Top", "LogIC50", "IC50")
+                        "Bottom", "Top", "LogIC50/LogEC50", "IC50/EC50", "LogIC50", "IC50")
       existing_cols <- intersect(desired_cols, names(drc_summary_copy))
       quality_list[[length(quality_list) + 1]] <- drc_summary_copy[, existing_cols, drop = FALSE]
       
