@@ -433,6 +433,23 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
           (base_mean - edge_mean) > min_effect
       }
 
+      # Whole-window trend test: does the observed data show a real
+      # direction-consistent response between the two lowest and the two
+      # highest doses?  Used to distinguish a genuinely flat compound
+      # ("No dose response") from one whose response happens OUTSIDE the
+      # tested window (e.g. an inhibition that is already complete at the
+      # lowest dose -> "IC50 below tested range"), which a diverged or
+      # out-of-range fit otherwise mislabels as inactivity.
+      lo_doses <- utils::head(sort(unique(doses)), 2)
+      lo_mean  <- mean(data$response[data$log_inhibitor %in% lo_doses], na.rm = TRUE)
+      trend_response <- if (curve_type == "activation") {
+        is.finite(lo_mean) && is.finite(edge_mean) &&
+          (edge_mean - lo_mean) > min_effect
+      } else {
+        is.finite(lo_mean) && is.finite(edge_mean) &&
+          (lo_mean - edge_mean) > min_effect
+      }
+
       # Near-flat converged fit guard.  When the fit converged, LogIC50 sits
       # inside the tested range, and the data show no edge response, the
       # firing correction is an asymptote of an essentially flat fit resting
@@ -454,7 +471,25 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       near_flat_fit <- is.finite(fitted_change) &&
                        fitted_change < max(0.25 * resp_range, 0.10 * abs(base_mean))
 
-      if (!fit_diverged && !ic50_outside_range && !edge_response && near_flat_fit) {
+      # Tight-fit escape: a converged curve that tracks the data closely
+      # (fitted change across the window >= 10x the residual noise AND
+      # R2 >= 0.9) is a real, well-resolved response -- merely shallow or
+      # sitting on a high baseline (e.g. NanoBRET ratios ~650, where
+      # 0.10 x baseline = 67 units dwarfs a genuine 50-unit sigmoid with
+      # ~1-unit noise).  Such fits deserve the parameter correction, not a
+      # flat reclassification.
+      ok_row   <- !is.na(data$log_inhibitor) & !is.na(data$response)
+      fv       <- four_param_model(data$log_inhibitor[ok_row],
+                                   params[1], params[2], params[3], params[4])
+      resid    <- data$response[ok_row] - fv
+      resid_sd <- stats::sd(resid)
+      ss_res   <- sum(resid^2)
+      ss_tot   <- sum((data$response[ok_row] - mean(data$response[ok_row]))^2)
+      r2_fit   <- if (ss_tot > 0) 1 - ss_res / ss_tot else 0
+      tight_fit <- is.finite(resid_sd) && is.finite(fitted_change) &&
+                   fitted_change >= 10 * resid_sd && r2_fit >= 0.9
+
+      if (!fit_diverged && !ic50_outside_range && !edge_response && near_flat_fit && !tight_fit) {
         return(list(
           needs_correction       = FALSE,
           reclassify_flat        = TRUE,
@@ -466,7 +501,17 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       }
 
       fit_label <- if ((fit_diverged || ic50_outside_range) && !edge_response) {
-        "No dose response (inactive compound)"
+        if (ic50_outside_range && trend_response) {
+          # Real response visible in the data, but its midpoint lies outside
+          # the tested window -- say so instead of claiming inactivity.
+          if (is.finite(params[3]) && params[3] < min(doses)) {
+            "IC50 below tested range (N/D)"
+          } else {
+            "IC50 above tested range (N/D)"
+          }
+        } else {
+          "No dose response (inactive compound)"
+        }
       } else if ((fit_diverged || ic50_outside_range) && edge_response) {
         "Partial response at highest doses only"
       } else {
@@ -481,7 +526,14 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
         fit_diverged = fit_diverged,
         ic50_outside_range = ic50_outside_range,
         edge_response_detected = edge_response,
-        fit_label = fit_label
+        fit_label = fit_label,
+        # Bug A: a diverged / out-of-range fit with no edge response is labelled
+        # "No dose response" but kept its activation/inhibition curve_type, so it
+        # escaped the batch N/D marking (which keys on curve_type == "flat").
+        # The same applies to the out-of-window N/D labels.
+        reclassify_flat = fit_label %in% c("No dose response (inactive compound)",
+                                           "IC50 below tested range (N/D)",
+                                           "IC50 above tested range (N/D)")
       ))
     }
 
@@ -845,8 +897,19 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       # A curve detected as flat is never a "Good curve": lead with the
       # no-response label regardless of how clean the fit looks, and drop the
       # generic "Implausible fit" (the flat classification is more specific).
+      # When the plausibility check supplied a more specific N/D reason
+      # (out-of-window response), lead with that instead.
+      nd_labels <- c("No dose response (inactive compound)",
+                     "IC50 below tested range (N/D)",
+                     "IC50 above tested range (N/D)")
       if (identical(curve_type, "flat")) {
-        quality_flags <- c("No dose response (inactive compound)", quality_flags)
+        lead_label <- if (!is.null(plausibility_check$fit_label) &&
+                          plausibility_check$fit_label %in% nd_labels) {
+          plausibility_check$fit_label
+        } else {
+          "No dose response (inactive compound)"
+        }
+        quality_flags <- c(lead_label, quality_flags)
       }
 
       # Use same criteria as before for consistency
@@ -865,8 +928,8 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       if (!is.null(plausibility_check) && isTRUE(plausibility_check$needs_correction)) {
         fit_label <- plausibility_check$fit_label
         if (is.null(fit_label)) fit_label <- "Implausible fit"
-        # For flat curves the leading no-response label already covers this.
-        if (!(identical(curve_type, "flat") && fit_label %in% c("Implausible fit", "No dose response (inactive compound)"))) {
+        # For flat curves the leading N/D label already covers this.
+        if (!(identical(curve_type, "flat") && fit_label %in% c("Implausible fit", nd_labels))) {
           quality_flags <- c(quality_flags, fit_label)
         }
       }

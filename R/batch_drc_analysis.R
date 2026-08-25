@@ -608,6 +608,16 @@ batch_drc_analysis <- function(batch_results,
           # --- IC50 display: replace with ">highest" if IC50 exceeds tested range ---
           ic50_above_range <- !is.na(ic50_uM) && !is.na(highest_conc_uM) &&
             ic50_uM > highest_conc_uM
+          # Suppress the ">highest" flag on N/D rows unless the engine itself
+          # diagnosed a genuinely above-range response: for flat / no-response
+          # curves the fitted IC50 comes from a diverged fit and is meaningless,
+          # so the flag would contradict the N/D reason in the Exclusion column.
+          if (ic50_above_range && is_nd) {
+            .bpc_fit_label <- res$biological_plausibility_check$fit_label %||% ""
+            if (!identical(.bpc_fit_label, "IC50 above tested range (N/D)")) {
+              ic50_above_range <- FALSE
+            }
+          }
           ic50_uM_display <- if (ic50_above_range) {
             sprintf(">%g", highest_conc_uM)
           } else if (!is.na(ic50_uM)) {
@@ -807,17 +817,25 @@ batch_drc_analysis <- function(batch_results,
           
           # Correction / constrained-fit flags: use the plain-language fit
           # label (same wording as the curve_quality string) instead of
-          # listing corrected parameter names.
+          # listing corrected parameter names.  Also fires on the
+          # reclassify_flat (near-flat guard) path, where needs_correction is
+          # FALSE but the compound is still reported N/D -- every N/D row
+          # should carry its reason here.
           bpc <- res$biological_plausibility_check
           cf  <- res$constrained_fit
           if (!is.null(cf) && isTRUE(cf$applied)) {
             msg <- cf$label %||% "IC50 from constrained fit"
             exclusion_collector <- c(exclusion_collector, msg)
             exclusion_collector_ci <- c(exclusion_collector_ci, msg)
-          } else if (!is.null(bpc) && isTRUE(bpc$needs_correction)) {
+          } else if (!is.null(bpc) &&
+                     (isTRUE(bpc$needs_correction) || isTRUE(bpc$reclassify_flat))) {
             msg <- bpc$fit_label %||% "Implausible fit"
-            exclusion_collector <- c(exclusion_collector, msg)
-            exclusion_collector_ci <- c(exclusion_collector_ci, msg)
+            # Dedupe: the batch-level ic50_above_range flag below carries the
+            # concrete uM threshold -- keep only that version.
+            if (!(identical(msg, "IC50 above tested range (N/D)") && ic50_above_range)) {
+              exclusion_collector <- c(exclusion_collector, msg)
+              exclusion_collector_ci <- c(exclusion_collector_ci, msg)
+            }
           }
 
           # IC50 above tested range -> add to exclusion
@@ -1275,13 +1293,24 @@ batch_drc_analysis <- function(batch_results,
             .cpd_name <- strsplit(.res2$compound %||% "", " \\| ")[[1]][1]
             .row_idx  <- which(plate_drc_result$summary_table$Compound == .cpd_name)
             if (length(.row_idx) == 0L) next
-            .p <- .res2$parameters$Value
+            # Look up parameters BY NAME: the 3PL table is
+            # (Bottom, Top, LogIC50, IC50, Span) but the 4PL table is
+            # (Bottom, Top, LogIC50, HillSlope, IC50, Span) -- positional
+            # indexing writes HillSlope into IC50/EC50 and IC50 into Span.
+            .pnames <- .res2$parameters$Parameter
+            .p <- suppressWarnings(as.numeric(.res2$parameters$Value))
             if (!is.null(.p) && length(.p) >= 5L) {
-              plate_drc_result$summary_table$Bottom[.row_idx]   <- round(.p[1], 3)
-              plate_drc_result$summary_table$Top[.row_idx]      <- round(.p[2], 3)
-              plate_drc_result$summary_table$`LogIC50/LogEC50`[.row_idx] <- round(.p[3], 3)
-              plate_drc_result$summary_table$`IC50/EC50`[.row_idx]       <- format(.p[4], scientific = TRUE)
-              plate_drc_result$summary_table$Span[.row_idx]     <- round(.p[5], 3)
+              .getp <- function(nm) {
+                idx <- match(nm, .pnames)
+                if (is.na(idx)) NA_real_ else .p[idx]
+              }
+              .ic50_num <- .getp("IC50")
+              plate_drc_result$summary_table$Bottom[.row_idx]   <- round(.getp("Bottom"), 3)
+              plate_drc_result$summary_table$Top[.row_idx]      <- round(.getp("Top"), 3)
+              plate_drc_result$summary_table$`LogIC50/LogEC50`[.row_idx] <- round(.getp("LogIC50"), 3)
+              plate_drc_result$summary_table$`IC50/EC50`[.row_idx]       <-
+                if (is.na(.ic50_num)) "N/D" else format(.ic50_num, scientific = TRUE)
+              plate_drc_result$summary_table$Span[.row_idx]     <- round(.getp("Span"), 3)
             }
             # Also update CI columns from the second-pass fit
             .ci <- .res2$confidence_intervals
