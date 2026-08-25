@@ -433,6 +433,38 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
           (base_mean - edge_mean) > min_effect
       }
 
+      # Near-flat converged fit guard.  When the fit converged, LogIC50 sits
+      # inside the tested range, and the data show no edge response, the
+      # firing correction is an asymptote of an essentially flat fit resting
+      # just outside the plausibility limits (classic case: a vehicle
+      # control fitted with Bottom ~ 100 on a normalized viability scale,
+      # whose upper limit is 60).  Clamping that asymptote would MANUFACTURE
+      # a sigmoid the data do not support -- the plotted curve would dive
+      # away from points it actually fits.  Keep the converged parameters
+      # and ask the caller to reclassify the curve as flat (no dose
+      # response, so the batch layer reports IC50 as N/D).  Genuine
+      # partial/shallow curves are protected twice: by the edge_response
+      # test above and by the fitted-change test here (a real 100 -> 70
+      # curve moves ~30 points across the tested doses, far above the
+      # threshold).
+      fitted_change <- abs(
+        four_param_model(max(doses), params[1], params[2], params[3], params[4]) -
+        four_param_model(min(doses), params[1], params[2], params[3], params[4])
+      )
+      near_flat_fit <- is.finite(fitted_change) &&
+                       fitted_change < max(0.25 * resp_range, 0.10 * abs(base_mean))
+
+      if (!fit_diverged && !ic50_outside_range && !edge_response && near_flat_fit) {
+        return(list(
+          needs_correction       = FALSE,
+          reclassify_flat        = TRUE,
+          fit_diverged           = fit_diverged,
+          ic50_outside_range     = ic50_outside_range,
+          edge_response_detected = edge_response,
+          fit_label              = "No dose response (inactive compound)"
+        ))
+      }
+
       fit_label <- if ((fit_diverged || ic50_outside_range) && !edge_response) {
         "No dose response (inactive compound)"
       } else if ((fit_diverged || ic50_outside_range) && edge_response) {
@@ -801,14 +833,22 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
   }
   
   # Calculate curve quality metrics
-  calculate_curve_quality <- function(params, gof_results, plausibility_check = NULL, logIC50_ci = NULL) {
+  calculate_curve_quality <- function(params, gof_results, plausibility_check = NULL, logIC50_ci = NULL,
+                                      curve_type = "unknown") {
     tryCatch({
       span <- params[6]
       hill_slope <- params[4]
       max_slope <- -span * abs(hill_slope) * log(10) / 4
-      
+
       quality_flags <- character()
-      
+
+      # A curve detected as flat is never a "Good curve": lead with the
+      # no-response label regardless of how clean the fit looks, and drop the
+      # generic "Implausible fit" (the flat classification is more specific).
+      if (identical(curve_type, "flat")) {
+        quality_flags <- c("No dose response (inactive compound)", quality_flags)
+      }
+
       # Use same criteria as before for consistency
       if (abs(max_slope) < 5) quality_flags <- c(quality_flags, "Very shallow slope")
       else if (abs(max_slope) < 15) quality_flags <- c(quality_flags, "Shallow slope")
@@ -825,7 +865,10 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       if (!is.null(plausibility_check) && isTRUE(plausibility_check$needs_correction)) {
         fit_label <- plausibility_check$fit_label
         if (is.null(fit_label)) fit_label <- "Implausible fit"
-        quality_flags <- c(quality_flags, fit_label)
+        # For flat curves the leading no-response label already covers this.
+        if (!(identical(curve_type, "flat") && fit_label %in% c("Implausible fit", "No dose response (inactive compound)"))) {
+          quality_flags <- c(quality_flags, fit_label)
+        }
       }
 
       # Constrained-refit success: the IC50 is real but rests on the
@@ -910,6 +953,11 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
     
     gof_results <- calculate_goodness_of_fit(fit, prepared$df_clean)
     plausibility_check <- check_biological_plausibility(params, prepared$df_clean)
+    # A converged but near-flat fit whose asymptote crossed a plausibility
+    # limit is kept as-is and treated as no dose response (guard inside
+    # check_biological_plausibility): this drives the flat quality label and
+    # the N/D marking in batch_drc_analysis().
+    if (isTRUE(plausibility_check$reclassify_flat)) curve_type <- "flat"
 
     # Constrained-refit fallback: when the unconstrained fit diverged (or its
     # LogIC50 left the tested range) but the data show a real edge response,
@@ -978,7 +1026,7 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       final_params <- initial_params
     }
     
-    curve_quality_info <- calculate_curve_quality(final_params, gof_results, plausibility_check, ci_results$LogIC50)
+    curve_quality_info <- calculate_curve_quality(final_params, gof_results, plausibility_check, ci_results$LogIC50, curve_type)
     
     list(
       parameters = data.frame(Parameter = PARAM_NAMES, Value = final_params, stringsAsFactors = FALSE),

@@ -475,6 +475,39 @@ fit_drc_3pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
           (base_mean - edge_mean) > min_effect
       }
 
+      # Near-flat converged fit guard.  When the fit converged, LogIC50 sits
+      # inside the tested range, and the data show no edge response, the
+      # firing correction is an asymptote of an essentially flat fit resting
+      # just outside the plausibility limits (classic case: a vehicle
+      # control fitted with Bottom ~ 100 on a normalized viability scale,
+      # whose upper limit is 60).  Clamping that asymptote would MANUFACTURE
+      # a sigmoid the data do not support -- the plotted curve would dive
+      # away from points it actually fits.  Keep the converged parameters
+      # and ask the caller to reclassify the curve as flat (no dose
+      # response, so the batch layer reports IC50 as N/D).  Genuine
+      # partial/shallow curves are protected twice: by the edge_response
+      # test above and by the fitted-change test here (a real 100 -> 70
+      # curve moves ~30 points across the tested doses, far above the
+      # threshold).
+      hill_for_span <- if (ctype == "activation") 1 else -1
+      fitted_change <- abs(
+        four_param_model(max(doses), params[1], params[2], params[3], hill_for_span) -
+        four_param_model(min(doses), params[1], params[2], params[3], hill_for_span)
+      )
+      near_flat_fit <- is.finite(fitted_change) &&
+                       fitted_change < max(0.25 * resp_range, 0.10 * abs(base_mean))
+
+      if (!fit_diverged && !ic50_outside_range && !edge_response && near_flat_fit) {
+        return(list(
+          needs_correction       = FALSE,
+          reclassify_flat        = TRUE,
+          fit_diverged           = fit_diverged,
+          ic50_outside_range     = ic50_outside_range,
+          edge_response_detected = edge_response,
+          fit_label              = "No dose response (inactive compound)"
+        ))
+      }
+
       fit_label <- if ((fit_diverged || ic50_outside_range) && !edge_response) {
         "No dose response (inactive compound)"
       } else if ((fit_diverged || ic50_outside_range) && edge_response) {
@@ -714,6 +747,11 @@ fit_drc_3pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
     
     # Plausibility Check
     check <- check_biological_plausibility(params, df_clean)
+    # A converged but near-flat fit whose asymptote crossed a plausibility
+    # limit is kept as-is and treated as no dose response (guard inside
+    # check_biological_plausibility): this drives the flat quality label
+    # below and the N/D marking in batch_drc_analysis().
+    if (isTRUE(check$reclassify_flat)) curve_type <- "flat"
     final_params <- if (check$needs_correction) check$corrected_params else initial_params
 
     # If parameters were corrected, the CIs (computed on the uncorrected fit)
@@ -743,6 +781,11 @@ fit_drc_3pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
     span_val <- final_params[5]
     max_slope <- if (!is.na(span_val)) -span_val * log(10) / 4 else NA_real_
     q_flags <- character()
+    # A curve detected as flat is never a "Good curve": lead with the
+    # no-response label regardless of how clean the fit looks.
+    if (identical(curve_type, "flat")) {
+      q_flags <- c(q_flags, "No dose response (inactive compound)")
+    }
     if (!is.na(max_slope) && abs(max_slope) < 5) q_flags <- c(q_flags, "Very shallow slope")
     else if (!is.na(max_slope) && abs(max_slope) < 15) q_flags <- c(q_flags, "Shallow slope")
     if (!is.na(span_val) && abs(span_val) < 20) q_flags <- c(q_flags, "Small span")
@@ -752,7 +795,10 @@ fit_drc_3pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
     if (check$needs_correction) {
       fit_label <- check$fit_label
       if (is.null(fit_label)) fit_label <- "Implausible fit"
-      q_flags <- c(q_flags, fit_label)
+      # For flat curves the leading no-response label already covers this.
+      if (!(identical(curve_type, "flat") && fit_label %in% c("Implausible fit", "No dose response (inactive compound)"))) {
+        q_flags <- c(q_flags, fit_label)
+      }
     }
     
     # Return complete result
