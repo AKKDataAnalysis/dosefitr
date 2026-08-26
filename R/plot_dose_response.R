@@ -789,9 +789,18 @@ y_label_fun <- switch(
   # coord_cartesian / expand, so we blank it above and draw our own here.
   # geom_segment with explicit data is more robust than annotate() under
   # coord_cartesian.
-  x_range_data <- range(summary_data$log_inhibitor, na.rm = TRUE)
-  x_lo <- x_range_data[1] - diff(x_range_data) * 0.02   # mirrors expand mult
-  x_hi <- x_range_data[2] + diff(x_range_data) * 0.02
+  # When the user supplies explicit x_limits, coord_cartesian zooms the panel
+  # to exactly that range, so the spine must span it too -- otherwise the
+  # outermost ticks/labels fall outside the drawn line. Mirrors the y-spine
+  # logic below (y_seg_limits) and plot_multiple_compounds().
+  if (!is.null(x_limits) && length(x_limits) == 2L && all(is.finite(x_limits))) {
+    x_lo <- x_limits[1]
+    x_hi <- x_limits[2]
+  } else {
+    x_range_data <- range(summary_data$log_inhibitor, na.rm = TRUE)
+    x_lo <- x_range_data[1] - diff(x_range_data) * 0.02   # mirrors expand mult
+    x_hi <- x_range_data[2] + diff(x_range_data) * 0.02
+  }
   # Resolve the y-axis spine range. It must match the coord_cartesian ylim
   # exactly, otherwise (with expand = c(0, 0)) drawn ticks can float beyond the
   # spine. y_range_resolved (computed above) already encodes the explicit and
