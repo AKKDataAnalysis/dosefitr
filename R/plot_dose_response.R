@@ -9,9 +9,13 @@
 #' @param compound_index Numeric index specifying which compound to plot (default: 1).
 #' @param x_limits Numeric vector of length 2 specifying the x-axis limits
 #'   in log10 molar units.  \code{NULL} (default) uses the data range.
+#'   When set, the right plot margin is automatically widened so that a tick
+#'   label centred on the upper limit is not clipped at the device edge.
 #' @param y_limits Numeric vector of length 2 specifying y-axis limits (default:
 #'   c(0, 150)). Set to \code{NULL} to auto-range the axis to the data. An
 #'   explicit length-2 vector always takes precedence over \code{y_from_zero}.
+#'   Note: with an explicit vector, data points outside the range are clipped
+#'   (not drawn); use \code{NULL} to guarantee all points are shown.
 #' @param y_from_zero Logical. Only consulted when \code{y_limits} is \code{NULL}
 #'   (i.e. not an explicit length-2 vector). When \code{TRUE}, the y-axis lower
 #'   bound is anchored at \code{min(0, data minimum)} - normally 0, but drops
@@ -23,10 +27,10 @@
 #'   effect size visually comparable across compounds.
 #' @param point_color Color for data points (default: "black").
 #' @param line_color Color for fitted curve (default: "black").
-#' @param ic50_line_color Color for IC50 vertical line (default: "gray").
+#' @param ic50_line_color Color for IC50 vertical line (default: "gray40").
 #' @param point_size Size multiplier for data points (default: 2).
 #' @param line_width Line width for fitted curve (default: 2).
-#' @param error_bar_width Width of error bar ends (default: 0.01).
+#' @param error_bar_width Width of error bar end caps, in x-axis (log10) units (default: 0.1).
 #' @param show_ic50_line Logical indicating whether to show vertical IC50 line (default: FALSE).
 #' @param show_legend Logical indicating whether to show parameter legend (default: FALSE).
 #' @param show_grid Logical indicating whether to show background grid (default: FALSE).
@@ -290,8 +294,8 @@ plot_dose_response <- function(results, compound_index = 1, y_limits = c(0, 150)
                                y_from_zero = FALSE,
                                x_limits = NULL,
                                point_color = "black", line_color = "black",
-                               ic50_line_color = "gray", point_size = 2,
-                               line_width = 2, error_bar_width = 0.01,
+                               ic50_line_color = "gray40", point_size = 2,
+                               line_width = 2, error_bar_width = 0.1,
                                show_ic50_line = TRUE, show_legend = FALSE,
                                show_grid = FALSE, save_plot = NULL,
                                plot_width = 10, plot_height = 10, plot_dpi = 600,
@@ -778,6 +782,46 @@ y_label_fun <- switch(
     }
   }
   
+  # With explicit x_limits a tick can sit exactly on the panel edge; its label
+  # is centred there and would overflow the default 8 pt right plot margin and
+  # clip at the device edge.  Widen the right margin in that case only.
+  .right_margin_pt <- if (!is.null(x_limits)) 20 else 8
+
+  # Resolve the panel ranges ONCE, applying axis_expand manually, and draw
+  # the axis spines at the same values (spine section below).
+  # coord_cartesian(expand = FALSE) then holds the panel exactly at these
+  # ranges, so axis ticks/labels can never float beyond the drawn spine
+  # ends.  Previously the spines did not track axis_expand: the scale/coord
+  # expanded the panel while the spines stayed at the unexpanded range.
+  # With the default axis_expand = c(0, 0) the ranges below are identical
+  # to the previous behaviour.
+  .ax_mult <- if (is.numeric(axis_expand) && length(axis_expand) >= 1L) as.numeric(axis_expand[1]) else 0
+  .ax_add  <- if (is.numeric(axis_expand) && length(axis_expand) >= 2L) as.numeric(axis_expand[2]) else 0
+  if (!is.finite(.ax_mult)) .ax_mult <- 0
+  if (!is.finite(.ax_add))  .ax_add  <- 0
+  if (!is.null(x_limits) && length(x_limits) == 2L && all(is.finite(x_limits))) {
+    x_base <- as.numeric(x_limits)
+  } else {
+    # Include excluded (hook-effect) points in the base range so the panel
+    # and spine extend to cover them -- with explicit coord limits they
+    # would otherwise be clipped off entirely (previously they half-clipped
+    # at the panel edge via scale training).
+    x_all <- summary_data$log_inhibitor
+    if (!is.null(excluded_summary) && nrow(excluded_summary) > 0L &&
+        "log_inhibitor" %in% names(excluded_summary))
+      x_all <- c(x_all, excluded_summary$log_inhibitor)
+    x_range_data <- range(x_all, na.rm = TRUE)
+    x_base <- x_range_data + c(-1, 1) * diff(x_range_data) * 0.02
+  }
+  x_panel <- x_base + c(-1, 1) * (.ax_mult * diff(x_base) + .ax_add)
+  y_base <- if (!is.null(y_range_resolved) && length(y_range_resolved) == 2L) {
+    y_range_resolved
+  } else {
+    auto_rng <- compute_auto_yrange(floor_zero = FALSE)
+    if (is.null(auto_rng)) c(0, 1) else auto_rng
+  }
+  y_panel <- y_base + c(-1, 1) * (.ax_mult * diff(y_base) + .ax_add)
+
   # Create base plot with professional styling
   p <- ggplot2::ggplot() +
     ggplot2::labs(
@@ -787,10 +831,8 @@ y_label_fun <- switch(
     ) +
     ggplot2::scale_y_continuous(expand = axis_expand, labels = y_label_fun) +
     ggplot2::scale_x_continuous(expand = axis_expand) +
-    ggplot2::coord_cartesian(
-      xlim = if (!is.null(x_limits) && length(x_limits) == 2L) x_limits else NULL,
-      ylim = if (!is.null(y_range_resolved) && length(y_range_resolved) == 2L) y_range_resolved else NULL,
-      clip = "on") +
+    ggplot2::coord_cartesian(xlim = x_panel, ylim = y_panel, expand = FALSE,
+                             clip = "on") +
     ggplot2::theme_minimal() +
     ggplot2::theme(
       axis.title = ggplot2::element_text(size = axis_label_size, face = "bold",
@@ -809,7 +851,7 @@ y_label_fun <- switch(
       panel.background = ggplot2::element_rect(fill = "white", color = NA),
       plot.background = ggplot2::element_rect(fill = "white", color = NA),
       panel.border = ggplot2::element_blank(),
-      plot.margin = ggplot2::margin(t = 12, r = 8, b = 8, l = 8, unit = "pt")
+      plot.margin = ggplot2::margin(t = 12, r = .right_margin_pt, b = 8, l = 8, unit = "pt")
     )
 
   # Optional theme tweaks (only applied when explicitly set, so the defaults
@@ -847,25 +889,12 @@ y_label_fun <- switch(
   # to exactly that range, so the spine must span it too -- otherwise the
   # outermost ticks/labels fall outside the drawn line. Mirrors the y-spine
   # logic below (y_seg_limits) and plot_multiple_compounds().
-  if (!is.null(x_limits) && length(x_limits) == 2L && all(is.finite(x_limits))) {
-    x_lo <- x_limits[1]
-    x_hi <- x_limits[2]
-  } else {
-    x_range_data <- range(summary_data$log_inhibitor, na.rm = TRUE)
-    x_lo <- x_range_data[1] - diff(x_range_data) * 0.02   # mirrors expand mult
-    x_hi <- x_range_data[2] + diff(x_range_data) * 0.02
-  }
-  # Resolve the y-axis spine range. It must match the coord_cartesian ylim
-  # exactly, otherwise (with expand = c(0, 0)) drawn ticks can float beyond the
-  # spine. y_range_resolved (computed above) already encodes the explicit and
-  # y_from_zero modes; when it is NULL we are in full auto-range mode and
-  # recompute the data-driven span here (floor_zero = FALSE).
-  y_seg_limits <- if (!is.null(y_range_resolved) && length(y_range_resolved) == 2L) {
-    y_range_resolved
-  } else {
-    auto_rng <- compute_auto_yrange(floor_zero = FALSE)
-    if (is.null(auto_rng)) c(0, 1) else auto_rng
-  }
+  # Spines span exactly the resolved panel ranges (x_panel / y_panel,
+  # computed above with axis_expand already applied), so drawn ticks can
+  # never float beyond the spine ends.
+  x_lo <- x_panel[1]
+  x_hi <- x_panel[2]
+  y_seg_limits <- y_panel
   axis_segs <- data.frame(
     x    = c(x_lo,              x_lo),
     xend = c(x_hi,              x_lo),
@@ -912,7 +941,7 @@ y_label_fun <- switch(
           ymin = ymin_clipped,
           ymax = ymax_clipped
         ),
-        width = error_bar_width * 10,
+        width = error_bar_width,
         color = point_color,
         linewidth = error_linewidth,
         alpha = error_alpha
@@ -949,7 +978,7 @@ y_label_fun <- switch(
             ymin = ymin_clipped,
             ymax = ymax_clipped
           ),
-          width     = error_bar_width * 10,
+          width     = error_bar_width,
           color     = excluded_point_color,
           linewidth = error_linewidth,
           alpha     = error_alpha

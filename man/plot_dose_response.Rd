@@ -12,10 +12,10 @@ plot_dose_response(
   x_limits = NULL,
   point_color = "black",
   line_color = "black",
-  ic50_line_color = "gray",
+  ic50_line_color = "gray40",
   point_size = 2,
   line_width = 2,
-  error_bar_width = 0.01,
+  error_bar_width = 0.1,
   show_ic50_line = TRUE,
   show_legend = FALSE,
   show_grid = FALSE,
@@ -80,7 +80,9 @@ dose-response analysis results.}
 
 \item{y_limits}{Numeric vector of length 2 specifying y-axis limits (default:
 c(0, 150)). Set to \code{NULL} to auto-range the axis to the data. An
-explicit length-2 vector always takes precedence over \code{y_from_zero}.}
+explicit length-2 vector always takes precedence over \code{y_from_zero}.
+Note: with an explicit vector, data points outside the range are clipped
+(not drawn); use \code{NULL} to guarantee all points are shown.}
 
 \item{y_from_zero}{Logical. Only consulted when \code{y_limits} is \code{NULL}
 (i.e. not an explicit length-2 vector). When \code{TRUE}, the y-axis lower
@@ -93,19 +95,21 @@ Useful for viability panels where anchoring every sub-plot at 0 makes the
 effect size visually comparable across compounds.}
 
 \item{x_limits}{Numeric vector of length 2 specifying the x-axis limits
-in log10 molar units.  \code{NULL} (default) uses the data range.}
+in log10 molar units.  \code{NULL} (default) uses the data range.
+When set, the right plot margin is automatically widened so that a tick
+label centred on the upper limit is not clipped at the device edge.}
 
 \item{point_color}{Color for data points (default: "black").}
 
 \item{line_color}{Color for fitted curve (default: "black").}
 
-\item{ic50_line_color}{Color for IC50 vertical line (default: "gray").}
+\item{ic50_line_color}{Color for IC50 vertical line (default: "gray40").}
 
 \item{point_size}{Size multiplier for data points (default: 2).}
 
 \item{line_width}{Line width for fitted curve (default: 2).}
 
-\item{error_bar_width}{Width of error bar ends (default: 0.01).}
+\item{error_bar_width}{Width of error bar end caps, in x-axis (log10) units (default: 0.1).}
 
 \item{show_ic50_line}{Logical indicating whether to show vertical IC50 line (default: FALSE).}
 

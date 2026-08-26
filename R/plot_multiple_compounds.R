@@ -20,6 +20,8 @@
 #'   If \code{NULL} (default), limits are calculated automatically from the
 #'   data with a 5\% margin.  The unit of the supplied values is controlled
 #'   by \code{x_limits_scale}.
+#'   When set, the right plot margin is automatically widened so that a tick
+#'   label centred on the upper limit is not clipped at the device edge.
 #' @param x_limits_scale Character string declaring the unit of \code{x_limits}.
 #'   One of \code{"log10"} (default - values are already log\eqn{_{10}} molar,
 #'   e.g. \code{c(-9, -5)}), \code{"molar"} (raw molar, e.g.
@@ -27,6 +29,9 @@
 #'   or \code{"nM"} (nanomolar, e.g. \code{c(1, 25000)}).  Ignored when
 #'   \code{x_limits = NULL}.
 #' @param y_limits Numeric vector of length 2 specifying the y-axis limits
+#'   (default \code{c(0, 150)}).  Set to \code{NULL} to auto-range the axis to
+#'   the data.  Note: with an explicit vector, data points outside the range
+#'   are clipped (not drawn); use \code{NULL} to guarantee all points are shown.
 #' @param point_shapes Controls the plotting symbol(s) for the data points.
 #'   Accepts several forms:
 #'   \itemize{
@@ -99,7 +104,8 @@
 #'   \code{normalize} was \code{TRUE} or \code{FALSE}).
 #' @param axis_text_color Character string specifying color for axis text. Default is "black".
 #' @param show_error_bars Logical indicating whether to display error bars around data points
-#' @param error_bar_width Numeric value controlling the width of error bars
+#' @param error_bar_width Numeric value controlling the width of error bar
+#'   end caps, in x-axis (log10) units (default: 0.1).
 #' @param curve_linewidth Numeric.  Line width of the fitted dose-response curves.
 #'   Default: \code{1}.
 #' @param curve_alpha Numeric between 0 and 1.  Opacity of the fitted curves.
@@ -108,8 +114,9 @@
 #'   at each compound's IC50 position on the x-axis, coloured to match the
 #'   corresponding curve.  Lines are only drawn for compounds with a valid
 #'   (non-NA, in-range) IC50.  Default: \code{FALSE}.
-#' @param plot_title Custom plot title. If `NULL`, a smart title is generated
-#'   automatically based on the compound names.
+#' @param plot_title Controls the plot title. \code{NULL} (default) or \code{TRUE}
+#'   generates a smart title automatically from the compound names; \code{FALSE}
+#'   suppresses the title; a character string is used as a custom title.
 #' @param plot_title_size Numeric.  Font size for the plot title.  If \code{NULL}
 #'   (default), uses \code{axis_title_size + 2}.
 #' @param legend_text_size Numeric value for legend text font size
@@ -437,7 +444,7 @@ plot_multiple_compounds <- function(results,
                                     axis_line_color = "black",
                                     curve_linewidth = 1,
                                     curve_alpha = 0.7,
-                                    error_bar_width = 0.05,
+                                    error_bar_width = 0.1,
                                     legend_label_wrap = 25,
                                     legend_ncol = NULL,
                                     point_size = NULL,
@@ -1576,7 +1583,12 @@ plot_multiple_compounds <- function(results,
   generate_intelligent_title <- function(match_type, input_used, unique_targets,
                                          unique_compounds, n_compounds) {
 
-    if (!is.null(plot_title)) {
+    if (isFALSE(plot_title)) {
+      if (verbose) message("Plot title disabled (plot_title = FALSE)")
+      return(NULL)
+    }
+
+    if (!is.null(plot_title) && !isTRUE(plot_title)) {
       if (verbose) message("Using custom plot title: ", plot_title)
       return(plot_title)
     }
@@ -1890,6 +1902,11 @@ plot_multiple_compounds <- function(results,
   }
 
   x_limits_final <- resolve_x_limits(x_limits)
+
+  # With explicit x_limits a tick can sit exactly on the panel edge; its label
+  # is centred there and would overflow the default 8 pt right plot margin and
+  # clip at the device edge.  Widen the right margin in that case only.
+  .right_margin_pt <- if (!is.null(x_limits)) 20 else 8
   y_limits_final <- if (!is.null(y_limits)) y_limits else
     calculate_y_limits(plot_data$curves, plot_data$points)
 
@@ -2095,7 +2112,7 @@ plot_multiple_compounds <- function(results,
       panel.background = ggplot2::element_rect(fill = "white", color = NA),
       plot.background = ggplot2::element_rect(fill = "white", color = NA),
       panel.border = ggplot2::element_blank(),
-      plot.margin  = ggplot2::margin(t = 12, r = 8, b = 8, l = 8, unit = "pt")
+      plot.margin  = ggplot2::margin(t = 12, r = .right_margin_pt, b = 8, l = 8, unit = "pt")
     )
 
   if (transparent_background) {
@@ -2140,11 +2157,21 @@ plot_multiple_compounds <- function(results,
   }
 
   # Draw axis lines manually so they stop exactly at the data limits.
+  # coord_cartesian (expand = TRUE default) applies axis_expand on top of
+  # x_limits_final / y_limits_final, so the spines must be expanded by the
+  # same amounts -- otherwise the outermost tick labels float beyond the
+  # spine ends whenever axis_expand is non-zero.
+  .ax_mult <- if (is.numeric(axis_expand) && length(axis_expand) >= 1L) as.numeric(axis_expand[1]) else 0
+  .ax_add  <- if (is.numeric(axis_expand) && length(axis_expand) >= 2L) as.numeric(axis_expand[2]) else 0
+  if (!is.finite(.ax_mult)) .ax_mult <- 0
+  if (!is.finite(.ax_add))  .ax_add  <- 0
+  x_spine <- x_limits_final + c(-1, 1) * (.ax_mult * diff(x_limits_final) + .ax_add)
+  y_spine <- y_limits_final + c(-1, 1) * (.ax_mult * diff(y_limits_final) + .ax_add)
   axis_segs_mc <- data.frame(
-    x    = c(x_limits_final[1],   x_limits_final[1]),
-    xend = c(x_limits_final[2],   x_limits_final[1]),
-    y    = c(y_limits_final[1],   y_limits_final[1]),
-    yend = c(y_limits_final[1],   y_limits_final[2])
+    x    = c(x_spine[1],   x_spine[1]),
+    xend = c(x_spine[2],   x_spine[1]),
+    y    = c(y_spine[1],   y_spine[1]),
+    yend = c(y_spine[1],   y_spine[2])
   )
   p <- p +
     ggplot2::geom_segment(

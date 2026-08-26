@@ -43,7 +43,7 @@ plot_multiple_compounds(
   axis_line_color = "black",
   curve_linewidth = 1,
   curve_alpha = 0.7,
-  error_bar_width = 0.05,
+  error_bar_width = 0.1,
   legend_label_wrap = 25,
   legend_ncol = NULL,
   point_size = NULL,
@@ -98,7 +98,9 @@ to `target_compound` or `compound_indices`).}
 \item{x_limits}{Numeric vector of length 2 specifying the x-axis limits.
 If \code{NULL} (default), limits are calculated automatically from the
 data with a 5\% margin.  The unit of the supplied values is controlled
-by \code{x_limits_scale}.}
+by \code{x_limits_scale}.
+When set, the right plot margin is automatically widened so that a tick
+label centred on the upper limit is not clipped at the device edge.}
 
 \item{x_limits_scale}{Character string declaring the unit of \code{x_limits}.
 One of \code{"log10"} (default - values are already log\eqn{_{10}} molar,
@@ -107,7 +109,10 @@ e.g. \code{c(-9, -5)}), \code{"molar"} (raw molar, e.g.
 or \code{"nM"} (nanomolar, e.g. \code{c(1, 25000)}).  Ignored when
 \code{x_limits = NULL}.}
 
-\item{y_limits}{Numeric vector of length 2 specifying the y-axis limits}
+\item{y_limits}{Numeric vector of length 2 specifying the y-axis limits
+(default \code{c(0, 150)}).  Set to \code{NULL} to auto-range the axis to
+the data.  Note: with an explicit vector, data points outside the range
+are clipped (not drawn); use \code{NULL} to guarantee all points are shown.}
 
 \item{colors}{Either a logical (`TRUE` for automatic colors), a character vector of
 color names/hex codes, or a palette name (see Details for available palettes). If
@@ -187,8 +192,9 @@ and only when \code{save_plot} does not already specify an extension
 
 \item{plot_dpi}{Resolution (in DPI) for saved plots. Default: `600`.}
 
-\item{plot_title}{Custom plot title. If `NULL`, a smart title is generated
-automatically based on the compound names.}
+\item{plot_title}{Controls the plot title. \code{NULL} (default) or \code{TRUE}
+generates a smart title automatically from the compound names; \code{FALSE}
+suppresses the title; a character string is used as a custom title.}
 
 \item{plot_title_size}{Numeric.  Font size for the plot title.  If \code{NULL}
 (default), uses \code{axis_title_size + 2}.}
@@ -228,7 +234,8 @@ Default: \code{1}.}
 \item{curve_alpha}{Numeric between 0 and 1.  Opacity of the fitted curves.
 \code{1} = fully opaque, \code{0} = invisible.  Default: \code{0.7}.}
 
-\item{error_bar_width}{Numeric value controlling the width of error bars}
+\item{error_bar_width}{Numeric value controlling the width of error bar
+end caps, in x-axis (log10) units (default: 0.1).}
 
 \item{legend_label_wrap}{Maximum character width before legend labels
 automatically wrap to new lines. Default: `25`.}
