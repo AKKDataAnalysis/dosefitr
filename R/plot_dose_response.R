@@ -629,6 +629,53 @@ y_label_fun <- switch(
   # Model status and data preparation
   model_success <- !is.null(result$model) && isTRUE(result$success)
   curve_data <- if (model_success) generate_fitted_curve(result) else NULL
+
+  # Display-only: when the fit is not quantifiable in the tested window
+  # (curve_type == "flat", or the fitted LogIC50 falls outside the dose
+  # range), the plotted model curve is not interpretable in-window: for
+  # corrected fits the parameter table holds clamp values that can sit far
+  # off the data (e.g. Bottom clamped to 60 under points at ~100, or a flat
+  # line at Top above every point for a partial/out-of-window fit).  Draw a
+  # horizontal line at the median of the per-dose mean responses instead
+  # (robust to the outliers that triggered the classification).  Mirrors the
+  # IC50-line suppression rule below.
+  .li_display <- if (model_success) get_ic50_value(result) else NA_real_
+  .li_in_window <- is.finite(.li_display) &&
+    .li_display >= min(summary_data$log_inhibitor, na.rm = TRUE) &&
+    .li_display <= max(summary_data$log_inhibitor, na.rm = TRUE)
+  curve_is_tendency <- FALSE
+  # A flat classification that came from an out-of-window IC50 ("IC50
+  # below/above tested range (N/D)") means a real response exists but is
+  # not quantifiable in-window: treat it like the out-of-window case and
+  # draw the raw model as a tendency line.  Only a genuine "no dose
+  # response" flat gets the flat data-level line.
+  .is_flat <- isTRUE(result$curve_type == "flat")
+  .nd_flat <- .is_flat && !is.null(result$curve_quality) &&
+    grepl("IC50 (below|above) tested range", as.character(result$curve_quality))
+  if (!is.null(curve_data) && .is_flat && !.nd_flat) {
+    # Flat classification ("no dose response"): draw the data level.
+    flat_level <- stats::median(summary_data$mean_response, na.rm = TRUE)
+    if (is.finite(flat_level)) curve_data$response <- flat_level
+  } else if (!is.null(curve_data) && (.nd_flat || !.li_in_window)) {
+    # Out-of-window LogIC50 (or N/D-reclassified flat): the corrected
+    # parameters hold clamp values whose curve can sit far off the data,
+    # but the RAW model still describes the in-window trend.  Draw the raw
+    # model as a tendency line.  It is
+    # excluded from the y-range computation below, and
+    # coord_cartesian(clip = "on") truncates it at the panel edge if the
+    # raw fit runs away.  Falls back to the data level if prediction fails.
+    raw_y <- tryCatch(
+      stats::predict(result$model,
+                     newdata = data.frame(log_inhibitor = curve_data$log_inhibitor)),
+      error = function(e) NULL)
+    if (!is.null(raw_y) && all(is.finite(raw_y))) {
+      curve_data$response <- as.numeric(raw_y)
+      curve_is_tendency <- TRUE
+    } else {
+      flat_level <- stats::median(summary_data$mean_response, na.rm = TRUE)
+      if (is.finite(flat_level)) curve_data$response <- flat_level
+    }
+  }
   log_ic50 <- if (model_success) get_ic50_value(result) else NA
   legend_content <- create_legend_content(if (model_success) result else NULL)
 
@@ -649,7 +696,10 @@ y_label_fun <- switch(
   y_limits_explicit <- !is.null(y_limits) && length(y_limits) == 2L
   compute_auto_yrange <- function(floor_zero) {
     y_vals <- summary_data$mean_response
-    if (!is.null(curve_data) && "response" %in% names(curve_data)) {
+    # Tendency lines (raw model for out-of-window fits) are excluded so a
+    # runaway raw fit cannot stretch the panel; coord_cartesian clips it.
+    if (!is.null(curve_data) && "response" %in% names(curve_data) &&
+        !isTRUE(curve_is_tendency)) {
       y_vals <- c(y_vals, curve_data$response)
     }
     if (!is.null(excluded_summary) && nrow(excluded_summary) > 0L) {
@@ -658,8 +708,12 @@ y_label_fun <- switch(
     y_vals <- y_vals[is.finite(y_vals)]
     if (!length(y_vals)) return(NULL)
     rng <- range(y_vals, na.rm = TRUE)
-    seg_lo <- rng[1]
-    seg_hi <- rng[2]
+    # Small margin so extreme points / error bars do not sit exactly on the
+    # axis spines (range() alone pins both panel edges to the data extremes).
+    pad <- diff(rng) * 0.04
+    if (!is.finite(pad) || pad <= 0) pad <- max(abs(rng), 1) * 0.04
+    seg_lo <- rng[1] - pad
+    seg_hi <- rng[2] + pad
     if (isTRUE(floor_zero)) seg_lo <- min(0, seg_lo)
     # Snap to the outermost pretty-break so ticks never float past the spine.
     brk_range <- c(seg_lo, seg_hi)
@@ -917,10 +971,18 @@ y_label_fun <- switch(
   
   # Add IC50 line only if valid IC50 exists.  Skipped when display overrides
   # are active AND the compound would show "N/D" or ">highest" in the batch
-  # report (flat curve, or IC50 above tested range).
+  # report (flat curve, or IC50 above tested range).  Additionally suppressed
+  # by default when the curve is flat (an IC50 marker is meaningless for
+  # "no dose response") or when the fitted LogIC50 falls outside the tested
+  # dose window -- such a marker only stretches the x-axis.
+  ic50_in_window <- is.finite(log_ic50) &&
+    log_ic50 >= min(summary_data$log_inhibitor, na.rm = TRUE) &&
+    log_ic50 <= max(summary_data$log_inhibitor, na.rm = TRUE)
   if (show_ic50_line && is.finite(log_ic50) &&
       !(!is.null(ic50_excluded) && ic50_excluded) &&
-      !suppress_ic50_line) {
+      !suppress_ic50_line &&
+      ic50_in_window &&
+      !isTRUE(result$curve_type == "flat")) {
     p <- p +
       ggplot2::geom_vline(
         xintercept = log_ic50,

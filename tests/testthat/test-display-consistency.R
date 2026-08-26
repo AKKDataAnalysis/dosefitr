@@ -144,46 +144,47 @@ test_that("Fix A: vline matches parameters$Value LogIC50 for a clean fit", {
   expect_equal(xi[1], li_from_params[1], tolerance = 1e-10)
 })
 
-test_that("Fix A: vline uses corrected parameters$Value when correction fires", {
-  # Wild outlier -> Bottom correction fires; LogIC50 is set to the median
-  # log-concentration by the fallback branch (see fit_dose_response.R:297).
-  # Fix A guarantees the vline agrees with what the batch report shows.
+test_that("Fix A: vline is suppressed by default when the fit is classified flat", {
+  # Wild outlier -> Bottom correction fires and detect_curve_type() classifies
+  # the fit as "flat".  A flat classification means the IC50 is not defined,
+  # so the default plot must not draw an IC50 reference line at the
+  # (meaningless) corrected LogIC50.  The corrected value itself is still
+  # reported in parameters / the batch summary.
   fit <- fit_one(wild_outlier_responses())
   r <- fit$detailed_results[[1]]
   expect_true(isTRUE(r$biological_plausibility_check$needs_correction))
+  expect_true(isTRUE(r$curve_type == "flat"))
   li_corrected <- r$parameters$Value[r$parameters$Parameter == "LogIC50"][1]
   expect_true(is.finite(li_corrected))
 
   gg <- suppressWarnings(plot_dose_response(fit, compound_index = 1,
                                             verbose = FALSE))
-  xi <- vline_xintercepts(gg)
-  expect_length(xi, 1L)
-  expect_equal(xi[1], li_corrected, tolerance = 1e-10)
+  expect_length(vline_xintercepts(gg), 0L)
 })
 
 # --- Fix B -------------------------------------------------------------------
 
-test_that("Fix B: corrected curve stays inside the plausible response band", {
+test_that("Fix B: flat-classified curve is drawn flat at the median response", {
   # Wild outlier: raw drm predict() previously produced y = 45..186 across
-  # the fitted range.  With Fix B, the plotted curve uses
-  # analytic_dose_response() on the corrected parameters (Bottom = Top = 50)
-  # so the curve should be flat at ~50.
+  # the fitted range, and drawing from the corrected parameter table put the
+  # line at the clamp values instead of on the data.  For flat-classified
+  # fits the plot now draws a horizontal line at the median of the per-dose
+  # mean responses -- the median is robust to the very outliers that
+  # triggered the flat classification.
   fit <- fit_one(wild_outlier_responses())
   r <- fit$detailed_results[[1]]
   expect_true(isTRUE(r$biological_plausibility_check$needs_correction))
-  bottom_corr <- r$parameters$Value[r$parameters$Parameter == "Bottom"][1]
-  top_corr    <- r$parameters$Value[r$parameters$Parameter == "Top"][1]
+  expect_true(isTRUE(r$curve_type == "flat"))
 
   gg <- suppressWarnings(plot_dose_response(fit, compound_index = 1,
                                             verbose = FALSE))
   ys <- line_y(gg)
   expect_gt(length(ys), 0L)
   expect_true(all(is.finite(ys)))
-  lo <- min(bottom_corr, top_corr) - 1e-6
-  hi <- max(bottom_corr, top_corr) + 1e-6
-  expect_true(all(ys >= lo & ys <= hi),
-              info = sprintf("y range = [%.4f, %.4f], corrected B=%.4f T=%.4f",
-                             min(ys), max(ys), bottom_corr, top_corr))
+  expect_true(all(ys == ys[1]),
+              info = sprintf("curve not flat: y range = [%.4f, %.4f]",
+                             min(ys), max(ys)))
+  expect_equal(ys[1], stats::median(wild_outlier_responses()), tolerance = 1e-6)
 })
 
 test_that("Fix B: clean fit still uses predict() and stays finite", {
@@ -205,20 +206,129 @@ test_that("Fix B: clean fit still uses predict() and stays finite", {
               info = sprintf("clean y range = [%.3f, %.3f]", min(ys), max(ys)))
 })
 
+test_that("Fix B: N/D-reclassified flat fit draws a raw-model tendency line", {
+  # A flat classification that comes from an out-of-window IC50 ("IC50
+  # below/above tested range (N/D)") means a real response exists but is not
+  # quantifiable in-window.  The plot draws the RAW model as a tendency line
+  # (following the points) instead of the flat data level; the IC50 vline
+  # stays suppressed because the IC50 is still N/D.  The fixture rises
+  # sharply at the low-concentration edge (steeper than the fixed unit Hill
+  # slope can fit in-window), which drives LogIC50 below the tested range.
+  nd_below <- c(20, 20, 21, 20, 21, 20, 21, 20, 21, 22, 40, 95)
+  fit <- fit_one(nd_below)
+  r <- fit$detailed_results[[1]]
+  expect_true(isTRUE(r$curve_type == "flat"))
+  expect_match(r$curve_quality, "IC50 below tested range")
+
+  gg <- suppressWarnings(plot_dose_response(fit, compound_index = 1,
+                                            verbose = FALSE))
+  ys <- line_y(gg)
+  expect_gt(length(ys), 10L)
+  expect_true(all(is.finite(ys)))
+  # Not the flat data-level line: the tendency line must vary with dose and
+  # track the raw model predictions at the tested concentrations.
+  expect_gt(stats::sd(ys), 1)
+  L <- NULL
+  for (ly in gg$layers) {
+    if (identical(class(ly$geom)[1], "GeomLine")) { L <- ly; break }
+  }
+  cx <- if ("x" %in% names(L$data)) L$data$x else L$data$log_inhibitor
+  cy <- if ("y" %in% names(L$data)) L$data$y else L$data$response
+  xs <- sort(unique(r$data$log_inhibitor))
+  drawn_at <- stats::approx(cx, cy, xout = xs, ties = "ordered")$y
+  raw_at <- as.numeric(stats::predict(r$model,
+                                      newdata = data.frame(log_inhibitor = xs)))
+  expect_lt(max(abs(drawn_at - raw_at)), 2)
+  # IC50 vline stays suppressed (the IC50 is still N/D).
+  expect_length(vline_xintercepts(gg), 0L)
+})
+
+test_that("plot_multiple_compounds Fix B: N/D-flat compound draws tendency line", {
+  # Same rule in the batch plotter: an N/D-reclassified flat compound gets
+  # the raw-model tendency line (clipped to its point envelope), while a
+  # genuine no-response flat compound keeps the flat data-level line.
+  nd_below <- c(20, 20, 21, 20, 21, 20, 21, 20, 21, 22, 40, 95)
+  df <- data.frame(
+    log_conc = lc_seq(),
+    Test.nd_rep1   = c(NA_real_, nd_below),
+    Test.nd_rep2   = c(NA_real_, nd_below),
+    Test.wild_rep1 = c(NA_real_, wild_outlier_responses()),
+    Test.wild_rep2 = c(NA_real_, wild_outlier_responses())
+  )
+  fit <- suppressWarnings(
+    fit_drc_3pl(data = df, normalize = FALSE, verbose = FALSE)
+  )
+  cmpds <- vapply(fit$detailed_results, function(x) x$compound, character(1))
+  nd_idx <- which(grepl("nd", cmpds))
+  expect_gt(length(nd_idx), 0L)
+  r_nd <- fit$detailed_results[[nd_idx[1]]]
+  expect_true(isTRUE(r_nd$curve_type == "flat"))
+  expect_match(r_nd$curve_quality, "IC50 below tested range")
+
+  out_dir <- tempfile("plmc_nd_"); dir.create(out_dir)
+  on.exit(unlink(out_dir, recursive = TRUE), add = TRUE)
+
+  gg <- suppressWarnings(plot_multiple_compounds(
+    results = fit, compound_indices = seq_along(cmpds),
+    save_plot = file.path(out_dir, "multi_nd.png"),
+    verbose = FALSE
+  ))
+
+  line_dat <- NULL
+  for (L in gg$layers) {
+    if (identical(class(L$geom)[1], "GeomLine")) { line_dat <- L$data; break }
+  }
+  expect_true(!is.null(line_dat) && nrow(line_dat) > 0)
+  col <- intersect(names(line_dat), c("compound", "Compound", "group", "colour"))[1]
+  y_col <- intersect(names(line_dat), c("y", "response", "value"))[1]
+  nd_rows <- line_dat[grepl("nd", line_dat[[col]]), ]
+  expect_gt(nrow(nd_rows), 10L)
+  ys <- nd_rows[[y_col]]
+  expect_true(all(is.finite(ys)))
+  # Tendency line: varies with dose and stays near the point envelope
+  # (data range 20..95, clipped to +/-10%).
+  expect_gt(stats::sd(ys), 1)
+  expect_true(all(ys >= 20 - 0.10 * 75 - 1 & ys <= 95 + 0.10 * 75 + 1),
+              info = sprintf("nd tendency y range = [%.3f, %.3f]", min(ys), max(ys)))
+  # Contrast: the genuine-flat wild compound still gets the flat level.
+  wild_rows <- line_dat[grepl("wild", line_dat[[col]]), ]
+  expect_gt(nrow(wild_rows), 0L)
+  expect_true(all(wild_rows[[y_col]] == wild_rows[[y_col]][1]),
+              info = "wild compound curve should remain the flat data level")
+})
+
 # --- Fix C -------------------------------------------------------------------
 
-test_that("Fix C: default (overrides OFF) preserves vline and shows no badge", {
-  # Even for the flat-classified wild fixture, the default plot must retain
-  # the vline and not show any override badge.  Backward-compat check.
+test_that("Fix C: default (overrides OFF) suppresses the flat-fit vline, no badge", {
+  # Approved behaviour change: the IC50 line is suppressed by default for
+  # flat-classified fits (an IC50 is not defined for "no dose response").
+  # No override badge is shown unless explicitly requested.
   fit <- fit_one(wild_outlier_responses())
   r <- fit$detailed_results[[1]]
   expect_true(isTRUE(r$curve_type == "flat"))
 
   gg <- suppressWarnings(plot_dose_response(fit, compound_index = 1,
                                             verbose = FALSE))
-  expect_length(vline_xintercepts(gg), 1L)
+  expect_length(vline_xintercepts(gg), 0L)
   labs <- annotation_labels(gg)
   expect_false(any(grepl("N/D|IC50: >", labs)))
+})
+
+test_that("Fix C: vline is suppressed by default when LogIC50 is out of window", {
+  # A non-flat fit whose fitted LogIC50 lands outside the tested dose window
+  # must not draw the IC50 line by default -- the marker would sit off the
+  # data range and stretch the x-axis.  Simulated by shifting the stored
+  # LogIC50 of a clean in-window fit below the tested range.
+  fit <- fit_one(clean_responses())
+  r <- fit$detailed_results[[1]]
+  expect_false(isTRUE(r$curve_type == "flat"))
+  li_row <- which(r$parameters$Parameter == "LogIC50")[1]
+  fit$detailed_results[[1]]$parameters$Value[li_row] <-
+    min(fit$detailed_results[[1]]$data$log_inhibitor, na.rm = TRUE) - 5
+
+  gg <- suppressWarnings(plot_dose_response(fit, compound_index = 1,
+                                            verbose = FALSE))
+  expect_length(vline_xintercepts(gg), 0L)
 })
 
 test_that("Fix C: show_display_overrides=TRUE drops the vline for flat curve", {

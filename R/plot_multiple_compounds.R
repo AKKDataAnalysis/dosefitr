@@ -1439,6 +1439,46 @@ plot_multiple_compounds <- function(results,
         )
       }
 
+      # Display-only fix (mirrors plot_dose_response()): for flat-classified
+      # compounds the corrected parameter table holds clamp values, not a
+      # data-level curve.  Draw the line flat at the median of the per-dose
+      # mean responses so it sits on the point cluster; the median is robust
+      # to the outliers that triggered the flat classification.
+      .li_multi <- if (!is.null(result$parameters)) result$parameters$Value[3] else NA_real_
+      .li_in_window_multi <- is.finite(.li_multi) &&
+        .li_multi >= x_range[1] && .li_multi <= x_range[2]
+      # A flat classification from an out-of-window IC50 ("IC50 below/above
+      # tested range (N/D)") means a real but non-quantifiable response:
+      # draw the raw-model tendency line instead of the flat data level.
+      .is_flat_multi <- isTRUE(result$curve_type == "flat")
+      .nd_flat_multi <- .is_flat_multi && !is.null(result$curve_quality) &&
+        grepl("IC50 (below|above) tested range", as.character(result$curve_quality))
+      if (.is_flat_multi && !.nd_flat_multi) {
+        conc_means <- tapply(valid_data$response, valid_data$log_inhibitor,
+                             mean, na.rm = TRUE)
+        flat_level <- stats::median(conc_means, na.rm = TRUE)
+        if (is.finite(flat_level)) curve_y <- rep(flat_level, length(x_seq))
+      } else if (.nd_flat_multi || !.li_in_window_multi) {
+        # Out-of-window LogIC50: draw the RAW model as a tendency line
+        # (mirrors plot_dose_response()).  Hard-clipped to the compound's
+        # own point envelope + 10% so a runaway raw fit cannot stretch the
+        # shared panel y-scale; the line stops at the envelope edge.
+        raw_y <- tryCatch(
+          stats::predict(result$model, newdata = data.frame(log_inhibitor = x_seq)),
+          error = function(e) NULL)
+        if (!is.null(raw_y) && all(is.finite(raw_y))) {
+          pr <- range(valid_data$response, na.rm = TRUE)
+          pad <- diff(pr) * 0.10
+          if (!is.finite(pad) || pad <= 0) pad <- max(abs(pr), 1) * 0.10
+          curve_y <- pmin(pmax(as.numeric(raw_y), pr[1] - pad), pr[2] + pad)
+        } else {
+          conc_means <- tapply(valid_data$response, valid_data$log_inhibitor,
+                               mean, na.rm = TRUE)
+          flat_level <- stats::median(conc_means, na.rm = TRUE)
+          if (is.finite(flat_level)) curve_y <- rep(flat_level, length(x_seq))
+        }
+      }
+
       curve_df <- data.frame(
         log_inhibitor = x_seq,
         response = curve_y,
@@ -1955,6 +1995,15 @@ plot_multiple_compounds <- function(results,
       res       <- selected_compounds[[i]]$result
       log_ic50  <- if (!is.null(res$parameters)) res$parameters$Value[3] else NA_real_
       if (is.na(log_ic50) || !is.finite(log_ic50)) return(NULL)
+      # Default suppression (mirrors plot_dose_response()): never draw the
+      # IC50 line for flat-classified compounds (IC50 not defined) or when
+      # the fitted LogIC50 falls outside the compound's tested dose window.
+      if (isTRUE(res$curve_type == "flat")) return(NULL)
+      if (!is.null(res$data) && "log_inhibitor" %in% names(res$data)) {
+        lc <- res$data$log_inhibitor
+        lc <- lc[is.finite(lc)]
+        if (length(lc) > 0 && (log_ic50 < min(lc) || log_ic50 > max(lc))) return(NULL)
+      }
       oi <- override_info[[i]]
       if (isTRUE(show_display_overrides) && (oi$is_nd || oi$above)) return(NULL)
       data.frame(
