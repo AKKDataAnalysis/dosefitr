@@ -372,15 +372,17 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
     # Check Bottom
     if (params[1] < bottom_limits[1] || params[1] > bottom_limits[2] || !is.finite(params[1])) {
       corrections$Bottom <- max(bottom_limits[1], min(bottom_limits[2], exp_min))
-      reasons$Bottom <- sprintf("Biologically implausible (%.2f). Using experimental minimum: %.2f",
-                                params[1], exp_min)
+      reasons$Bottom <- sprintf(
+        "Biologically implausible (%.2f). Using %.2f (experimental min %.2f, allowed [%g, %g])",
+        params[1], corrections$Bottom, exp_min, bottom_limits[1], bottom_limits[2])
     }
     
     # Check Top
     if (params[2] < top_limits[1] || params[2] > top_limits[2] || !is.finite(params[2])) {
       corrections$Top <- max(top_limits[1], min(top_limits[2], exp_max))
-      reasons$Top <- sprintf("Biologically implausible (%.2f). Using experimental maximum: %.2f",
-                             params[2], exp_max)
+      reasons$Top <- sprintf(
+        "Biologically implausible (%.2f). Using %.2f (experimental max %.2f, allowed [%g, %g])",
+        params[2], corrections$Top, exp_max, top_limits[1], top_limits[2])
     }
     
     # Check LogIC50
