@@ -392,52 +392,171 @@ fit_drc_3pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
     if (!assay_type %in% c("nanobret", "viability"))
       return(list(needs_correction = FALSE))
     
-    if (assay_type == "nanobret") {
-      bottom_limits <- if (ctype == "activation") {
-        bottom_limits_nanobret_activation
-      } else {
-        bottom_limits_nanobret_inhibition
-      }
-      top_limits <- if (ctype == "activation") {
-        top_limits_nanobret_activation
-      } else {
-        top_limits_nanobret_inhibition
-      }
-    } else {
-      # viability + normalize=TRUE: normalized scale, small over/undershoot tolerance
-      bottom_limits <- if (ctype == "activation") {
-        bottom_limits_viability_activation
-      } else {
-        bottom_limits_viability_inhibition
-      }
-      top_limits <- if (ctype == "activation") {
-        top_limits_viability_activation
-      } else {
-        top_limits_viability_inhibition
-      }
-    }
-    # logIC50_limits is used directly (function arg).
+    # Plateau limits are no longer consulted here (plateaus are never
+    # censored; mirrors fit_drc_4pl.R).  logIC50_limits is used directly
+    # (function arg).
     
     corrections <- list()
     reasons     <- list()
     
-    if (params[1] < bottom_limits[1] || params[1] > bottom_limits[2] || !is.finite(params[1])) {
-      corrections$Bottom <- max(bottom_limits[1], min(bottom_limits[2], exp_min))
-      reasons$Bottom <- sprintf("Biologically implausible (%.2f). Using %.2f (experimental min %.2f, allowed [%g, %g])", params[1], corrections$Bottom, exp_min, bottom_limits[1], bottom_limits[2])
-    }
-    if (params[2] < top_limits[1] || params[2] > top_limits[2] || !is.finite(params[2])) {
-      corrections$Top <- max(top_limits[1], min(top_limits[2], exp_max))
-      reasons$Top <- sprintf("Biologically implausible (%.2f). Using %.2f (experimental max %.2f, allowed [%g, %g])", params[2], corrections$Top, exp_max, top_limits[1], top_limits[2])
-    }
+    # Bottom/Top plateaus are NO LONGER censored to the plausibility band (see
+    # fit_drc_4pl.R).  A converged fit with a plausible-but-unusual plateau
+    # reports its raw fitted value; only a genuinely DEGENERATE fit (diverged,
+    # or an asymptote outside PLATEAU_EXTREME_LIMITS) is flagged -- and even
+    # then the raw value is reported (flag, don't censor).
+    PLATEAU_EXTREME_LIMITS <- c(-50, 200)
+    
     if (params[3] < logIC50_limits[1] || params[3] > logIC50_limits[2] || !is.finite(params[3])) {
       corrections$LogIC50 <- NA_real_
       reasons$LogIC50 <- sprintf("Biologically implausible (%.2f). Setting to NA.", params[3])
     }
     
+    # FLAG-ONLY degenerate-plateau path (mirrors fit_drc_4pl.R).  Flag a fit
+    # whose plateau diverged or is wildly non-physical, but report the RAW
+    # value (no censoring).  Only handles the case where the plateau is the
+    # SOLE problem; when LogIC50 also needs correction the main path runs.
+    .resp_range <- exp_max - exp_min
+    .asymp_lo <- exp_min - 3 * .resp_range
+    .asymp_hi <- exp_max + 3 * .resp_range
+    .plateau_diverged <- !is.finite(params[1]) || !is.finite(params[2]) ||
+                         params[1] < .asymp_lo || params[1] > .asymp_hi ||
+                         params[2] < .asymp_lo || params[2] > .asymp_hi
+    # The fixed extreme band assumes the normalized 0-100 scale: on raw
+    # (non-normalized) NanoBRET ratios genuine plateaus sit at ~600-700, so
+    # the band would false-flag good fits.  The divergence test above is
+    # scale-free and always applies; the fixed band only fires when
+    # normalize = TRUE.
+    .plateau_extreme <- isTRUE(normalize) &&
+                        ((is.finite(params[1]) && (params[1] < PLATEAU_EXTREME_LIMITS[1] || params[1] > PLATEAU_EXTREME_LIMITS[2])) ||
+                         (is.finite(params[2]) && (params[2] < PLATEAU_EXTREME_LIMITS[1] || params[2] > PLATEAU_EXTREME_LIMITS[2])))
+    if (length(corrections) == 0 && (.plateau_diverged || .plateau_extreme)) {
+      # Compute the REAL edge response (same logic as the main path; mirrors
+      # fit_drc_4pl.R) so the returned check is honest about whether the data
+      # show a genuine response at the highest doses.
+      .doses <- df_clean$log_inhibitor[!is.na(df_clean$log_inhibitor)]
+      .hi_doses  <- utils::tail(sort(unique(.doses)), 2)
+      .edge_mean <- mean(df_clean$response[df_clean$log_inhibitor %in% .hi_doses], na.rm = TRUE)
+      .base_mean <- mean(df_clean$response[!df_clean$log_inhibitor %in% .hi_doses], na.rm = TRUE)
+      .min_effect <- max(0.25 * .resp_range, 0.20 * abs(.base_mean))
+      .edge_response <- if (ctype == "activation") {
+        is.finite(.edge_mean) && is.finite(.base_mean) &&
+          (.edge_mean - .base_mean) > .min_effect
+      } else {
+        is.finite(.edge_mean) && is.finite(.base_mean) &&
+          (.base_mean - .edge_mean) > .min_effect
+      }
+      return(list(
+        corrected_params    = c(params[1:3], if (!is.na(params[3])) 10^params[3] else NA_real_, params[2] - params[1]),
+        corrections_applied = list(),
+        correction_reasons  = list(),
+        needs_correction    = TRUE,
+        fit_diverged        = .plateau_diverged,
+        ic50_outside_range  = !is.finite(params[3]) ||
+                              params[3] < min(.doses) - 1 ||
+                              params[3] > max(.doses) + 1,
+        edge_response_detected = .edge_response,
+        fit_label           = "Fit diverged - implausible plateau",
+        reclassify_flat     = FALSE
+      ))
+    }
+    
+    # Shared fit diagnostics, computed for EVERY fit that reaches this point
+    # (converged, not caught by the degenerate-plateau flag above).  They feed
+    # both the standalone near-flat guard below and the corrections path.
+    doses <- df_clean$log_inhibitor[!is.na(df_clean$log_inhibitor)]
+    resp_range <- exp_max - exp_min
+    asymp_lo <- exp_min - 3 * resp_range
+    asymp_hi <- exp_max + 3 * resp_range
+    fit_diverged <- !is.finite(params[1]) || !is.finite(params[2]) ||
+                    params[1] < asymp_lo || params[1] > asymp_hi ||
+                    params[2] < asymp_lo || params[2] > asymp_hi
+    ic50_outside_range <- !is.finite(params[3]) ||
+                          params[3] < min(doses) - 1 || params[3] > max(doses) + 1
+
+    # Does the data itself show a response at the two highest doses?
+    # Threshold combines the observed data range with a minimum 20% change
+    # relative to the plateau level, so noisy flat data (small range) does
+    # not register as a response.
+    hi_doses  <- utils::tail(sort(unique(doses)), 2)
+    edge_mean <- mean(df_clean$response[df_clean$log_inhibitor %in% hi_doses], na.rm = TRUE)
+    base_mean <- mean(df_clean$response[!df_clean$log_inhibitor %in% hi_doses], na.rm = TRUE)
+    min_effect <- max(0.25 * resp_range, 0.20 * abs(base_mean))
+    edge_response <- if (ctype == "activation") {
+      is.finite(edge_mean) && is.finite(base_mean) &&
+        (edge_mean - base_mean) > min_effect
+    } else {
+      is.finite(edge_mean) && is.finite(base_mean) &&
+        (base_mean - edge_mean) > min_effect
+    }
+
+    # Whole-window trend test: does the observed data show a real
+    # direction-consistent response between the two lowest and the two
+    # highest doses?  Used to distinguish a genuinely flat compound
+    # ("No dose response") from one whose response happens OUTSIDE the
+    # tested window (e.g. an inhibition that is already complete at the
+    # lowest dose -> "IC50 below tested range"), which a diverged or
+    # out-of-range fit otherwise mislabels as inactivity.
+    lo_doses <- utils::head(sort(unique(doses)), 2)
+    lo_mean  <- mean(df_clean$response[df_clean$log_inhibitor %in% lo_doses], na.rm = TRUE)
+    trend_response <- if (ctype == "activation") {
+      is.finite(lo_mean) && is.finite(edge_mean) &&
+        (edge_mean - lo_mean) > min_effect
+    } else {
+      is.finite(lo_mean) && is.finite(edge_mean) &&
+        (lo_mean - edge_mean) > min_effect
+    }
+
+    # Near-flat converged fit guard -- now a STANDALONE step, running the same
+    # tests as the guard in fit_drc_4pl.R but decoupled from the corrections
+    # path.  The 3PL fitter's Hill slope is fixed (+/-1) and its LogIC50
+    # usually sits inside the limits, so `corrections` is typically empty for
+    # a shallow drift over flat data: the converged fit neither diverges nor
+    # trips the plateau band, and without this guard a vehicle-like drift
+    # (e.g. 95 -> 103%) keeps a non-flat curve_type with a numeric IC50
+    # instead of being reclassified flat ("No dose response", IC50 = N/D) the
+    # way the 4PL fitter classifies it.  Genuine partial/shallow curves are
+    # protected twice: by the edge_response test above and by the
+    # fitted-change test here (a real 100 -> 70 curve moves ~30 points across
+    # the tested doses, far above the threshold).
+    hill_for_span <- if (ctype == "activation") 1 else -1
+    fitted_change <- abs(
+      four_param_model(max(doses), params[1], params[2], params[3], hill_for_span) -
+      four_param_model(min(doses), params[1], params[2], params[3], hill_for_span)
+    )
+    near_flat_fit <- is.finite(fitted_change) &&
+                     fitted_change < max(0.25 * resp_range, 0.10 * abs(base_mean))
+
+    # Tight-fit escape: a converged curve that tracks the data closely
+    # (fitted change across the window >= 10x the residual noise AND
+    # R2 >= 0.9) is a real, well-resolved response -- merely shallow or
+    # sitting on a high baseline (e.g. NanoBRET ratios ~650, where
+    # 0.10 x baseline = 67 units dwarfs a genuine 50-unit sigmoid with
+    # ~1-unit noise).  Such fits deserve the parameter correction, not a
+    # flat reclassification.
+    ok_row   <- !is.na(df_clean$log_inhibitor) & !is.na(df_clean$response)
+    fv       <- four_param_model(df_clean$log_inhibitor[ok_row],
+                                 params[1], params[2], params[3], hill_for_span)
+    resid    <- df_clean$response[ok_row] - fv
+    resid_sd <- stats::sd(resid)
+    ss_res   <- sum(resid^2)
+    ss_tot   <- sum((df_clean$response[ok_row] - mean(df_clean$response[ok_row]))^2)
+    r2_fit   <- if (ss_tot > 0) 1 - ss_res / ss_tot else 0
+    tight_fit <- is.finite(resid_sd) && is.finite(fitted_change) &&
+                 fitted_change >= 10 * resid_sd && r2_fit >= 0.9
+
+    if (!fit_diverged && !ic50_outside_range && !edge_response && near_flat_fit && !tight_fit) {
+      return(list(
+        needs_correction       = FALSE,
+        reclassify_flat        = TRUE,
+        fit_diverged           = fit_diverged,
+        ic50_outside_range     = ic50_outside_range,
+        edge_response_detected = edge_response,
+        fit_label              = "No dose response (inactive compound)"
+      ))
+    }
+
     if (length(corrections) > 0) {
       new_p <- params
-      if ("Bottom"  %in% names(corrections)) new_p[1] <- corrections$Bottom
-      if ("Top"     %in% names(corrections)) new_p[2] <- corrections$Top
       if ("LogIC50" %in% names(corrections)) new_p[3] <- corrections$LogIC50
 
       # Classify WHY the correction fired, for a more informative quality
@@ -449,99 +568,10 @@ fit_drc_3pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       #       beyond the data, or LogIC50 landed outside the tested doses),
       #       which typically means the compound is simply inactive, or the
       #       response only begins at the edge of the dose range.
-      doses <- df_clean$log_inhibitor[!is.na(df_clean$log_inhibitor)]
-      resp_range <- exp_max - exp_min
-      asymp_lo <- exp_min - 3 * resp_range
-      asymp_hi <- exp_max + 3 * resp_range
-      fit_diverged <- !is.finite(params[1]) || !is.finite(params[2]) ||
-                      params[1] < asymp_lo || params[1] > asymp_hi ||
-                      params[2] < asymp_lo || params[2] > asymp_hi
-      ic50_outside_range <- !is.finite(params[3]) ||
-                            params[3] < min(doses) - 1 || params[3] > max(doses) + 1
-
-      # Does the data itself show a response at the two highest doses?
-      # Threshold combines the observed data range with a minimum 20% change
-      # relative to the plateau level, so noisy flat data (small range) does
-      # not register as a response.
-      hi_doses  <- utils::tail(sort(unique(doses)), 2)
-      edge_mean <- mean(df_clean$response[df_clean$log_inhibitor %in% hi_doses], na.rm = TRUE)
-      base_mean <- mean(df_clean$response[!df_clean$log_inhibitor %in% hi_doses], na.rm = TRUE)
-      min_effect <- max(0.25 * resp_range, 0.20 * abs(base_mean))
-      edge_response <- if (ctype == "activation") {
-        is.finite(edge_mean) && is.finite(base_mean) &&
-          (edge_mean - base_mean) > min_effect
-      } else {
-        is.finite(edge_mean) && is.finite(base_mean) &&
-          (base_mean - edge_mean) > min_effect
-      }
-
-      # Whole-window trend test: does the observed data show a real
-      # direction-consistent response between the two lowest and the two
-      # highest doses?  Used to distinguish a genuinely flat compound
-      # ("No dose response") from one whose response happens OUTSIDE the
-      # tested window (e.g. an inhibition that is already complete at the
-      # lowest dose -> "IC50 below tested range"), which a diverged or
-      # out-of-range fit otherwise mislabels as inactivity.
-      lo_doses <- utils::head(sort(unique(doses)), 2)
-      lo_mean  <- mean(df_clean$response[df_clean$log_inhibitor %in% lo_doses], na.rm = TRUE)
-      trend_response <- if (ctype == "activation") {
-        is.finite(lo_mean) && is.finite(edge_mean) &&
-          (edge_mean - lo_mean) > min_effect
-      } else {
-        is.finite(lo_mean) && is.finite(edge_mean) &&
-          (lo_mean - edge_mean) > min_effect
-      }
-
-      # Near-flat converged fit guard.  When the fit converged, LogIC50 sits
-      # inside the tested range, and the data show no edge response, the
-      # firing correction is an asymptote of an essentially flat fit resting
-      # just outside the plausibility limits (classic case: a vehicle
-      # control fitted with Bottom ~ 100 on a normalized viability scale,
-      # whose upper limit is 60).  Clamping that asymptote would MANUFACTURE
-      # a sigmoid the data do not support -- the plotted curve would dive
-      # away from points it actually fits.  Keep the converged parameters
-      # and ask the caller to reclassify the curve as flat (no dose
-      # response, so the batch layer reports IC50 as N/D).  Genuine
-      # partial/shallow curves are protected twice: by the edge_response
-      # test above and by the fitted-change test here (a real 100 -> 70
-      # curve moves ~30 points across the tested doses, far above the
-      # threshold).
-      hill_for_span <- if (ctype == "activation") 1 else -1
-      fitted_change <- abs(
-        four_param_model(max(doses), params[1], params[2], params[3], hill_for_span) -
-        four_param_model(min(doses), params[1], params[2], params[3], hill_for_span)
-      )
-      near_flat_fit <- is.finite(fitted_change) &&
-                       fitted_change < max(0.25 * resp_range, 0.10 * abs(base_mean))
-
-      # Tight-fit escape: a converged curve that tracks the data closely
-      # (fitted change across the window >= 10x the residual noise AND
-      # R2 >= 0.9) is a real, well-resolved response -- merely shallow or
-      # sitting on a high baseline (e.g. NanoBRET ratios ~650, where
-      # 0.10 x baseline = 67 units dwarfs a genuine 50-unit sigmoid with
-      # ~1-unit noise).  Such fits deserve the parameter correction, not a
-      # flat reclassification.
-      ok_row   <- !is.na(df_clean$log_inhibitor) & !is.na(df_clean$response)
-      fv       <- four_param_model(df_clean$log_inhibitor[ok_row],
-                                   params[1], params[2], params[3], hill_for_span)
-      resid    <- df_clean$response[ok_row] - fv
-      resid_sd <- stats::sd(resid)
-      ss_res   <- sum(resid^2)
-      ss_tot   <- sum((df_clean$response[ok_row] - mean(df_clean$response[ok_row]))^2)
-      r2_fit   <- if (ss_tot > 0) 1 - ss_res / ss_tot else 0
-      tight_fit <- is.finite(resid_sd) && is.finite(fitted_change) &&
-                   fitted_change >= 10 * resid_sd && r2_fit >= 0.9
-
-      if (!fit_diverged && !ic50_outside_range && !edge_response && near_flat_fit && !tight_fit) {
-        return(list(
-          needs_correction       = FALSE,
-          reclassify_flat        = TRUE,
-          fit_diverged           = fit_diverged,
-          ic50_outside_range     = ic50_outside_range,
-          edge_response_detected = edge_response,
-          fit_label              = "No dose response (inactive compound)"
-        ))
-      }
+      # (Shared diagnostics -- fit_diverged, ic50_outside_range, edge/trend
+      # response, near-flat guard -- are computed once above, before the
+      # corrections path, so the near-flat guard also protects the
+      # corrections-free case.)
 
       fit_label <- if ((fit_diverged || ic50_outside_range) && !edge_response) {
         if (ic50_outside_range && trend_response) {
@@ -602,10 +632,12 @@ fit_drc_3pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
   analyze_single_pair <- function(pair_data, comp_name) {
     # 4.1 Data Preparation
     n_rep_cols <- ncol(pair_data) - 1L
-    df_clean <- stats::na.omit(data.frame(
+    # Drop NA/NaN AND +/-Inf rows (na.omit keeps Inf; see fit_drc_4pl.R).
+    df_all <- data.frame(
       log_inhibitor = rep(pair_data[, 1], n_rep_cols),
       response = as.numeric(unlist(pair_data[, -1]))
-    ))
+    )
+    df_clean <- df_all[is.finite(df_all$log_inhibitor) & is.finite(df_all$response), ]
     
     if (nrow(df_clean) < 4 || stats::sd(df_clean$response, na.rm = TRUE) < 1e-6) {
       if (verbose) warning("Data validation failed for ", comp_name)

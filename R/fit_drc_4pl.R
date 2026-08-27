@@ -348,7 +348,13 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
     list(bottom_limits = bottom_limits, top_limits = top_limits)
   }
 
-  check_biological_plausibility <- function(params, data) {
+  check_biological_plausibility <- function(params, data, include_plateau_flag = TRUE) {
+    # include_plateau_flag = FALSE is used by the constrained-fit recovery
+    # (try_constrained_fit and its caller): a constrained fit is already
+    # confined to the plausibility box by port bounds (or Bottom = 0), so it
+    # is judged by the pre-flag criterion -- parameter corrections only --
+    # keeping the recovery path exactly as it was before the raw-plateau
+    # policy.  The new degenerate-plateau flag applies to RAW fits only.
     if (assay_type == "viability" && !normalize)
       return(list(needs_correction = FALSE))
 
@@ -361,29 +367,23 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
 
     curve_type <- detect_curve_type(data)
 
-    lims <- select_plausibility_limits(curve_type)
-    bottom_limits <- lims$bottom_limits
-    top_limits    <- lims$top_limits
-    # logIC50_limits and hill_slope_limits are used directly (function args).
+    # Plateau limits are no longer consulted here (plateaus are never
+    # censored); they still bound the constrained-fit recovery through
+    # select_plausibility_limits().  logIC50_limits and hill_slope_limits
+    # are used directly (function args).
     
     corrections <- list()
     reasons     <- list()
     
-    # Check Bottom
-    if (params[1] < bottom_limits[1] || params[1] > bottom_limits[2] || !is.finite(params[1])) {
-      corrections$Bottom <- max(bottom_limits[1], min(bottom_limits[2], exp_min))
-      reasons$Bottom <- sprintf(
-        "Biologically implausible (%.2f). Using %.2f (experimental min %.2f, allowed [%g, %g])",
-        params[1], corrections$Bottom, exp_min, bottom_limits[1], bottom_limits[2])
-    }
-    
-    # Check Top
-    if (params[2] < top_limits[1] || params[2] > top_limits[2] || !is.finite(params[2])) {
-      corrections$Top <- max(top_limits[1], min(top_limits[2], exp_max))
-      reasons$Top <- sprintf(
-        "Biologically implausible (%.2f). Using %.2f (experimental max %.2f, allowed [%g, %g])",
-        params[2], corrections$Top, exp_max, top_limits[1], top_limits[2])
-    }
+    # Bottom/Top plateaus are NO LONGER censored to the plausibility band.
+    # A converged fit whose plateau sits outside the tight band (e.g. a real
+    # partial-viability plateau at 84% when the band tops out at 60) is
+    # biologically legitimate: the reported value is the raw fitted value and
+    # the drawn curve tracks the data.  Only a genuinely DEGENERATE fit --
+    # diverged, or an asymptote exploded to a wildly non-physical value
+    # (outside PLATEAU_EXTREME_LIMITS) -- is flagged, and even then the raw
+    # value is reported (flag, don't censor).  See the flag-only path below.
+    PLATEAU_EXTREME_LIMITS <- c(-50, 200)
     
     # Check LogIC50
     if (params[3] < logIC50_limits[1] || params[3] > logIC50_limits[2] || !is.finite(params[3])) {
@@ -398,6 +398,60 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       corrections$HillSlope <- max(hill_slope_limits[1], min(hill_slope_limits[2], default_hill))
       reasons$HillSlope <- sprintf("Biologically implausible (%.2f). Using default: %.2f",
                                    params[4], default_hill)
+    }
+    
+    # FLAG-ONLY degenerate-plateau path.  A plateau is degenerate when the fit
+    # diverged (asymptote beyond exp_min/max +/- 3x range) or the raw value is
+    # wildly non-physical (outside PLATEAU_EXTREME_LIMITS).  Such a fit is
+    # untrustworthy as a whole, so it is flagged -- but the RAW value is
+    # reported (no censoring).  When LogIC50/HillSlope also need correction the
+    # main path below runs instead and applies those corrections; this block
+    # only handles the case where the plateau is the SOLE problem.
+    .resp_range <- exp_max - exp_min
+    .asymp_lo <- exp_min - 3 * .resp_range
+    .asymp_hi <- exp_max + 3 * .resp_range
+    .plateau_diverged <- !is.finite(params[1]) || !is.finite(params[2]) ||
+                         params[1] < .asymp_lo || params[1] > .asymp_hi ||
+                         params[2] < .asymp_lo || params[2] > .asymp_hi
+    # The fixed extreme band assumes the normalized 0-100 scale: on raw
+    # (non-normalized) NanoBRET ratios genuine plateaus sit at ~600-700, so
+    # the band would false-flag good fits.  The divergence test above is
+    # scale-free and always applies; the fixed band only fires when
+    # normalize = TRUE.
+    .plateau_extreme <- isTRUE(normalize) &&
+                        ((is.finite(params[1]) && (params[1] < PLATEAU_EXTREME_LIMITS[1] || params[1] > PLATEAU_EXTREME_LIMITS[2])) ||
+                         (is.finite(params[2]) && (params[2] < PLATEAU_EXTREME_LIMITS[1] || params[2] > PLATEAU_EXTREME_LIMITS[2])))
+    if (include_plateau_flag && length(corrections) == 0 && (.plateau_diverged || .plateau_extreme)) {
+      # Compute the REAL edge response (same logic as the main path) so the
+      # caller's constrained-fit recovery can still fire when the data show a
+      # genuine response at the highest doses (e.g. a potent compound whose
+      # unconstrained fit diverged).  Only truly inactive compounds get
+      # edge_response = FALSE here.
+      .doses <- data$log_inhibitor[!is.na(data$log_inhibitor)]
+      .hi_doses  <- utils::tail(sort(unique(.doses)), 2)
+      .edge_mean <- mean(data$response[data$log_inhibitor %in% .hi_doses], na.rm = TRUE)
+      .base_mean <- mean(data$response[!data$log_inhibitor %in% .hi_doses], na.rm = TRUE)
+      .min_effect <- max(0.25 * .resp_range, 0.20 * abs(.base_mean))
+      .edge_response <- if (curve_type == "activation") {
+        is.finite(.edge_mean) && is.finite(.base_mean) &&
+          (.edge_mean - .base_mean) > .min_effect
+      } else {
+        is.finite(.edge_mean) && is.finite(.base_mean) &&
+          (.base_mean - .edge_mean) > .min_effect
+      }
+      return(list(
+        corrected_params    = c(params[1:4], if (!is.na(params[3])) 10^params[3] else NA_real_, params[2] - params[1]),
+        corrections_applied = list(),
+        correction_reasons  = list(),
+        needs_correction    = TRUE,
+        fit_diverged        = .plateau_diverged,
+        ic50_outside_range  = !is.finite(params[3]) ||
+                              params[3] < min(.doses) - 1 ||
+                              params[3] > max(.doses) + 1,
+        edge_response_detected = .edge_response,
+        fit_label           = "Fit diverged - implausible plateau",
+        reclassify_flat     = FALSE
+      ))
     }
     
     if (length(corrections) > 0) {
@@ -549,7 +603,10 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
     n_rep_cols <- ncol(pair_data) - 1L
     
     df <- data.frame(log_inhibitor = rep(log_inhibitor, n_rep_cols), response = response)
-    df_clean <- stats::na.omit(df)
+    # Drop NA/NaN AND +/-Inf rows: na.omit keeps Inf, and sd() of a vector
+    # containing Inf is NaN, which crashes the validity guard below with
+    # "missing value where TRUE/FALSE needed" (if (... || NA)).
+    df_clean <- df[is.finite(df$log_inhibitor) & is.finite(df$response), ]
     
     if (nrow(df_clean) < 5 || stats::sd(df_clean$response, na.rm = TRUE) < 1e-6) {
       return(list(valid = FALSE, df_clean = df_clean))
@@ -707,7 +764,7 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
     if (!is.null(best)) {
       p <- tryCatch(unname(stats::coef(best)), error = function(e) NULL)
       if (!is.null(p) && length(p) == 4 && !any(is.na(p)) &&
-          !isTRUE(check_biological_plausibility(p, df_clean)$needs_correction)) {
+          !isTRUE(check_biological_plausibility(p, df_clean, include_plateau_flag = FALSE)$needs_correction)) {
         return(list(fit = best, method = "bounds"))
       }
     }
@@ -742,7 +799,7 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
 
     p2 <- tryCatch(unname(stats::coef(best2)), error = function(e) NULL)
     if (is.null(p2) || length(p2) != 3 || any(is.na(p2))) return(NULL)
-    if (!isTRUE(check_biological_plausibility(c(0, p2), df_clean)$needs_correction)) {
+    if (!isTRUE(check_biological_plausibility(c(0, p2), df_clean, include_plateau_flag = FALSE)$needs_correction)) {
       return(list(fit = best2, method = "bottom_fixed"))
     }
     NULL
@@ -1041,7 +1098,7 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
         if (cf$method == "bottom_fixed") cf_params <- c(0, cf_params)
         cf_order <- correct_parameter_order(cf_params, prepared$df_clean, curve_type)
         if (cf_order$was_corrected) cf_params <- cf_order$corrected_params
-        cf_check <- check_biological_plausibility(cf_params, prepared$df_clean)
+        cf_check <- check_biological_plausibility(cf_params, prepared$df_clean, include_plateau_flag = FALSE)
         if (!isTRUE(cf_check$needs_correction)) {
           # Accept the constrained fit: rebuild all derived quantities
           fit <- cf$fit
@@ -1080,9 +1137,17 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
     # Apply corrections if needed
     if (plausibility_check$needs_correction) {
       if (verbose) {
-        cat("Biological plausibility correction for ", comp_name, ":\n", sep = "")
-        for (param in names(plausibility_check$correction_reasons)) {
-          cat("  - ", param, ": ", plausibility_check$correction_reasons[[param]], "\n", sep = "")
+        if (length(plausibility_check$corrections_applied) == 0) {
+          # Degenerate-plateau flag: nothing is censored -- the RAW fitted
+          # values are reported and the whole fit is marked untrustworthy.
+          cat("Fit quality flag for ", comp_name, ": ",
+              plausibility_check$fit_label %||% "Fit diverged - implausible plateau",
+              " (reporting raw fitted values)\n", sep = "")
+        } else {
+          cat("Biological plausibility correction for ", comp_name, ":\n", sep = "")
+          for (param in names(plausibility_check$correction_reasons)) {
+            cat("  - ", param, ": ", plausibility_check$correction_reasons[[param]], "\n", sep = "")
+          }
         }
       }
       final_params <- plausibility_check$corrected_params

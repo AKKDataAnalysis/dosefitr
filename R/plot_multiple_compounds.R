@@ -1460,14 +1460,6 @@ plot_multiple_compounds <- function(results,
       .is_flat_multi <- isTRUE(result$curve_type == "flat")
       .nd_flat_multi <- .is_flat_multi && !is.null(result$curve_quality) &&
         grepl("IC50 (below|above) tested range", as.character(result$curve_quality))
-      # Plateau-clamp handling (GraphPad match; mirrors plot_dose_response()):
-      # when the plausibility check clamped a plateau on an in-window, non-flat
-      # fit, the clamped curve dives off the data while the raw nls curve tracks
-      # the points.  Detect it here; redraw (clipped) in the chain below.
-      .bpc_multi <- result$biological_plausibility_check
-      .plateau_clamped_multi <- !is.null(.bpc_multi) &&
-        !is.null(.bpc_multi$corrections_applied) &&
-        any(c("Bottom", "Top") %in% names(.bpc_multi$corrections_applied))
       if (.is_flat_multi && !.nd_flat_multi) {
         conc_means <- tapply(valid_data$response, valid_data$log_inhibitor,
                              mean, na.rm = TRUE)
@@ -1491,24 +1483,6 @@ plot_multiple_compounds <- function(results,
                                mean, na.rm = TRUE)
           flat_level <- stats::median(conc_means, na.rm = TRUE)
           if (is.finite(flat_level)) curve_y <- rep(flat_level, length(x_seq))
-        }
-      } else if (.plateau_clamped_multi &&
-                 !isTRUE(.bpc_multi$fit_diverged) && inherits(result$model, "nls")) {
-        # Plateau clamped on an in-window, non-flat fit: the clamped curve
-        # dives off the data, the raw nls curve tracks the points (GraphPad
-        # behaviour).  Redraw from the raw model, hard-clipped to this
-        # compound's own point envelope + 10% so a runaway raw fit cannot
-        # stretch the shared panel y-scale (mirrors the out-of-window
-        # tendency safeguard).  Redraw only when the raw prediction is finite;
-        # otherwise keep the clamped curve.
-        raw_y <- tryCatch(
-          stats::predict(result$model, newdata = data.frame(log_inhibitor = x_seq)),
-          error = function(e) NULL)
-        if (!is.null(raw_y) && all(is.finite(raw_y))) {
-          pr <- range(valid_data$response, na.rm = TRUE)
-          pad <- diff(pr) * 0.10
-          if (!is.finite(pad) || pad <= 0) pad <- max(abs(pr), 1) * 0.10
-          curve_y <- pmin(pmax(as.numeric(raw_y), pr[1] - pad), pr[2] + pad)
         }
       }
 

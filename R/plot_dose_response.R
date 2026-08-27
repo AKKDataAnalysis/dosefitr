@@ -656,15 +656,6 @@ y_label_fun <- switch(
   .is_flat <- isTRUE(result$curve_type == "flat")
   .nd_flat <- .is_flat && !is.null(result$curve_quality) &&
     grepl("IC50 (below|above) tested range", as.character(result$curve_quality))
-  # Plateau-clamp handling (GraphPad match): when the biological-plausibility
-  # check clamped a plateau (Bottom and/or Top) on an in-window, non-flat fit,
-  # the corrected (clamped) curve dives off the data while the RAW nls curve
-  # tracks the points -- the curve GraphPad draws.  Detect it here; the redraw
-  # happens in the branch chain below, gated so a diverged raw fit keeps the
-  # clamped curve.  NULL-safe for legacy result objects.
-  .bpc <- result$biological_plausibility_check
-  .plateau_clamped <- !is.null(.bpc) && !is.null(.bpc$corrections_applied) &&
-    any(c("Bottom", "Top") %in% names(.bpc$corrections_applied))
   if (!is.null(curve_data) && .is_flat && !.nd_flat) {
     # Flat classification ("no dose response"): draw the data level.
     flat_level <- stats::median(summary_data$mean_response, na.rm = TRUE)
@@ -687,22 +678,6 @@ y_label_fun <- switch(
     } else {
       flat_level <- stats::median(summary_data$mean_response, na.rm = TRUE)
       if (is.finite(flat_level)) curve_data$response <- flat_level
-    }
-  } else if (!is.null(curve_data) && .plateau_clamped &&
-             !isTRUE(.bpc$fit_diverged) && inherits(result$model, "nls")) {
-    # Plateau clamped on an in-window, non-flat fit (e.g. Bottom clamped to
-    # 60 under points near 100).  The clamped curve dives off the data; the
-    # RAW nls curve tracks the points, matching GraphPad.  Redraw from the
-    # raw model.  NOT flagged as a tendency line: the raw curve tracks the
-    # data and is included in the auto y-range.  Redraw only when the raw
-    # prediction is finite; otherwise keep the clamped curve so a degenerate
-    # fit cannot produce a step artifact.
-    raw_y <- tryCatch(
-      stats::predict(result$model,
-                     newdata = data.frame(log_inhibitor = curve_data$log_inhibitor)),
-      error = function(e) NULL)
-    if (!is.null(raw_y) && all(is.finite(raw_y))) {
-      curve_data$response <- as.numeric(raw_y)
     }
   }
   log_ic50 <- if (model_success) get_ic50_value(result) else NA
