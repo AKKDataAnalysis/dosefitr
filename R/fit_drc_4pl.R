@@ -1246,7 +1246,7 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
         Top = round(params[2], 3),
         LogIC50 = if (!apply_threshold) round(params[3], 3) else NA_real_,
         HillSlope = if (!apply_threshold) round(params[4], 3) else NA_real_,
-        IC50 = if (!apply_threshold) format(params[5], scientific = TRUE) else NA_character_,
+        IC50 = if (!apply_threshold) fmt_adaptive(params[5]) else NA_character_,
         Bottom_Lower_95CI = if (!is.na(ci$Bottom_Lower)) round(ci$Bottom_Lower, 3) else NA_real_,
         Bottom_Upper_95CI = if (!is.na(ci$Bottom_Upper)) round(ci$Bottom_Upper, 3) else NA_real_,
         Top_Lower_95CI = if (!is.na(ci$Top_Lower)) round(ci$Top_Lower, 3) else NA_real_,
@@ -1255,8 +1255,8 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
         LogIC50_Upper_95CI = if (!apply_threshold && !is.na(ci$LogIC50[2])) round(ci$LogIC50[2], 3) else NA_real_,
         HillSlope_Lower_95CI = if (!apply_threshold && !is.na(ci$HillSlope[1])) round(ci$HillSlope[1], 3) else NA_real_,
         HillSlope_Upper_95CI = if (!apply_threshold && !is.na(ci$HillSlope[2])) round(ci$HillSlope[2], 3) else NA_real_,
-        IC50_Lower_95CI = if (!apply_threshold && !is.na(ci$IC50[1])) format(ci$IC50[1], scientific = TRUE) else NA_character_,
-        IC50_Upper_95CI = if (!apply_threshold && !is.na(ci$IC50[2])) format(ci$IC50[2], scientific = TRUE) else NA_character_,
+        IC50_Lower_95CI = if (!apply_threshold && !is.na(ci$IC50[1])) fmt_adaptive(ci$IC50[1]) else NA_character_,
+        IC50_Upper_95CI = if (!apply_threshold && !is.na(ci$IC50[2])) fmt_adaptive(ci$IC50[2]) else NA_character_,
         Span = round(params[6], 3), 
         R_squared = round(gof$R_squared, 3),
         Syx = round(gof$Syx, 3), 
@@ -1382,6 +1382,7 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       
       openxlsx::addWorksheet(wb, "Summary")
       openxlsx::writeData(wb, "Summary", summary_table)
+      add_plain_numfmt(wb, "Summary", summary_table)
       
       openxlsx::addWorksheet(wb, "Normalized_Data")
       openxlsx::writeData(wb, "Normalized_Data", normalized_data)

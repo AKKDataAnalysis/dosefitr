@@ -993,8 +993,10 @@ batch_drc_analysis <- function(batch_results,
     
     openxlsx::addWorksheet(wb_details, "Summary")
     openxlsx::writeData(wb_details, "Summary", summary_data)
+    add_plain_numfmt(wb_details, "Summary", summary_data)
     openxlsx::addWorksheet(wb_details, "All_Results")
     if (nrow(all_results_combined) > 0) openxlsx::writeData(wb_details, "All_Results", all_results_combined)
+    add_plain_numfmt(wb_details, "All_Results", all_results_combined)
     openxlsx::addWorksheet(wb_details, "Curve_Quality")
     if (nrow(quality_combined) > 0) openxlsx::writeData(wb_details, "Curve_Quality", quality_combined)
     
@@ -1006,6 +1008,7 @@ batch_drc_analysis <- function(batch_results,
       used_sheet_names <- c(used_sheet_names, sheet_sum)
       openxlsx::addWorksheet(wb_details, sheet_sum)
       openxlsx::writeData(wb_details, sheet_sum, plate_res_obj$drc_result$summary_table)
+      add_plain_numfmt(wb_details, sheet_sum, plate_res_obj$drc_result$summary_table)
       
       if (!is.null(plate_res_obj$data_tables$raw_data)) {
         sheet_raw <- get_safe_sheet_name(plate_name, "_raw", used_sheet_names)
@@ -1309,7 +1312,7 @@ batch_drc_analysis <- function(batch_results,
               plate_drc_result$summary_table$Top[.row_idx]      <- round(.getp("Top"), 3)
               plate_drc_result$summary_table$`LogIC50/LogEC50`[.row_idx] <- round(.getp("LogIC50"), 3)
               plate_drc_result$summary_table$`IC50/EC50`[.row_idx]       <-
-                if (is.na(.ic50_num)) "N/D" else format(.ic50_num, scientific = TRUE)
+                if (is.na(.ic50_num)) "N/D" else fmt_adaptive(.ic50_num)
               plate_drc_result$summary_table$Span[.row_idx]     <- round(.getp("Span"), 3)
             }
             # Also update CI columns from the second-pass fit
@@ -1322,9 +1325,9 @@ batch_drc_analysis <- function(batch_results,
               if ("LogIC50/LogEC50_Upper_95CI" %in% .st_names)
                 plate_drc_result$summary_table$`LogIC50/LogEC50_Upper_95CI`[.row_idx] <- round(.ci_hi, 3)
               if ("IC50/EC50_Lower_95CI" %in% .st_names)
-                plate_drc_result$summary_table$`IC50/EC50_Lower_95CI`[.row_idx] <- format(10^.ci_lo, scientific = TRUE)
+                plate_drc_result$summary_table$`IC50/EC50_Lower_95CI`[.row_idx] <- fmt_adaptive(10^.ci_lo)
               if ("IC50/EC50_Upper_95CI" %in% .st_names)
-                plate_drc_result$summary_table$`IC50/EC50_Upper_95CI`[.row_idx] <- format(10^.ci_hi, scientific = TRUE)
+                plate_drc_result$summary_table$`IC50/EC50_Upper_95CI`[.row_idx] <- fmt_adaptive(10^.ci_hi)
             }
             .gof <- .res2$goodness_of_fit
             if (!is.null(.gof)) {
@@ -1363,6 +1366,7 @@ batch_drc_analysis <- function(batch_results,
           # Sheet 2: Summary (one row per compound)
           openxlsx::addWorksheet(wb_plate, "Summary")
           openxlsx::writeData(wb_plate, "Summary", plate_drc_result$summary_table)
+          add_plain_numfmt(wb_plate, "Summary", plate_drc_result$summary_table)
           
           # Sheet 3: Normalized_Data
           openxlsx::addWorksheet(wb_plate, "Normalized_Data")

@@ -961,12 +961,7 @@ fit_drc_3pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
   # 7. SUMMARY GENERATION
   # ============================================================================
   
-  # Formatting functions
-  fmt_sci <- function(x) {
-    if (is.null(x) || is.na(x)) return(NA_character_)
-    format(x, scientific = TRUE)
-  }
-  
+  # Formatting functions (fmt_adaptive lives in shared_fit_strategy.R)
   fmt_rd <- function(x, d = 3) {
     if (is.null(x) || is.na(x)) return(NA_real_)
     round(x, d)
@@ -1014,7 +1009,7 @@ fit_drc_3pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       Bottom = fmt_rd(p[1]),
       Top = fmt_rd(p[2]),
       LogIC50 = if (!apply_thresh) fmt_rd(p[3]) else NA_real_,
-      IC50 = if (!apply_thresh) fmt_sci(p[4]) else NA_character_,
+      IC50 = if (!apply_thresh) fmt_adaptive(p[4]) else NA_character_,
       
       Bottom_Lower_95CI = fmt_rd(ci$Bottom_Lower),
       Bottom_Upper_95CI = fmt_rd(ci$Bottom_Upper),
@@ -1023,8 +1018,8 @@ fit_drc_3pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       
       LogIC50_Lower_95CI = if (!apply_thresh) fmt_rd(ci$LogIC50[1]) else NA_real_,
       LogIC50_Upper_95CI = if (!apply_thresh) fmt_rd(ci$LogIC50[2]) else NA_real_,
-      IC50_Lower_95CI = if (!apply_thresh) fmt_sci(ci$IC50[1]) else NA_character_,
-      IC50_Upper_95CI = if (!apply_thresh) fmt_sci(ci$IC50[2]) else NA_character_,
+      IC50_Lower_95CI = if (!apply_thresh) fmt_adaptive(ci$IC50[1]) else NA_character_,
+      IC50_Upper_95CI = if (!apply_thresh) fmt_adaptive(ci$IC50[2]) else NA_character_,
       
       Span = fmt_rd(p[5]),
       R_squared = fmt_rd(gof$R_squared),
@@ -1126,6 +1121,7 @@ fit_drc_3pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
       # Sheet 2: Summary (Detailed)
       openxlsx::addWorksheet(wb, "Summary")
       openxlsx::writeData(wb, "Summary", summary_table)
+      add_plain_numfmt(wb, "Summary", summary_table)
       
       # Sheet 3: Normalized_Data
       openxlsx::addWorksheet(wb, "Normalized_Data")

@@ -240,3 +240,31 @@ detect_curve_type_shared <- function(data) {
   if (final_avg > initial_avg + threshold) return("activation")
   "flat"
 }
+
+# ============================================================================
+# Adaptive number formatting for report tables
+# ============================================================================
+
+# Plain notation for values in [1e-3, 1e7), scientific only outside;
+# always 4 significant digits. Used for IC50/EC50 and its CI columns.
+fmt_adaptive <- function(x, d = 4) {
+  if (is.null(x) || length(x) == 0 || is.na(x)) return(NA_character_)
+  if (abs(x) >= 1e-3 && abs(x) < 1e7) {
+    format(signif(x, d), scientific = FALSE, trim = TRUE)
+  } else {
+    format(signif(x, d), scientific = TRUE, trim = TRUE)
+  }
+}
+
+# Apply a plain (non-scientific) Excel number format to the numeric columns
+# of a data frame already written to a sheet. Excel's default "General"
+# format auto-switches to scientific notation for very small/large values.
+add_plain_numfmt <- function(wb, sheet, df, numFmt = "0.############") {
+  if (is.null(df) || !is.data.frame(df) || nrow(df) == 0) return(invisible(wb))
+  num_cols <- which(vapply(df, is.numeric, logical(1)))
+  if (length(num_cols) == 0) return(invisible(wb))
+  st <- openxlsx::createStyle(numFmt = numFmt)
+  openxlsx::addStyle(wb, sheet, style = st, rows = 1 + seq_len(nrow(df)),
+                     cols = num_cols, gridExpand = TRUE, stack = TRUE)
+  invisible(wb)
+}
