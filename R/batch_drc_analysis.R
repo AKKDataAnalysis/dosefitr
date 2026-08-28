@@ -1232,7 +1232,7 @@ batch_drc_analysis <- function(batch_results,
         # Rebuild final_summary_table from updated summary_table
         st <- plate_drc_result$summary_table
         if (nrow(st) > 0) {
-          t_data <- as.data.frame(t(st[, -1, drop = FALSE]))
+          t_data <- as.data.frame(t(plain_for_transpose(st[, -1, drop = FALSE])))
           colnames(t_data) <- st$Compound
           plate_drc_result$final_summary_table <- t_data
         }
@@ -1338,7 +1338,7 @@ batch_drc_analysis <- function(batch_results,
           # Rebuild transposed final_summary_table
           .st2 <- plate_drc_result$summary_table
           if (nrow(.st2) > 0L) {
-            .td2 <- as.data.frame(t(.st2[, -1, drop = FALSE]))
+            .td2 <- as.data.frame(t(plain_for_transpose(.st2[, -1, drop = FALSE])))
             colnames(.td2) <- .st2$Compound
             plate_drc_result$final_summary_table <- .td2
           }

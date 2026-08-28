@@ -1040,7 +1040,7 @@ fit_drc_3pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
   if (nrow(summary_table) == 0) {
     final_summary_table <- data.frame()
   } else {
-    t_data <- as.data.frame(t(summary_table[, -1]))
+    t_data <- as.data.frame(t(plain_for_transpose(summary_table[, -1])))
     colnames(t_data) <- summary_table$Compound
     final_summary_table <- t_data
   }

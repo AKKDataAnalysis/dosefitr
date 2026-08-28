@@ -1285,7 +1285,7 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
   # Create final_summary_table (transposed version)
   if (nrow(summary_table) > 0) {
     compound_names <- summary_table$Compound
-    transposed_data <- as.data.frame(t(summary_table[, -1]))
+    transposed_data <- as.data.frame(t(plain_for_transpose(summary_table[, -1])))
     colnames(transposed_data) <- compound_names
     final_summary_table <- transposed_data
     

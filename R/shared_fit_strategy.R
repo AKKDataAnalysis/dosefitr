@@ -268,3 +268,21 @@ add_plain_numfmt <- function(wb, sheet, df, numFmt = "0.############") {
                      cols = num_cols, gridExpand = TRUE, stack = TRUE)
   invisible(wb)
 }
+
+# Convert a summary-table subset to plain (non-scientific) character columns
+# BEFORE transposing. t() coerces a mixed-type data.frame via as.matrix(),
+# which formats numeric columns with format() PER COLUMN; when one value in a
+# column is extreme (e.g. a diverged-fit CI like -3.8e8), format() switches the
+# ENTIRE column to scientific notation, so ordinary values such as 60.605 are
+# written as "6.060500e+01" in the transposed Final_Summary sheet. Pre-formatting
+# each numeric column with format(scientific = FALSE, trim = TRUE) keeps every
+# value in plain decimal notation and matches the Summary sheet exactly.
+plain_for_transpose <- function(df) {
+  as.data.frame(lapply(df, function(col) {
+    if (is.numeric(col)) {
+      ifelse(is.na(col), NA_character_, format(col, scientific = FALSE, trim = TRUE))
+    } else {
+      as.character(col)
+    }
+  }), stringsAsFactors = FALSE)
+}
