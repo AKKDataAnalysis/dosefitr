@@ -799,7 +799,19 @@ test_that("batch v2 rejects a non-finite fixed 0% value", {
   )
 })
 
-test_that("process_viability_data_v2 is exported in NAMESPACE", {
-  # Guards against the export being dropped; the function must be visible.
-  expect_true(exists("process_viability_data_v2", mode = "function"))
+test_that("versioned processors are internal: namespace-visible but not exported", {
+  # API consolidation for Bioconductor: the versioned processors are internal
+  # helpers dispatched by batch_ratio_analysis()/batch_viability_analysis().
+  # They must remain reachable from inside the package (and from tests) but
+  # must not appear in the exported API.
+  internals <- c(
+    "process_viability_data", "process_viability_data_v2",
+    "process_viability_data_v3", "ratio_dose_response",
+    "ratio_dose_response_v2"
+  )
+  exports <- getNamespaceExports("dosefitr")
+  for (fn in internals) {
+    expect_true(exists(fn, mode = "function"))
+    expect_false(fn %in% exports)
+  }
 })

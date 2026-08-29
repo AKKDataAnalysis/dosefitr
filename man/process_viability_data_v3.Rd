@@ -129,7 +129,7 @@ convention. In v3:
 }
 \examples{
 stopifnot(requireNamespace("dosefitr", quietly = TRUE))
-\donttest{
+\dontrun{
 # v3 targets a 96-well plate (rows A-H, cols 1-12) with row-based replicates.
 # The bundled fixtures are 384-well, so we build a small synthetic plate here.
 n_hdr <- 12L
@@ -179,3 +179,4 @@ dim(out$modified_table)
 layout) and \code{\link{batch_viability_analysis}} (use
 \code{version = "v3"} to dispatch to this function).
 }
+\keyword{internal}

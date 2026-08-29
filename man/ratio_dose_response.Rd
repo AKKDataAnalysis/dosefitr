@@ -134,7 +134,7 @@ The input data should be **raw experimental measurements** with:
 
 \examples{
 stopifnot(requireNamespace("dosefitr", quietly = TRUE))
-\donttest{
+\dontrun{
 extdata_dir <- system.file("extdata", package = "dosefitr")
 plate_file  <- file.path(extdata_dir, "nanobret_plate_01.xlsx")
 info_table  <- openxlsx::read.xlsx(
@@ -165,3 +165,4 @@ For raw data processing in dose-response assays:
 \code{\link{fit_drc_3pl}} for the next step in the analysis pipeline
 \code{\link{plot_dose_response}} for visualization of processed data
 }
+\keyword{internal}

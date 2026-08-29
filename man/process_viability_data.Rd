@@ -122,7 +122,7 @@ regardless of subsetting.
 }
 \examples{
 stopifnot(requireNamespace("dosefitr", quietly = TRUE))
-\donttest{
+\dontrun{
 extdata_dir <- system.file("extdata", package = "dosefitr")
 plate_file  <- file.path(extdata_dir, "viability_plate_01.xlsx")
 info_table  <- openxlsx::read.xlsx(
@@ -143,3 +143,4 @@ dim(out$modified_table)
 
 
 }
+\keyword{internal}

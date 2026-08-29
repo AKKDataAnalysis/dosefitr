@@ -165,7 +165,7 @@ When both controls and `info_table` are provided, the function computes:
 
 \examples{
 stopifnot(requireNamespace("dosefitr", quietly = TRUE))
-\donttest{
+\dontrun{
 extdata_dir <- system.file("extdata", package = "dosefitr")
 plate_file  <- file.path(extdata_dir, "nanobret_plate_01.xlsx")
 info_table  <- openxlsx::read.xlsx(
@@ -187,3 +187,4 @@ dim(out$modified_ratio_table)
 \seealso{
 Useful for downstream dose-response modeling and outlier detection pipelines.
 }
+\keyword{internal}

@@ -149,7 +149,7 @@
 #'
 #' @examples
 #' stopifnot(requireNamespace("dosefitr", quietly = TRUE))
-#' \donttest{
+#' \dontrun{
 #' # v2 uses a fixed 0% scalar for the 0% baseline and averages user-chosen
 #' # column(s) for the 100% control. No bundled fixtures are needed: build a
 #' # small synthetic 96-well plate (rows A-H, columns 1-12) here. As in the real
@@ -208,7 +208,7 @@
 #' out$modified_table[nrow(out$modified_table), 1:3] # Mean_100perc row
 #' }
 #' @importFrom stats sd
-#' @export
+#' @keywords internal
 
 process_viability_data_v2 <- function(data,
                                       control_0perc       = NULL,

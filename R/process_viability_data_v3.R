@@ -102,7 +102,7 @@
 #'
 #' @examples
 #' stopifnot(requireNamespace("dosefitr", quietly = TRUE))
-#' \donttest{
+#' \dontrun{
 #' # v3 targets a 96-well plate (rows A-H, cols 1-12) with row-based replicates.
 #' # The bundled fixtures are 384-well, so we build a small synthetic plate here.
 #' n_hdr <- 12L
@@ -147,7 +147,7 @@
 #' dim(out$modified_table)
 #' }
 #' @importFrom stats ave
-#' @export
+#' @keywords internal
 
 process_viability_data_v3 <- function(data,
                                       control_0perc       = NULL,

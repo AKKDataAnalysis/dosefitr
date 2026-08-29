@@ -1,9 +1,12 @@
 # -----------------------------------------------------------------------------
-# test-display-consistency.R -- IC50/plot consistency fixes (Fix A / B / C)
+# test-display-consistency.R -- IC50/plot consistency fixes + raw-plateau policy
 # -----------------------------------------------------------------------------
 #
 # Regression tests for the three optional fixes documented in
-# report_ic50_plot_consistency.md:
+# report_ic50_plot_consistency.md, plus the raw-plateau policy tests at the
+# bottom of the file (reported Bottom/Top are ALWAYS the raw fitted values;
+# degenerate fits are flagged "Fit diverged - implausible plateau", never
+# censored):
 #
 #   Fix A  Vertical IC50 line source in plot_dose_response() reads the
 #          *corrected* LogIC50 from result$parameters (not the raw drm coef),
@@ -61,11 +64,12 @@ clean_responses <- function() {
   b + (t - b) / (1 + 10^(x - li))
 }
 
-# A "wild" outlier response set that forces Bottom correction.  Raw drm
-# Bottom would fit at ~7.5e5; the biological-plausibility guard caps it at
-# 50 (the mean of the surrounding data).  detect_curve_type() classifies
-# this as "flat" because the noise-aware threshold dominates the
-# head-vs-tail-3 mean difference.
+# A "wild" outlier response set whose unconstrained 3PL fit DIVERGES (raw
+# Bottom ~ 1.05e6, far beyond the observed range +/- 3x).  Under the
+# raw-plateau policy the fit is flagged "Fit diverged - implausible plateau"
+# and the raw value is reported (flag, don't censor).
+# detect_curve_type() classifies this as "flat" because the noise-aware
+# threshold dominates the head-vs-tail-3 mean difference.
 wild_outlier_responses <- function() {
   r <- rep(50, 12); r[1] <- 200; r
 }
@@ -165,15 +169,20 @@ test_that("Fix A: vline is suppressed by default when the fit is classified flat
 # --- Fix B -------------------------------------------------------------------
 
 test_that("Fix B: flat-classified curve is drawn flat at the median response", {
-  # Wild outlier: raw drm predict() previously produced y = 45..186 across
-  # the fitted range, and drawing from the corrected parameter table put the
-  # line at the clamp values instead of on the data.  For flat-classified
-  # fits the plot now draws a horizontal line at the median of the per-dose
-  # mean responses -- the median is robust to the very outliers that
-  # triggered the flat classification.
+  # Wild outlier: the unconstrained fit diverges (raw Bottom ~ 1.05e6) and is
+  # flagged "Fit diverged - implausible plateau" -- the raw value is reported
+  # (flag, don't censor).  For flat-classified fits the plot draws a
+  # horizontal line at the median of the per-dose mean responses -- the
+  # median is robust to the very outliers that triggered the flat
+  # classification.
   fit <- fit_one(wild_outlier_responses())
   r <- fit$detailed_results[[1]]
-  expect_true(isTRUE(r$biological_plausibility_check$needs_correction))
+  bpc <- r$biological_plausibility_check
+  expect_true(isTRUE(bpc$needs_correction))
+  expect_length(bpc$corrections_applied, 0L)
+  expect_true(isTRUE(bpc$fit_diverged))
+  expect_match(r$curve_quality, "Fit diverged - implausible plateau", fixed = TRUE)
+  expect_gt(abs(unname(r$parameters$Value[1])), 1e5)
   expect_true(isTRUE(r$curve_type == "flat"))
 
   gg <- suppressWarnings(plot_dose_response(fit, compound_index = 1,
@@ -206,19 +215,30 @@ test_that("Fix B: clean fit still uses predict() and stays finite", {
               info = sprintf("clean y range = [%.3f, %.3f]", min(ys), max(ys)))
 })
 
-test_that("Fix B: N/D-reclassified flat fit draws a raw-model tendency line", {
-  # A flat classification that comes from an out-of-window IC50 ("IC50
-  # below/above tested range (N/D)") means a real response exists but is not
-  # quantifiable in-window.  The plot draws the RAW model as a tendency line
-  # (following the points) instead of the flat data level; the IC50 vline
-  # stays suppressed because the IC50 is still N/D.  The fixture rises
-  # sharply at the low-concentration edge (steeper than the fixed unit Hill
-  # slope can fit in-window), which drives LogIC50 below the tested range.
+test_that("Fix B: diverged out-of-window fit is flagged and draws a raw-model tendency line", {
+  # The fixture rises sharply at the low-concentration edge (steeper than the
+  # fixed unit Hill slope can fit in-window), so the unconstrained 3PL fit
+  # diverges (raw Top ~ 3.5e5) with LogIC50 below the tested range.  Under
+  # the raw-plateau policy the fit is flagged "Fit diverged - implausible
+  # plateau" and reported raw -- NOT reclassified flat and NOT censored.
+  # (Pre-policy this fixture was relabelled "IC50 below tested range (N/D)"
+  # via the plateau clamp; the N/D labels now require a LogIC50/HillSlope
+  # correction to fire, which clean synthetic shapes no longer trigger.)
+  # The plot draws the RAW model as a tendency line (following the points)
+  # instead of the flat data level; the IC50 vline stays suppressed because
+  # the fitted LogIC50 is outside the dose window.
   nd_below <- c(20, 20, 21, 20, 21, 20, 21, 20, 21, 22, 40, 95)
   fit <- fit_one(nd_below)
   r <- fit$detailed_results[[1]]
-  expect_true(isTRUE(r$curve_type == "flat"))
-  expect_match(r$curve_quality, "IC50 below tested range")
+  bpc <- r$biological_plausibility_check
+  expect_true(isTRUE(bpc$needs_correction))
+  expect_length(bpc$corrections_applied, 0L)
+  expect_true(isTRUE(bpc$fit_diverged))
+  expect_match(r$curve_quality, "Fit diverged - implausible plateau", fixed = TRUE)
+  # Flag, don't censor: the raw diverged Top is reported, and the curve type
+  # is left alone (no flat reclassification).
+  expect_gt(abs(unname(r$parameters$Value[2])), 1e5)
+  expect_false(isTRUE(r$curve_type == "flat"))
 
   gg <- suppressWarnings(plot_dose_response(fit, compound_index = 1,
                                             verbose = FALSE))
@@ -239,14 +259,16 @@ test_that("Fix B: N/D-reclassified flat fit draws a raw-model tendency line", {
   raw_at <- as.numeric(stats::predict(r$model,
                                       newdata = data.frame(log_inhibitor = xs)))
   expect_lt(max(abs(drawn_at - raw_at)), 2)
-  # IC50 vline stays suppressed (the IC50 is still N/D).
+  # IC50 vline stays suppressed (the fitted LogIC50 is out of window).
   expect_length(vline_xintercepts(gg), 0L)
 })
 
-test_that("plot_multiple_compounds Fix B: N/D-flat compound draws tendency line", {
-  # Same rule in the batch plotter: an N/D-reclassified flat compound gets
-  # the raw-model tendency line (clipped to its point envelope), while a
-  # genuine no-response flat compound keeps the flat data-level line.
+test_that("plot_multiple_compounds Fix B: diverged out-of-window compound draws tendency line", {
+  # Same rule in the batch plotter: a diverged out-of-window compound (raw
+  # Top exploded, LogIC50 below the tested range, flagged "Fit diverged -
+  # implausible plateau") gets the raw-model tendency line (excluded from the
+  # y-range, clipped at the panel edge), while a genuine no-response flat
+  # compound keeps the flat data-level line.
   nd_below <- c(20, 20, 21, 20, 21, 20, 21, 20, 21, 22, 40, 95)
   df <- data.frame(
     log_conc = lc_seq(),
@@ -262,8 +284,8 @@ test_that("plot_multiple_compounds Fix B: N/D-flat compound draws tendency line"
   nd_idx <- which(grepl("nd", cmpds))
   expect_gt(length(nd_idx), 0L)
   r_nd <- fit$detailed_results[[nd_idx[1]]]
-  expect_true(isTRUE(r_nd$curve_type == "flat"))
-  expect_match(r_nd$curve_quality, "IC50 below tested range")
+  expect_match(r_nd$curve_quality, "Fit diverged - implausible plateau", fixed = TRUE)
+  expect_false(isTRUE(r_nd$curve_type == "flat"))
 
   out_dir <- tempfile("plmc_nd_"); dir.create(out_dir)
   on.exit(unlink(out_dir, recursive = TRUE), add = TRUE)
@@ -359,9 +381,10 @@ test_that("Fix C: show_display_badge=TRUE adds an 'IC50: N/D' text annotation", 
 # --- plot_multiple_compounds Fix B / Fix C -----------------------------------
 
 test_that("plot_multiple_compounds Fix B: wild curve stays inside corrected band", {
-  # Two-compound batch: one clean, one wild.  The wild compound's curve
-  # must reflect the corrected Bottom/Top, not blow up like raw drm
-  # predict() did before Fix B.
+  # Two-compound batch: one clean, one wild.  The wild compound's fit
+  # diverges and is flagged (raw Bottom ~ 1.05e6 reported, not censored);
+  # classified flat, its drawn curve must be the flat data level, not blow
+  # up like raw drm predict() did before Fix B.
   df <- data.frame(
     log_conc = lc_seq(),
     Test.clean_rep1 = c(NA_real_, clean_responses()),
@@ -404,7 +427,7 @@ test_that("plot_multiple_compounds Fix B: wild curve stays inside corrected band
   expect_gt(length(y_cand), 0L)
   ys <- wild_rows[[y_cand[1]]]
   expect_true(all(is.finite(ys)))
-  # Corrected Bottom ~ 50 and Top ~ 50 -> curve should be flat near 50.
+  # Flat-classified diverged fit -> flat data-level line near 50.
   # Envelope of [0, 120] is generous vs the pre-fix runaway to y > 180.
   expect_true(all(ys >= 0 & ys <= 120),
               info = sprintf("wild curve y range = [%.3f, %.3f]",
@@ -469,39 +492,43 @@ test_that("Fix A: plot vline agrees with summary_table LogIC50", {
   expect_equal(xi[1], li_summary, tolerance = 1e-4)
 })
 
-# --- Fix D: GraphPad plateau-clamp raw-curve fix -----------------------------
+# --- Raw-plateau policy: reported value is always the raw fitted value -------
 #
-# When the biological-plausibility check clamps a Bottom/Top plateau on an
-# in-window, non-flat nls fit, the *reported* (clamped) parameters make the
-# analytic curve dive off the data, while the raw nls curve tracks the points
-# (the behaviour GraphPad Prism shows).  plot_dose_response() and
-# plot_multiple_compounds() now redraw the raw nls curve for such fits (the
-# batch plotter hard-clips it to the compound's own point envelope +/-10%).
-# This is a plot-only change: tables and reported numbers are unchanged, and
-# degenerate (diverged) fits keep the clamped/flat fallback so the old
-# "curve overshoots plot" artifact cannot return.
-#
-# Fixtures inject a synthetic plateau clamp into a clean converged fit (raw
-# Bottom ~10): corrections_applied$Bottom and the reported Bottom are set to
-# 30 while the raw $model is left intact.  A sane clamp must redraw the raw
-# curve (bottom ~10); a fit flagged fit_diverged must keep the clamped curve
-# (bottom ~30).
+# The biological-plausibility check no longer clamps Bottom/Top plateaus: the
+# reported parameters ARE the raw fitted parameters, so the curve drawn from
+# them is the raw model curve by construction (the GraphPad-consistent
+# behaviour, and the Fix D redraw branch is gone).  Degenerate fits are
+# flagged ("Fit diverged - implausible plateau") but still reported raw.
+# These tests pin the policy end-to-end:
+#   (a) a partial-plateau fit (Bottom ~ 84 on the normalized scale, the
+#       A375:LW456 case) reports the raw plateau and both plotters draw the
+#       raw model curve -- no dive toward the old clamp value;
+#   (b) a diverged degenerate fit is flagged, reports the raw (huge) Bottom,
+#       and keeps the flat data-level fallback line.
 
-# Inject a plateau clamp into detailed_results[[k]] of a fit object.  Sets the
-# corrections_applied / needs_correction markers the plotters detect, rewrites
-# the reported Bottom, and optionally marks the raw fit as diverged.  The raw
-# $model is left untouched so predict() still returns the unclamped curve.
-inject_plateau_clamp <- function(fit, k = 1, bottom = 30, diverged = FALSE) {
-  bpc <- fit$detailed_results[[k]]$biological_plausibility_check
-  if (is.null(bpc) || !is.list(bpc)) bpc <- list()
-  bpc$corrections_applied <- list(Bottom = bottom)
-  bpc$needs_correction <- TRUE
-  if (diverged) bpc$fit_diverged <- TRUE
-  fit$detailed_results[[k]]$biological_plausibility_check <- bpc
-  pr <- fit$detailed_results[[k]]$parameters
-  pr$Value[pr$Parameter == "Bottom"] <- bottom
-  fit$detailed_results[[k]]$parameters <- pr
-  fit
+# Wide-format data frame with control anchor rows (first row response 0, last
+# row response 100, both NA log-conc), mirroring the batch_viability_analysis()
+# output layout: normalize = TRUE is then an identity transform on a 0-100
+# fixture.
+build_data_ctrl <- function(responses, compound_name = "Test.Cpd1") {
+  stopifnot(length(responses) == 12L)
+  df <- data.frame(
+    log_conc = c(NA_real_, seq(-4.5, -10, length.out = 12), NA_real_),
+    r1       = c(0, responses, 100),
+    r2       = c(0, responses, 100)
+  )
+  names(df) <- c("log_conc",
+                 paste0(compound_name, "_rep1"),
+                 paste0(compound_name, "_rep2"))
+  df
+}
+
+# Partial-plateau inhibition curve on the normalized scale (Bottom ~ 84,
+# Top ~ 100, LogIC50 ~ -7) -- mirrors A375:LW456.
+partial_plateau_responses <- function() {
+  b <- 84; t <- 100; li <- -7
+  x <- seq(-4.5, -10, length.out = 12)
+  b + (t - b) / (1 + 10^(x - li))
 }
 
 # First geom_line layer's x/y (the fitted curve), sorted by x.
@@ -517,66 +544,78 @@ curve_xy <- function(gg) {
   list(x = cx[ord], y = cy[ord])
 }
 
-test_that("Fix D: sane plateau-clamped in-window fit draws the raw nls curve", {
-  fit <- fit_one(clean_responses())
-  r0 <- fit$detailed_results[[1]]
-  # Precondition: clean, converged, in-window, non-flat, nls-backed.
-  expect_false(isTRUE(r0$biological_plausibility_check$needs_correction))
-  expect_true(inherits(r0$model, "nls"))
-  expect_false(isTRUE(r0$curve_type == "flat"))
-
-  fit <- inject_plateau_clamp(fit, k = 1, bottom = 30, diverged = FALSE)
-
-  gg <- suppressWarnings(plot_dose_response(fit, compound_index = 1,
-                                            verbose = FALSE))
-  cc <- curve_xy(gg)
-  raw_at <- as.numeric(stats::predict(
-    fit$detailed_results[[1]]$model,
-    newdata = data.frame(log_inhibitor = cc$x)))
-  # Drawn curve IS the raw nls prediction ...
-  expect_lt(max(abs(cc$y - raw_at)), 1e-6)
-  # ... following the raw Bottom (~10), not the clamped Bottom (30).
-  expect_lt(min(cc$y), 20)
-})
-
-test_that("Fix D: diverged plateau-clamped fit keeps the clamped curve", {
-  fit <- fit_one(clean_responses())
-  fit <- inject_plateau_clamp(fit, k = 1, bottom = 30, diverged = TRUE)
-
-  gg <- suppressWarnings(plot_dose_response(fit, compound_index = 1,
-                                            verbose = FALSE))
-  cc <- curve_xy(gg)
-  raw_at <- as.numeric(stats::predict(
-    fit$detailed_results[[1]]$model,
-    newdata = data.frame(log_inhibitor = cc$x)))
-  # A diverged fit must NOT redraw the raw curve ...
-  expect_gt(max(abs(cc$y - raw_at)), 5)
-  # ... it keeps the clamped Bottom (~30).
-  expect_gt(min(cc$y), 25)
-})
-
-test_that("plot_multiple_compounds Fix D: sane redraws raw, diverged keeps clamped", {
-  df <- data.frame(
-    log_conc       = lc_seq(),
-    Test.sane_rep1 = c(NA_real_, clean_responses()),
-    Test.sane_rep2 = c(NA_real_, clean_responses()),
-    Test.dvg_rep1  = c(NA_real_, clean_responses()),
-    Test.dvg_rep2  = c(NA_real_, clean_responses())
+test_that("raw-plateau policy: partial-plateau fit reports raw Bottom and draws the raw curve", {
+  fit <- suppressWarnings(
+    fit_drc_3pl(build_data_ctrl(partial_plateau_responses()),
+                normalize = TRUE, verbose = FALSE)
   )
-  fit <- suppressWarnings(fit_drc_3pl(data = df, normalize = FALSE, verbose = FALSE))
-  cmpds <- vapply(fit$detailed_results, function(x) x$compound, character(1))
-  sane_i <- which(grepl("sane", cmpds))
-  dvg_i  <- which(grepl("dvg",  cmpds))
-  expect_gt(length(sane_i), 0L)
-  expect_gt(length(dvg_i),  0L)
-  for (k in sane_i) fit <- inject_plateau_clamp(fit, k = k, bottom = 30, diverged = FALSE)
-  for (k in dvg_i)  fit <- inject_plateau_clamp(fit, k = k, bottom = 30, diverged = TRUE)
+  r <- fit$detailed_results[[1]]
+  # No correction, no flag: the raw partial plateau (~84) is reported as
+  # fitted -- never clamped toward the old viability limit of 60.
+  expect_false(isTRUE(r$biological_plausibility_check$needs_correction))
+  expect_equal(unname(r$parameters$Value[1]), 84, tolerance = 0.05)
+  expect_true(inherits(r$model, "nls"))
 
-  out_dir <- tempfile("plmc_d_"); dir.create(out_dir)
+  gg <- suppressWarnings(plot_dose_response(fit, compound_index = 1,
+                                            verbose = FALSE))
+  cc <- curve_xy(gg)
+  raw_at <- as.numeric(stats::predict(
+    r$model, newdata = data.frame(log_inhibitor = cc$x)))
+  # Drawn curve IS the raw model prediction ...
+  expect_lt(max(abs(cc$y - raw_at)), 1e-6)
+  # ... following the raw Bottom (~84), never diving toward 60.
+  expect_gt(min(cc$y), 75)
+})
+
+test_that("raw-plateau policy: diverged fit is flagged, reported raw, keeps flat fallback", {
+  fit <- fit_one(wild_outlier_responses())
+  r <- fit$detailed_results[[1]]
+  bpc <- r$biological_plausibility_check
+  # Flag-only: nothing censored, raw diverged Bottom (~1.05e6) reported.
+  expect_true(isTRUE(bpc$needs_correction))
+  expect_length(bpc$corrections_applied, 0L)
+  expect_true(isTRUE(bpc$fit_diverged))
+  expect_match(r$curve_quality, "Fit diverged - implausible plateau", fixed = TRUE)
+  expect_gt(abs(unname(r$parameters$Value[1])), 1e5)
+
+  # The degenerate fit keeps the flat data-level fallback line (the raw
+  # runaway curve is never drawn for a flat-classified fit).
+  gg <- suppressWarnings(plot_dose_response(fit, compound_index = 1,
+                                            verbose = FALSE))
+  ys <- line_y(gg)
+  expect_gt(length(ys), 0L)
+  expect_true(all(ys == ys[1]))
+  expect_equal(ys[1], stats::median(wild_outlier_responses()), tolerance = 1e-6)
+})
+
+test_that("plot_multiple_compounds raw-plateau policy: raw partial plateau, flagged diverged", {
+  df <- data.frame(
+    log_conc       = c(NA_real_, seq(-4.5, -10, length.out = 12), NA_real_),
+    Test.part_rep1 = c(0, partial_plateau_responses(), 100),
+    Test.part_rep2 = c(0, partial_plateau_responses(), 100),
+    Test.wild_rep1 = c(0, wild_outlier_responses(), 100),
+    Test.wild_rep2 = c(0, wild_outlier_responses(), 100)
+  )
+  fit <- suppressWarnings(fit_drc_3pl(data = df, normalize = TRUE, verbose = FALSE))
+  cmpds <- vapply(fit$detailed_results, function(x) x$compound, character(1))
+  part_i <- which(grepl("part", cmpds))
+  wild_i <- which(grepl("wild", cmpds))
+  expect_gt(length(part_i), 0L)
+  expect_gt(length(wild_i), 0L)
+  # Partial-plateau compound: raw Bottom reported, unflagged.
+  r_part <- fit$detailed_results[[part_i[1]]]
+  expect_false(isTRUE(r_part$biological_plausibility_check$needs_correction))
+  expect_equal(unname(r_part$parameters$Value[1]), 84, tolerance = 0.05)
+  # Wild compound: flagged diverged, raw Bottom reported.
+  r_wild <- fit$detailed_results[[wild_i[1]]]
+  expect_match(r_wild$curve_quality, "Fit diverged - implausible plateau", fixed = TRUE)
+  expect_gt(abs(unname(r_wild$parameters$Value[1])), 1e5)
+
+  out_dir <- tempfile("plmc_rp_"); dir.create(out_dir)
   on.exit(unlink(out_dir, recursive = TRUE), add = TRUE)
   gg <- suppressWarnings(plot_multiple_compounds(
     results = fit, compound_indices = seq_along(cmpds),
-    save_plot = file.path(out_dir, "multi_d.png"), verbose = FALSE
+    save_plot = file.path(out_dir, "multi_rp.png"), verbose = FALSE
   ))
 
   line_dat <- NULL
@@ -587,15 +626,15 @@ test_that("plot_multiple_compounds Fix D: sane redraws raw, diverged keeps clamp
   col   <- intersect(names(line_dat),
                      c("compound", "compound_name", "Compound", "group"))[1]
   y_col <- intersect(names(line_dat), c("y", "response", "value"))[1]
-  sane_rows <- line_dat[grepl("sane", line_dat[[col]]), ]
-  dvg_rows  <- line_dat[grepl("dvg",  line_dat[[col]]), ]
-  expect_gt(nrow(sane_rows), 10L)
-  expect_gt(nrow(dvg_rows),  10L)
-  # Sane compounds redraw the raw curve (bottom ~10) ...
-  expect_lt(min(sane_rows[[y_col]]), 20)
-  # ... diverged compounds keep the clamped curve (bottom ~30).
-  expect_gt(min(dvg_rows[[y_col]]), 25)
-  # Both remain real sigmoids, not collapsed flat lines.
-  expect_gt(stats::sd(sane_rows[[y_col]]), 1)
-  expect_gt(stats::sd(dvg_rows[[y_col]]), 1)
+  part_rows <- line_dat[grepl("part", line_dat[[col]]), ]
+  wild_rows <- line_dat[grepl("wild", line_dat[[col]]), ]
+  expect_gt(nrow(part_rows), 10L)
+  expect_gt(nrow(wild_rows), 10L)
+  # Partial-plateau compound draws the raw sigmoid (bottom ~84) ...
+  expect_gt(min(part_rows[[y_col]]), 75)
+  expect_gt(stats::sd(part_rows[[y_col]]), 1)
+  # ... the diverged flat compound keeps the flat data-level line.
+  expect_true(all(wild_rows[[y_col]] == wild_rows[[y_col]][1]))
+  expect_equal(wild_rows[[y_col]][1], stats::median(wild_outlier_responses()),
+               tolerance = 1e-6)
 })

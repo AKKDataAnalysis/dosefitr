@@ -237,23 +237,8 @@ batch_viability_analysis <- function(directory           = getwd(),
     }
   }
 
-  # -- Verify the requested processor is available ---------------------------
-  if (version == "v1") {
-    if (!exists("process_viability_data", mode = "function"))
-      stop(paste0(
-        "process_viability_data() not found. ",
-        "Please source the script containing it before calling this function."))
-  } else if (version == "v2") {
-    if (!exists("process_viability_data_v2", mode = "function"))
-      stop(paste0(
-        "process_viability_data_v2() not found. ",
-        "Source process_viability_data_v2.R before calling with version = 'v2'."))
-  } else {
-    if (!exists("process_viability_data_v3", mode = "function"))
-      stop(paste0(
-        "process_viability_data_v3() not found. ",
-        "Source process_viability_data_v3.R before calling with version = 'v3'."))
-  }
+  # The versioned processors are internal package functions, so the
+  # namespace guarantees their availability; no existence check is needed.
 
   # -- v3: row-based replicates render split_replicates meaningless ----------
   if (version == "v3" && isTRUE(split_replicates)) {

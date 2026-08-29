@@ -162,7 +162,7 @@ processors. With \code{split_replicates = FALSE} the table has
 }
 \examples{
 stopifnot(requireNamespace("dosefitr", quietly = TRUE))
-\donttest{
+\dontrun{
 # v2 uses a fixed 0\% scalar for the 0\% baseline and averages user-chosen
 # column(s) for the 100\% control. No bundled fixtures are needed: build a
 # small synthetic 96-well plate (rows A-H, columns 1-12) here. As in the real
@@ -228,3 +228,4 @@ out$modified_table[nrow(out$modified_table), 1:3] # Mean_100perc row
   style), and \code{\link{batch_viability_analysis}} (use
   \code{version = "v2"} to dispatch here).
 }
+\keyword{internal}

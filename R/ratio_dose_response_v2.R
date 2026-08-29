@@ -140,7 +140,7 @@
 #'
 #' @examples
 #' stopifnot(requireNamespace("dosefitr", quietly = TRUE))
-#' \donttest{
+#' \dontrun{
 #' extdata_dir <- system.file("extdata", package = "dosefitr")
 #' plate_file  <- file.path(extdata_dir, "nanobret_plate_01.xlsx")
 #' info_table  <- openxlsx::read.xlsx(
@@ -164,7 +164,7 @@
 #' @seealso
 #' Useful for downstream dose-response modeling and outlier detection pipelines.
 #'
-#' @export
+#' @keywords internal
 
 ratio_dose_response_v2 <- function(data,
                                    control_0perc = NULL,

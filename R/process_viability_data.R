@@ -101,7 +101,7 @@
 #'
 #' @examples
 #' stopifnot(requireNamespace("dosefitr", quietly = TRUE))
-#' \donttest{
+#' \dontrun{
 #' extdata_dir <- system.file("extdata", package = "dosefitr")
 #' plate_file  <- file.path(extdata_dir, "viability_plate_01.xlsx")
 #' info_table  <- openxlsx::read.xlsx(
@@ -121,7 +121,7 @@
 #' }
 #'
 #'
-#' @export
+#' @keywords internal
 
 process_viability_data <- function(data,
                                    control_0perc = NULL, control_100perc = NULL,
