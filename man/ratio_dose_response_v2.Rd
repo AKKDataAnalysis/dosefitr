@@ -14,7 +14,8 @@ ratio_dose_response_v2(
   verbose = TRUE,
   low_value_threshold = 3000,
   selected_columns = NULL,
-  plate_format = NULL
+  plate_format = NULL,
+  control_0perc_sd = NULL
 )
 }
 \arguments{
@@ -59,6 +60,14 @@ A-H) or \code{"384"} (rows A-P).  \code{NULL} (default) auto-detects from
 the number of column-header integers found.  Use this only when
 auto-detection fails, e.g. a 384-well plate read with only 12 columns
 selected (half-plate experiment).}
+
+\item{control_0perc_sd}{Optional non-negative numeric scalar giving the standard
+deviation of a fixed numeric \code{control_0perc}. It is used only as the
+background standard deviation in quality-metric calculations, including
+the Z-prime score; it does not modify ratios, normalization, or the assay
+window. \code{NULL} (default) preserves the historical behaviour and uses
+zero for the standard deviation of a fixed control. This argument cannot
+be used when \code{control_0perc} names a data column.}
 }
 \value{
 A list containing:
@@ -125,6 +134,8 @@ Two normalization strategies are supported:
   \item Creates a `Fixed_0perc` column
   \item Computes `Mean_100perc` from selected columns
   \item Removes original 100\% control columns
+  \item Uses \code{control_0perc_sd}, when supplied, as the background SD for
+  quality metrics without changing the fixed control values
 }
 
 \strong{2. Column-based 0\% and 100\% controls}
@@ -141,6 +152,8 @@ When both controls and `info_table` are provided, the function computes:
 \itemize{
   \item Z-score:
   \deqn{Z = 1 - (3 * (SD_{pos} + SD_{bg}) / (Mean_{pos} - Mean_{bg}))}
+  For a fixed 0\% control, \eqn{SD_{bg}} is \code{control_0perc_sd} when
+  supplied, otherwise it is zero for backward compatibility.
 
   \item Assay window:
   \deqn{Assay\ Window = Mean_{pos} / Mean_{bg}}

@@ -32,8 +32,8 @@
 #'   to read from each raw plate workbook.
 #' @param output_dir A single character string giving the output directory.
 #'   Relative paths are resolved against \code{directory}.
-#' @param overwrite Logical. If \code{FALSE} (the default), the function stops
-#'   before writing when any target file already exists. Set to \code{TRUE} to
+#' @param overwrite Logical. If \code{FALSE}, the function stops
+#'   before writing when any target file already exists. Set to \code{TRUE} (the default) to
 #'   replace existing generated files.
 #' @param verbose Logical. If \code{TRUE} (the default), report a short completion
 #'   message.

@@ -44,6 +44,14 @@
 #'   \item A column name (character)
 #' }
 #'
+#' @param control_0perc_sd Optional non-negative numeric scalar giving the standard
+#'   deviation of a fixed numeric \code{control_0perc}. It is used only as the
+#'   background standard deviation in quality-metric calculations, including
+#'   the Z-prime score; it does not modify ratios, normalization, or the assay
+#'   window. \code{NULL} (default) preserves the historical behaviour and uses
+#'   zero for the standard deviation of a fixed control. This argument cannot
+#'   be used when \code{control_0perc} names a data column.
+#'
 #' @param control_100perc Defines the 100\% control. Can be:
 #' \itemize{
 #'   \item Numeric indices of columns (relative to data columns, excluding row names)
@@ -105,6 +113,8 @@
 #'   \item Creates a `Fixed_0perc` column
 #'   \item Computes `Mean_100perc` from selected columns
 #'   \item Removes original 100\% control columns
+#'   \item Uses \code{control_0perc_sd}, when supplied, as the background SD for
+#'   quality metrics without changing the fixed control values
 #' }
 #'
 #' \strong{2. Column-based 0\% and 100\% controls}
@@ -119,6 +129,8 @@
 #' \itemize{
 #'   \item Z-score:
 #'   \deqn{Z = 1 - (3 * (SD_{pos} + SD_{bg}) / (Mean_{pos} - Mean_{bg}))}
+#'   For a fixed 0\% control, \eqn{SD_{bg}} is \code{control_0perc_sd} when
+#'   supplied, otherwise it is zero for backward compatibility.
 #'
 #'   \item Assay window:
 #'   \deqn{Assay\ Window = Mean_{pos} / Mean_{bg}}
@@ -175,7 +187,22 @@ ratio_dose_response_v2 <- function(data,
                                    verbose = TRUE,
                                    low_value_threshold = 3000,
                                    selected_columns = NULL,
-                                   plate_format = NULL) {
+                                   plate_format = NULL,
+                                   control_0perc_sd = NULL) {
+
+  if (!is.null(control_0perc_sd)) {
+    if (!is.numeric(control_0perc_sd) || length(control_0perc_sd) != 1L ||
+        is.na(control_0perc_sd) || !is.finite(control_0perc_sd) ||
+        control_0perc_sd < 0) {
+      stop("control_0perc_sd must be NULL or a single finite non-negative numeric value.")
+    }
+    fixed_control_0 <- is.numeric(control_0perc) &&
+      length(control_0perc) == 1L && !is.na(control_0perc) &&
+      is.finite(control_0perc)
+    if (!fixed_control_0) {
+      stop("control_0perc_sd can only be used when control_0perc is a fixed numeric value.")
+    }
+  }
   
   # -- Internal helper: detect plate layout by content -----------------------
   #
@@ -541,7 +568,7 @@ ratio_dose_response_v2 <- function(data,
           d100     <- ratio[valid_rows, existing_100_cols, drop = FALSE]
           mean_pos <- mean(as.matrix(d100), na.rm = TRUE)
           sd_pos   <- sd(as.matrix(d100),   na.rm = TRUE)
-          sd_bg    <- 0
+          sd_bg    <- if (is.null(control_0perc_sd)) 0 else control_0perc_sd
           
           if (!is.na(mean_pos) && !is.na(mean_bg)) {
             z_score <- if ((mean_pos - mean_bg) != 0)
@@ -758,6 +785,12 @@ ratio_dose_response_v2 <- function(data,
   result$control_info <- list(
     control_0_type             = ifelse(control_0_is_value, "Fixed_Value", "Column"),
     control_0_value            = if (control_0_is_value) control_0_value else control_0perc,
+    control_0perc_sd           = if (control_0_is_value) {
+      if (is.null(control_0perc_sd)) 0 else control_0perc_sd
+    } else NULL,
+    control_0perc_sd_source    = if (control_0_is_value) {
+      if (is.null(control_0perc_sd)) "Default_Zero" else "User_Supplied"
+    } else "Not_Applicable",
     control_100_input          = control_100perc,
     control_100_actual_columns = existing_100_cols,
     new_columns_created        = if (control_0_is_value && length(existing_100_cols) > 0)

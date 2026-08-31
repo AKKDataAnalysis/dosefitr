@@ -43,8 +43,8 @@ to read from each raw plate workbook.}
 \item{output_dir}{A single character string giving the output directory.
 Relative paths are resolved against \code{directory}.}
 
-\item{overwrite}{Logical. If \code{FALSE} (the default), the function stops
-before writing when any target file already exists. Set to \code{TRUE} to
+\item{overwrite}{Logical. If \code{FALSE}, the function stops
+before writing when any target file already exists. Set to \code{TRUE} (the default) to
 replace existing generated files.}
 
 \item{verbose}{Logical. If \code{TRUE} (the default), report a short completion

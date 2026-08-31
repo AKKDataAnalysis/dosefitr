@@ -44,6 +44,13 @@
 #'   For \code{function_version = "v2"}: either a single numeric value
 #'   (fixed-value mode) or a column name string.
 #'
+#' @param control_0perc_sd Optional non-negative numeric scalar passed to
+#'   \code{ratio_dose_response_v2()} as the standard deviation of a fixed
+#'   numeric 0\% control. It affects only quality metrics that use the
+#'   background standard deviation, including the Z-prime score. \code{NULL}
+#'   (default) retains an SD of zero. Available only with
+#'   \code{function_version = "v2"} and a numeric \code{control_0perc}.
+#'
 #' @param control_100perc 100\% control specification passed to the ratio
 #'   function.  For \code{function_version = "v1"}: a column name string.
 #'   For \code{function_version = "v2"}: a numeric vector of column
@@ -103,6 +110,8 @@
 #'       name.}
 #'     \item{\code{function_version}}{\code{"v1"} or \code{"v2"}.}
 #'     \item{\code{control_0perc}}{Value passed as \code{control_0perc}.}
+#'     \item{\code{control_0perc_sd}}{Value passed as \code{control_0perc_sd}, or
+#'       \code{NULL}.}
 #'     \item{\code{control_100perc}}{Value passed as
 #'       \code{control_100perc}.}
 #'     \item{\code{selected_columns}}{Value passed as
@@ -179,12 +188,27 @@ batch_ratio_analysis <- function(directory = getwd(),
                                  verbose = TRUE,
                                  selected_columns = NULL,
                                  plate_format = NULL,
-                                 file_map = NULL) {
+                                 file_map = NULL,
+                                 control_0perc_sd = NULL) {
   
   # -- Validate function_version ----------------------------------------------
   valid_versions <- c("v1", "v2")
   if (!function_version %in% valid_versions)
     stop("function_version must be either 'v1' or 'v2'")
+
+  if (!is.null(control_0perc_sd)) {
+    if (!is.numeric(control_0perc_sd) || length(control_0perc_sd) != 1L ||
+        is.na(control_0perc_sd) || !is.finite(control_0perc_sd) ||
+        control_0perc_sd < 0) {
+      stop("control_0perc_sd must be NULL or a single finite non-negative numeric value.")
+    }
+    if (function_version != "v2")
+      stop("control_0perc_sd is available only when function_version = 'v2'.")
+    if (!is.numeric(control_0perc) || length(control_0perc) != 1L ||
+        is.na(control_0perc) || !is.finite(control_0perc)) {
+      stop("control_0perc_sd requires control_0perc to be a fixed numeric value.")
+    }
+  }
   
   # -- Validate plate_format --------------------------------------------------
   if (!is.null(plate_format) && !plate_format %in% c("96", "384"))
@@ -425,6 +449,12 @@ batch_ratio_analysis <- function(directory = getwd(),
           paste("Control 0%:",  ifelse(is.numeric(results[[plate_sheet]]$control_0perc),
                                        paste("Fixed value", results[[plate_sheet]]$control_0perc),
                                        results[[plate_sheet]]$control_0perc)),
+          paste("SD control 0%:",
+                if (results[[plate_sheet]]$function_version == "v2" &&
+                    is.numeric(results[[plate_sheet]]$control_0perc)) {
+                  if (is.null(results[[plate_sheet]]$control_0perc_sd))
+                    "Default (0)" else results[[plate_sheet]]$control_0perc_sd
+                } else "Not applicable"),
           paste("Control 100%:", ifelse(is.numeric(results[[plate_sheet]]$control_100perc),
                                         paste("Positions", paste(results[[plate_sheet]]$control_100perc, collapse = ", ")),
                                         paste(results[[plate_sheet]]$control_100perc, collapse = ", "))),
@@ -557,6 +587,7 @@ batch_ratio_analysis <- function(directory = getwd(),
         result <- ratio_dose_response_v2(
           data                = data,
           control_0perc       = control_0perc,
+          control_0perc_sd    = control_0perc_sd,
           control_100perc     = control_100perc,
           split_replicates    = split_replicates,
           info_table          = info_table,
@@ -652,7 +683,7 @@ batch_ratio_analysis <- function(directory = getwd(),
         openxlsx::addWorksheet(wb, "Processing_Info")
         processing_info <- data.frame(
           Parameter = c("Data File", "Info Sheet", "Function Version",
-                        "Control 0%", "Control 100%", "Selected Columns",
+                        "Control 0%", "Control 0% SD", "Control 100%", "Selected Columns",
                         "Plate Format", "Split Replicates",
                         "Low Value Threshold", "Processing Date"),
           Value = c(
@@ -660,6 +691,9 @@ batch_ratio_analysis <- function(directory = getwd(),
             ifelse(is.numeric(control_0perc),
                    paste("Fixed value:", control_0perc),
                    ifelse(is.null(control_0perc), "Not specified", control_0perc)),
+            if (function_version == "v2" && is.numeric(control_0perc)) {
+              if (is.null(control_0perc_sd)) "Default (0)" else control_0perc_sd
+            } else "Not applicable",
             ifelse(is.numeric(control_100perc),
                    paste("Positions:", paste(control_100perc, collapse = ", ")),
                    ifelse(is.null(control_100perc), "Not specified",
@@ -684,6 +718,7 @@ batch_ratio_analysis <- function(directory = getwd(),
         sheet_number     = sheet_number,
         function_version = function_version,
         control_0perc    = control_0perc,
+        control_0perc_sd = control_0perc_sd,
         control_100perc  = control_100perc,
         selected_columns = selected_columns,
         result           = result

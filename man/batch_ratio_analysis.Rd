@@ -18,7 +18,8 @@ batch_ratio_analysis(
   verbose = TRUE,
   selected_columns = NULL,
   plate_format = NULL,
-  file_map = NULL
+  file_map = NULL,
+  control_0perc_sd = NULL
 )
 }
 \arguments{
@@ -78,6 +79,13 @@ info-sheet name to data filename, bypassing the automatic
 \code{_<N>.xlsx} pattern matching.  Filenames are resolved relative to
 \code{directory}.  Sheets not listed here still use auto-discovery.
 Default \code{NULL} uses auto-discovery for all sheets.}
+
+\item{control_0perc_sd}{Optional non-negative numeric scalar passed to
+\code{ratio_dose_response_v2()} as the standard deviation of a fixed
+numeric 0\% control. It affects only quality metrics that use the
+background standard deviation, including the Z-prime score. \code{NULL}
+(default) retains an SD of zero. Available only with
+\code{function_version = "v2"} and a numeric \code{control_0perc}.}
 }
 \value{
 A named list with one element per successfully processed plate.
@@ -90,6 +98,8 @@ A named list with one element per successfully processed plate.
       name.}
     \item{\code{function_version}}{\code{"v1"} or \code{"v2"}.}
     \item{\code{control_0perc}}{Value passed as \code{control_0perc}.}
+    \item{\code{control_0perc_sd}}{Value passed as \code{control_0perc_sd}, or
+      \code{NULL}.}
     \item{\code{control_100perc}}{Value passed as
       \code{control_100perc}.}
     \item{\code{selected_columns}}{Value passed as
