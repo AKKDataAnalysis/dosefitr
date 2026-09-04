@@ -82,7 +82,10 @@
 #'   Each panel shows:
 #'   \itemize{
 #'     \item Smooth fitted 3PL/4PL curve (grey line, 200 points).
-#'     \item Rep 1 (blue circles) and Rep 2 (orange triangles).
+#'     \item Replicates shown with distinct colours and shapes. Rep 1 uses
+#'       blue circles, Rep 2 orange triangles, and Rep 3 green squares;
+#'       additional replicates are assigned further palette entries
+#'       automatically.
 #'     \item ROUT outliers as red \eqn{\times} with standardised residual
 #'       label (via \pkg{ggrepel}).
 #'     \item Subtitle: model used, dynamic range \%, convergence warning
@@ -214,8 +217,34 @@ plot_outliers_curves <- function(rout_output,
   caption_txt <- sprintf("Red \u2717 = ROUT outlier%s. Label = standardised residual.",
                          if (!is.null(Q_val)) sprintf(" (Q=%.3f)", Q_val) else "")
   
-  # Colour-blind friendly: rep1 = blue, rep2 = orange
-  rep_colours <- c("1" = "#0279EE", "2" = "#FF9400")
+  # Build replicate aesthetics dynamically. The previous implementation only
+  # defined entries for replicates 1 and 2, causing ggplot2 to assign NA
+  # colour/shape values to replicate 3 (and silently omit those points).
+  # Keep the original colours/shapes for reps 1 and 2 for backward visual
+  # compatibility, then use colour-blind-friendly entries for further reps.
+  rep_ids <- as.character(sort(unique(res$replicate[!is.na(res$replicate)])))
+
+  colour_pool <- c(
+    "#0279EE", # Rep 1: blue
+    "#FF9400", # Rep 2: orange
+    "#009E73", # Rep 3: green
+    "#CC79A7", # Rep 4: purple
+    "#D55E00", # Rep 5: vermillion
+    "#56B4E9", # Rep 6: light blue
+    "#F0E442", # Rep 7: yellow
+    "#000000"  # Rep 8: black
+  )
+  shape_pool <- c(16, 17, 15, 18, 8, 25, 24, 23)
+
+  rep_colours <- stats::setNames(
+    rep_len(colour_pool, length(rep_ids)),
+    rep_ids
+  )
+  rep_shapes <- stats::setNames(
+    rep_len(shape_pool, length(rep_ids)),
+    rep_ids
+  )
+  rep_labels <- stats::setNames(paste("Rep", rep_ids), rep_ids)
   
   # Filter out compounds whose name is NA / "NA" / "NA_N" (exact match only;
   # names that merely contain "NA" as a substring are kept).
@@ -346,10 +375,14 @@ plot_outliers_curves <- function(rout_output,
       } +
       ggplot2::scale_colour_manual(
         values = rep_colours,
-        labels = c("1" = "Rep 1", "2" = "Rep 2"), name = NULL) +
+        breaks = rep_ids,
+        labels = rep_labels,
+        name = NULL) +
       ggplot2::scale_shape_manual(
-        values = c("1" = 16, "2" = 17),
-        labels = c("1" = "Rep 1", "2" = "Rep 2"), name = NULL) +
+        values = rep_shapes,
+        breaks = rep_ids,
+        labels = rep_labels,
+        name = NULL) +
       ggplot2::scale_x_continuous(
         breaks = pretty(x_lims, n = 5),
         labels = function(x) parse(text = paste0("10^{", x, "}")),

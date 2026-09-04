@@ -142,7 +142,10 @@ Invisibly returns the combined \pkg{patchwork} ggplot object.
   Each panel shows:
   \itemize{
     \item Smooth fitted 3PL/4PL curve (grey line, 200 points).
-    \item Rep 1 (blue circles) and Rep 2 (orange triangles).
+    \item Replicates shown with distinct colours and shapes. Rep 1 uses
+      blue circles, Rep 2 orange triangles, and Rep 3 green squares;
+      additional replicates are assigned further palette entries
+      automatically.
     \item ROUT outliers as red \eqn{\times} with standardised residual
       label (via \pkg{ggrepel}).
     \item Subtitle: model used, dynamic range \%, convergence warning

@@ -111,10 +111,11 @@
 #' meaningful observations.
 #'
 #' @section Replicate handling:
-#' Columns ending in \code{".2"} are treated as the second technical
-#' replicate of the corresponding \code{".1"} column.  Both replicates
-#' are passed to \code{\link{plot_outliers_curves}}, which plots them as
-#' separate point series with a shared fitted curve.
+#' Columns ending in \code{".2"}, \code{".3"}, and subsequent numeric
+#' suffixes are treated as additional technical replicates of the corresponding
+#' base column. All replicates are passed to
+#' \code{\link{plot_outliers_curves}}, which assigns each one a distinct
+#' colour and shape and plots them against a shared fitted curve.
 #'
 #' @section Dependencies:
 #' Requires \pkg{ggplot2}, \pkg{ggprism}, \pkg{ggrepel}, and
