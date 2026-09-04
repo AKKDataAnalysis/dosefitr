@@ -121,7 +121,7 @@ test_that("fit_drc_3pl runs without error and returns a summary_table", {
   expect_true(nrow(fit$summary_table) >= 1L)
 })
 
-test_that("rout_outliers flags at least the expected shape on synthetic data", {
+test_that("rout_outliers only removes synthetic outliers after convergence", {
   # Build a tiny synthetic modified_ratio_table: 12 concentrations + 1 header
   # row, 4 compound columns, one column carrying an obvious outlier.
   logc <- seq(-9, -5, length.out = 12L)
@@ -152,9 +152,28 @@ test_that("rout_outliers flags at least the expected shape on synthetic data", {
   expect_true("outlier_table" %in% names(rr))
   expect_s3_class(rr$cleaned_table, "data.frame")
   expect_s3_class(rr$outlier_table, "data.frame")
-  # Cpd2.2 has a huge outlier at row 6 (value = 400); ROUT should detect
-  # at least one outlier on this synthetic table.
-  expect_gte(nrow(rr$outlier_table), 1L)
+  # Cpd2.2 has a huge observation at row 6 (value = 400). It may only be
+  # removed when the ROUT fit for Cpd2 converged. A non-converged fit must
+  # retain every original observation, even when the raw ROUT call produced
+  # an outlier flag.
+  cpd2_results <- rr$results[
+    rr$results$compound == "Cpd2",
+    ,
+    drop = FALSE
+  ]
+
+  expect_gt(nrow(cpd2_results), 0L)
+
+  if (isTRUE(all(cpd2_results$converged))) {
+    expect_true(any(cpd2_results$outlier_fdr))
+    expect_gte(nrow(rr$outlier_table), 1L)
+  } else {
+    expect_false(any(cpd2_results$outlier_fdr))
+    expect_equal(
+      rr$cleaned_table[["Cpd2.2"]],
+      vals[["Cpd2.2"]]
+    )
+  }
 })
 
 test_that("merge_plate_replicates combines shared compounds across plates", {
