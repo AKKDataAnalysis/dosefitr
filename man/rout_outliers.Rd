@@ -72,6 +72,8 @@ The function performs the following steps:
   \item Removes control rows (NA concentrations) from fitting.
   \item Fits 3PL and/or 4PL Hill models using robust regression.
   \item Applies ROUT outlier detection based on standardized residuals.
+  \item Suppresses all final outlier calls when the selected fit has not
+  converged, so no observation from an unreliable fit is removed.
   \item Applies replicate-consistency filtering.
   \item Removes systematic residual patterns (model misfit safeguard).
   \item Replaces detected outliers with NA in the cleaned dataset.
@@ -82,6 +84,7 @@ Additional safeguards include:
   \item Hill slope sign and magnitude constraints (4PL only)
   \item Dynamic range warnings
   \item Minimum data point requirements
+  \item Non-converged fits retain every original observation
 }
 }
 \examples{

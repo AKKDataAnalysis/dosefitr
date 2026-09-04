@@ -41,6 +41,8 @@
 #'   \item Removes control rows (NA concentrations) from fitting.
 #'   \item Fits 3PL and/or 4PL Hill models using robust regression.
 #'   \item Applies ROUT outlier detection based on standardized residuals.
+#'   \item Suppresses all final outlier calls when the selected fit has not
+#'   converged, so no observation from an unreliable fit is removed.
 #'   \item Applies replicate-consistency filtering.
 #'   \item Removes systematic residual patterns (model misfit safeguard).
 #'   \item Replaces detected outliers with NA in the cleaned dataset.
@@ -51,6 +53,7 @@
 #'   \item Hill slope sign and magnitude constraints (4PL only)
 #'   \item Dynamic range warnings
 #'   \item Minimum data point requirements
+#'   \item Non-converged fits retain every original observation
 #' }
 #'
 #' @return A list with the following elements:
@@ -481,9 +484,22 @@ rout_outliers <- function(data,
     if (was_retried && verbose) {
       if (fit$Converge) {
         message(sprintf("%s: converged after random-restart retry", cmpd))
-      } else {
-        message(sprintf("%s: did not converge even after retry  --  outlier calls may be unreliable", cmpd))
       }
+    }
+
+    # ---- Non-convergence safety guard ----
+    # ROUT outlier calls depend on a reliable model fit. If the selected fit
+    # did not converge, preserve the raw flags for diagnostics (`outlier_raw`)
+    # but clear every final/FDR-adjusted flag. Downstream cleaning therefore
+    # leaves all original observations untouched, while `converged = FALSE`
+    # remains available in the results table and plotting subtitle.
+    if (!isTRUE(fit$Converge)) {
+      if (verbose) {
+        message(sprintf(
+          "%s: fit did not converge -- no outliers will be removed", cmpd
+        ))
+      }
+      fit$outlier.adj <- rep(FALSE, length(fit$outlier.adj))
     }
     
     # ---- Replicate-agreement filter ----
