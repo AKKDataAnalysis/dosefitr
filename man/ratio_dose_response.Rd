@@ -81,7 +81,7 @@ data through the following pipeline:
   \item \strong{Quality Filtering}: Removes low-intensity signals (<1000) that may represent failed wells
   \item \strong{Ratio Calculation}: Computes BRET ratios as (subtable2 / subtable1) * 1000
   \item \strong{Control Processing}: Handles control wells separately for normalization
-  \item **Quality Assessment**: Calculates assay performance metrics (Z-score, Assay Window)
+  \item **Quality Assessment**: Calculates assay performance metrics (Z'-factor, Assay Window)
   \item **Data Formatting**: Transposes and structures data for downstream analysis
 }
 
@@ -106,7 +106,9 @@ Column 4: Compound - Compound identifiers (e.g., "JQ1", "Gefitinib", "ARS-1620")
 \strong{Quality Metrics for Raw Data Assessment:}
 \itemize{
   \item \strong{Luciferase Signal}: Assesses raw signal intensity from experimental measurements
-  \item \strong{Z-Score}: Evaluates assay robustness from raw control data variability
+  \item \strong{Z'-factor}: Evaluates assay robustness from raw control data
+  variability. At least two finite observations from each control are
+  required; otherwise the value and its comment are \code{NA}.
   \item \strong{Assay Window}: Calculates dynamic range from raw control measurements
   \item \strong{Overall Quality}: Determines if raw data quality supports further analysis
 }

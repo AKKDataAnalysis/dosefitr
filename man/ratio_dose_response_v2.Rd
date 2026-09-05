@@ -65,8 +65,8 @@ selected (half-plate experiment).}
 deviation of a fixed numeric \code{control_0perc}. It is used only as the
 background standard deviation in quality-metric calculations, including
 the Z-prime score; it does not modify ratios, normalization, or the assay
-window. \code{NULL} (default) preserves the historical behaviour and uses
-zero for the standard deviation of a fixed control. This argument cannot
+window. With \code{NULL} (default), Z-prime is not assessed for a fixed
+scalar because its variability is unknown. This argument cannot
 be used when \code{control_0perc} names a data column.}
 }
 \value{
@@ -80,7 +80,7 @@ A list containing:
   \item{general_means}{(Optional) Mean values for control columns}
 
   \item{interval_means}{(Optional) Construct-level quality metrics including
-  Z-score, assay window, and signal classification}
+  Z'-factor, assay window, and signal classification}
 
   \item{construct_intervals}{Mapping of constructs to plate row intervals}
 
@@ -118,7 +118,7 @@ Additional processing includes:
   \item Integration with metadata (`info_table`) for labeling and QC metrics
   \item Calculation of assay quality metrics:
     \itemize{
-      \item Z-score
+      \item Z'-factor
       \item Assay window
       \item Signal quality classification
     }
@@ -150,10 +150,11 @@ Two normalization strategies are supported:
 When both controls and `info_table` are provided, the function computes:
 
 \itemize{
-  \item Z-score:
+  \item Z-prime factor (reported as \code{"Z'_factor"}):
   \deqn{Z = 1 - (3 * (SD_{pos} + SD_{bg}) / (Mean_{pos} - Mean_{bg}))}
-  For a fixed 0\% control, \eqn{SD_{bg}} is \code{control_0perc_sd} when
-  supplied, otherwise it is zero for backward compatibility.
+  For a fixed 0\% control, \eqn{SD_{bg}} is \code{control_0perc_sd}. If it
+  is not supplied, the Z-prime value is \code{NA}. The measured 100\%
+  control requires at least two finite observations.
 
   \item Assay window:
   \deqn{Assay\ Window = Mean_{pos} / Mean_{bg}}

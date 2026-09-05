@@ -539,7 +539,16 @@ scarab_table <- function(results_list, drc_results_list,
         col_data[24] <- comment_value
       }
 
-      col_data[25] <- format_number(quality_table["Z_Score", kinase], digits = 2)
+      # New results use the standardized Z'-factor label. Keep support for
+      # older batch_ratio_analysis() objects that still contain "Z_Score".
+      z_factor_row <- if ("Z'_factor" %in% rownames(quality_table)) {
+        "Z'_factor"
+      } else {
+        "Z_Score"
+      }
+      if (z_factor_row %in% rownames(quality_table)) {
+        col_data[25] <- format_number(quality_table[z_factor_row, kinase], digits = 2)
+      }
       col_data[26] <- format_number(quality_table["Assay_Window", kinase], digits = 2)
 
       comment_value <- quality_table["Assay_window_Comment", kinase]

@@ -29,7 +29,7 @@
 #'   \item Integration with metadata (`info_table`) for labeling and QC metrics
 #'   \item Calculation of assay quality metrics:
 #'     \itemize{
-#'       \item Z-score
+#'       \item Z'-factor
 #'       \item Assay window
 #'       \item Signal quality classification
 #'     }
@@ -48,8 +48,8 @@
 #'   deviation of a fixed numeric \code{control_0perc}. It is used only as the
 #'   background standard deviation in quality-metric calculations, including
 #'   the Z-prime score; it does not modify ratios, normalization, or the assay
-#'   window. \code{NULL} (default) preserves the historical behaviour and uses
-#'   zero for the standard deviation of a fixed control. This argument cannot
+#'   window. With \code{NULL} (default), Z-prime is not assessed for a fixed
+#'   scalar because its variability is unknown. This argument cannot
 #'   be used when \code{control_0perc} names a data column.
 #'
 #' @param control_100perc Defines the 100\% control. Can be:
@@ -96,7 +96,7 @@
 #'   \item{general_means}{(Optional) Mean values for control columns}
 #'
 #'   \item{interval_means}{(Optional) Construct-level quality metrics including
-#'   Z-score, assay window, and signal classification}
+#'   Z'-factor, assay window, and signal classification}
 #'
 #'   \item{construct_intervals}{Mapping of constructs to plate row intervals}
 #'
@@ -127,10 +127,11 @@
 #' When both controls and `info_table` are provided, the function computes:
 #'
 #' \itemize{
-#'   \item Z-score:
+#'   \item Z-prime factor (reported as \code{"Z'_factor"}):
 #'   \deqn{Z = 1 - (3 * (SD_{pos} + SD_{bg}) / (Mean_{pos} - Mean_{bg}))}
-#'   For a fixed 0\% control, \eqn{SD_{bg}} is \code{control_0perc_sd} when
-#'   supplied, otherwise it is zero for backward compatibility.
+#'   For a fixed 0\% control, \eqn{SD_{bg}} is \code{control_0perc_sd}. If it
+#'   is not supplied, the Z-prime value is \code{NA}. The measured 100\%
+#'   control requires at least two finite observations.
 #'
 #'   \item Assay window:
 #'   \deqn{Assay\ Window = Mean_{pos} / Mean_{bg}}
@@ -568,11 +569,15 @@ ratio_dose_response_v2 <- function(data,
           d100     <- ratio[valid_rows, existing_100_cols, drop = FALSE]
           mean_pos <- mean(as.matrix(d100), na.rm = TRUE)
           sd_pos   <- sd(as.matrix(d100),   na.rm = TRUE)
-          sd_bg    <- if (is.null(control_0perc_sd)) 0 else control_0perc_sd
+          sd_bg    <- if (is.null(control_0perc_sd)) NA_real_ else control_0perc_sd
           
           if (!is.na(mean_pos) && !is.na(mean_bg)) {
-            z_score <- if ((mean_pos - mean_bg) != 0)
-              1 - (3 * (sd_pos + sd_bg) / (mean_pos - mean_bg)) else NA
+            z_metrics <- .dosefitr_z_prime(
+              control_100_values   = d100,
+              fixed_control_0_mean = mean_bg,
+              fixed_control_0_sd   = control_0perc_sd
+            )
+            z_score <- z_metrics$value
             
             aw <- if (mean_bg != 0) mean_pos / mean_bg else NA
             
@@ -582,11 +587,7 @@ ratio_dose_response_v2 <- function(data,
             else if (aw > 1.5) "low (<2)"
             else              "insufficient"
             
-            zs_comment <- if (is.na(z_score))      "insufficient"
-            else if (z_score > 0.7)  "high (>0.7)"
-            else if (z_score > 0.5)  "medium (0.5<x<0.7)"
-            else if (z_score > 0.25) "low (<0.5)"
-            else                     "insufficient"
+            zs_comment <- z_metrics$comment
           } else {
             aw_comment <- "insufficient"; zs_comment <- "insufficient"
           }
@@ -601,7 +602,7 @@ ratio_dose_response_v2 <- function(data,
           SD_Positive_Ctrl          = sd_pos,
           Average_luciferase_signal = mean_luc,
           Luciferase_signal_comment = luc_comment,
-          Z_Score                   = z_score,
+          `Z'_factor`               = z_score,
           Assay_z_Comment           = zs_comment,
           Assay_Window              = aw,
           Assay_window_Comment      = aw_comment,
@@ -610,7 +611,8 @@ ratio_dose_response_v2 <- function(data,
           Rows_Count                = length(valid_rows),
           Background_Type           = ifelse(control_0_is_value, "Fixed_Value", "Column"),
           Background_Value          = ifelse(control_0_is_value, control_0_value, NA),
-          stringsAsFactors          = FALSE
+          stringsAsFactors          = FALSE,
+          check.names               = FALSE
         )
       }
       
@@ -621,7 +623,7 @@ ratio_dose_response_v2 <- function(data,
           "Type", "Construct",
           "Average_Positive_Ctrl", "SD_Positive_Ctrl",
           "Average_Background", "SD_Background",
-          "Average_luciferase_signal", "Z_Score", "Assay_Window",
+          "Average_luciferase_signal", "Z'_factor", "Assay_Window",
           "Luciferase_signal_comment", "Assay_window_Comment",
           "Assay_z_Comment", "Overall_Quality",
           "Rows", "Rows_Count", "Background_Type", "Background_Value"
@@ -785,11 +787,11 @@ ratio_dose_response_v2 <- function(data,
   result$control_info <- list(
     control_0_type             = ifelse(control_0_is_value, "Fixed_Value", "Column"),
     control_0_value            = if (control_0_is_value) control_0_value else control_0perc,
-    control_0perc_sd           = if (control_0_is_value) {
-      if (is.null(control_0perc_sd)) 0 else control_0perc_sd
+          control_0perc_sd           = if (control_0_is_value) {
+      if (is.null(control_0perc_sd)) NA_real_ else control_0perc_sd
     } else NULL,
     control_0perc_sd_source    = if (control_0_is_value) {
-      if (is.null(control_0perc_sd)) "Default_Zero" else "User_Supplied"
+      if (is.null(control_0perc_sd)) "Not_Supplied" else "User_Supplied"
     } else "Not_Applicable",
     control_100_input          = control_100perc,
     control_100_actual_columns = existing_100_cols,

@@ -52,7 +52,7 @@
 #'   \item \strong{Quality Filtering}: Removes low-intensity signals (<1000) that may represent failed wells
 #'   \item \strong{Ratio Calculation}: Computes BRET ratios as (subtable2 / subtable1) * 1000
 #'   \item \strong{Control Processing}: Handles control wells separately for normalization
-#'   \item **Quality Assessment**: Calculates assay performance metrics (Z-score, Assay Window)
+#'   \item **Quality Assessment**: Calculates assay performance metrics (Z'-factor, Assay Window)
 #'   \item **Data Formatting**: Transposes and structures data for downstream analysis
 #' }
 #'
@@ -77,7 +77,9 @@
 #' \strong{Quality Metrics for Raw Data Assessment:}
 #' \itemize{
 #'   \item \strong{Luciferase Signal}: Assesses raw signal intensity from experimental measurements
-#'   \item \strong{Z-Score}: Evaluates assay robustness from raw control data variability
+#'   \item \strong{Z'-factor}: Evaluates assay robustness from raw control data
+#'   variability. At least two finite observations from each control are
+#'   required; otherwise the value and its comment are \code{NA}.
 #'   \item \strong{Assay Window}: Calculates dynamic range from raw control measurements
 #'   \item \strong{Overall Quality}: Determines if raw data quality supports further analysis
 #' }
@@ -481,8 +483,11 @@ ratio_dose_response <- function(data,
           m0   <- mean(d0,   na.rm = TRUE); s0  <- sd(d0,   na.rm = TRUE)
           m100 <- mean(d100, na.rm = TRUE); s100 <- sd(d100, na.rm = TRUE)
           
-          z_score <- if (!is.na(m100) && !is.na(m0) && (m100 - m0) != 0)
-            1 - (3 * (s100 + s0) / (m100 - m0)) else NA
+          z_metrics <- .dosefitr_z_prime(
+            control_0_values   = d0,
+            control_100_values = d100
+          )
+          z_score <- z_metrics$value
           
           aw <- if (!is.na(m100) && !is.na(m0) && m0 != 0) m100 / m0 else NA
           
@@ -492,11 +497,7 @@ ratio_dose_response <- function(data,
           else if (aw > 1.5) "low (<2)"
           else              "insufficient"
           
-          zs_comment <- if (is.na(z_score))      "insufficient"
-          else if (z_score > 0.7)  "high (>0.7)"
-          else if (z_score > 0.5)  "medium (0.5<x<0.7)"
-          else if (z_score > 0.25) "low (<0.5)"
-          else                     "insufficient"
+          zs_comment <- z_metrics$comment
         }
         
         mean_bg  <- if (length(existing_columns) >= 1) mean(ratio[valid_rows, control_0_info$name],   na.rm = TRUE) else NA
@@ -514,14 +515,15 @@ ratio_dose_response <- function(data,
           SD_Positive_Ctrl          = if (length(existing_columns) >= 2) sd(ratio[valid_rows, control_100_info$name], na.rm = TRUE) else NA,
           Average_luciferase_signal = mean_luc,
           Luciferase_signal_comment = luc_comment,
-          Z_Score                   = z_score,
+          `Z'_factor`               = z_score,
           Assay_z_Comment           = zs_comment,
           Assay_Window              = aw,
           Assay_window_Comment      = aw_comment,
           Overall_Quality           = get_lowest_comment(luc_comment, aw_comment, zs_comment),
           Rows                      = paste0(cn, " (rows ", paste(range(valid_rows), collapse = "-"), ")"),
           Rows_Count                = length(valid_rows),
-          stringsAsFactors          = FALSE
+          stringsAsFactors          = FALSE,
+          check.names               = FALSE
         )
       }
       
@@ -532,7 +534,7 @@ ratio_dose_response <- function(data,
           "Type", "Construct",
           "Average_Positive_Ctrl", "SD_Positive_Ctrl",
           "Average_Background", "SD_Background",
-          "Average_luciferase_signal", "Z_Score", "Assay_Window",
+          "Average_luciferase_signal", "Z'_factor", "Assay_Window",
           "Luciferase_signal_comment", "Assay_window_Comment",
           "Assay_z_Comment", "Overall_Quality", "Rows", "Rows_Count"
         )]
