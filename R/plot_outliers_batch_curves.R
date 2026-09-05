@@ -284,6 +284,7 @@ plot_outliers_batch_curves <- function(batch_rout_output,
   direction  <- params$direction  %||% "inhibition"
   ntry_retry <- params$ntry_retry %||% 3L
   log_base   <- params$log_base   %||% "log10"
+  replicate_cv_max <- params$replicate_cv_max %||% 15
   
   # Identify plate names (exclude reserved summary elements)
   reserved    <- c("outlier_summary", "skipped_summary", "rescued_summary", "params")
@@ -439,6 +440,7 @@ plot_outliers_batch_curves <- function(batch_rout_output,
           log_base          = log_base,
           direction         = direction,
           ntry_retry        = ntry_retry,
+          replicate_cv_max  = replicate_cv_max,
           verbose           = FALSE
         ),
         error = function(e) {

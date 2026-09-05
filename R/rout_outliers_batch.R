@@ -70,6 +70,12 @@
 #'   detection across runs (default \code{42L}).  Set to \code{NULL}
 #'   to disable seeding and restore non-deterministic behaviour.
 #'
+#' @param replicate_cv_max Numeric. Maximum replicate CV, in percent, used by
+#'   the replicate-consensus safeguard (default \code{15}). At concentrations
+#'   with at least three finite replicates, final ROUT flags are cleared when
+#'   the group CV is at or below this threshold. Datasets with only two
+#'   replicates retain the previous behaviour.
+#'
 #' @return A list containing:
 #' \itemize{
 #'   \item Updated plate entries with cleaned \code{modified_ratio_table}
@@ -170,7 +176,8 @@ rout_outliers_batch <- function(batch_results,
                                 ntry_retry        = 3L,
                                 keep_cytotoxic    = FALSE,
                                 verbose           = TRUE,
-                                seed              = 42L) {
+                                seed              = 42L,
+                                replicate_cv_max  = 15) {
   
   # --------------------------------------------------------------------------
   # 1. Input validation
@@ -196,6 +203,10 @@ rout_outliers_batch <- function(batch_results,
   
   if (!is.logical(keep_cytotoxic) || length(keep_cytotoxic) != 1L)
     stop("keep_cytotoxic must be a single logical value (TRUE or FALSE).")
+
+  if (!is.numeric(replicate_cv_max) || length(replicate_cv_max) != 1L ||
+      !is.finite(replicate_cv_max) || replicate_cv_max < 0)
+    stop("replicate_cv_max must be a single finite non-negative number.")
   
   # Verify rout_outliers is available
   if (!exists("rout_outliers", mode = "function"))
@@ -422,7 +433,8 @@ rout_outliers_batch <- function(batch_results,
         min_dynamic_range = min_dynamic_range,
         ntry_retry        = ntry_retry,
         verbose           = verbose,
-        seed              = seed
+        seed              = seed,
+        replicate_cv_max  = replicate_cv_max
       ),
       error = function(e) {
         warning(sprintf("rout_outliers() failed for plate '%s': %s",
@@ -619,7 +631,8 @@ rout_outliers_batch <- function(batch_results,
     log_base          = "log10",   
     ntry_retry        = ntry_retry,
     keep_cytotoxic    = keep_cytotoxic,
-    seed              = seed
+    seed              = seed,
+    replicate_cv_max  = replicate_cv_max
   )
   
   return(invisible(output))

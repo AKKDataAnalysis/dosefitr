@@ -1,3 +1,59 @@
+# Internal replicate-consensus safeguard used by rout_outliers().
+# Kept as an unexported package helper so its two-replicate compatibility and
+# three-replicate protection can be tested independently of nonlinear fitting.
+.clear_concordant_replicate_flags <- function(outlier_flags,
+                                               x_log_fit,
+                                               y_fit,
+                                               cv_max) {
+  flags <- as.logical(outlier_flags)
+  cleared <- data.frame(
+    concentration = numeric(),
+    n_replicates  = integer(),
+    cv_pct        = numeric(),
+    n_cleared     = integer(),
+    stringsAsFactors = FALSE
+  )
+
+  if (length(flags) == 0L || !any(flags))
+    return(list(flags = flags, cleared = cleared))
+
+  concentrations <- unique(x_log_fit[is.finite(x_log_fit)])
+
+  for (conc_i in concentrations) {
+    idx <- which(x_log_fit == conc_i & is.finite(y_fit))
+
+    # Explicitly preserve the previous behaviour for <= 2 replicates.
+    if (length(idx) < 3L || !any(flags[idx])) next
+
+    values_i <- y_fit[idx]
+    mean_abs <- abs(mean(values_i))
+    cv_i <- if (is.finite(mean_abs) &&
+                mean_abs > sqrt(.Machine$double.eps)) {
+      100 * stats::sd(values_i) / mean_abs
+    } else {
+      Inf
+    }
+
+    if (!is.finite(cv_i) || cv_i > cv_max) next
+
+    flagged_idx <- idx[flags[idx]]
+    flags[flagged_idx] <- FALSE
+    cleared <- rbind(
+      cleared,
+      data.frame(
+        concentration = conc_i,
+        n_replicates  = length(idx),
+        cv_pct        = cv_i,
+        n_cleared     = length(flagged_idx),
+        stringsAsFactors = FALSE
+      )
+    )
+  }
+
+  rownames(cleared) <- NULL
+  list(flags = flags, cleared = cleared)
+}
+
 #' ROUT-based outlier detection for dose-response curves
 #'
 #' Detects outliers in dose-response data using the ROUT (Robust regression and
@@ -34,6 +90,13 @@
 #'   time.  Set to \code{NULL} to disable seeding and restore the previous
 #'   non-deterministic behaviour.
 #'
+#' @param replicate_cv_max Numeric. Maximum coefficient of variation, in
+#'   percent, for the replicate-consensus safeguard (default \code{15}). At a
+#'   concentration with at least three finite replicates, all final outlier
+#'   flags are cleared when the replicate CV is at or below this threshold.
+#'   Concentrations with only one or two replicates keep the original ROUT
+#'   behaviour unchanged.
+#'
 #' @details
 #' The function performs the following steps:
 #'
@@ -44,6 +107,8 @@
 #'   \item Suppresses all final outlier calls when the selected fit has not
 #'   converged, so no observation from an unreliable fit is removed.
 #'   \item Applies replicate-consistency filtering.
+#'   \item Preserves concordant groups of three or more replicates according
+#'   to \code{replicate_cv_max}.
 #'   \item Removes systematic residual patterns (model misfit safeguard).
 #'   \item Replaces detected outliers with NA in the cleaned dataset.
 #' }
@@ -119,7 +184,8 @@ rout_outliers <- function(data,
                           min_dynamic_range  = 20,
                           ntry_retry         = 3L,
                           verbose            = TRUE,
-                          seed               = 42L) {
+                          seed               = 42L,
+                          replicate_cv_max   = 15) {
   
   
   # Internal helpers (not exported)
@@ -253,7 +319,7 @@ rout_outliers <- function(data,
     fit$outlier     <- as.logical(unname(fit$outlier))
     fit
   }
-  
+
   # .detect_systematic_flags: post-hoc check for model-misfit false positives.
 
   .detect_systematic_flags <- function(outlier_flags, std_residuals, x_log_fit) {
@@ -326,6 +392,9 @@ rout_outliers <- function(data,
   ntry_retry <- as.integer(ntry_retry)
   if (!is.numeric(Q) || length(Q) != 1 || Q <= 0 || Q >= 1)
     stop("Q must be a single number between 0 and 1 (exclusive)")
+  if (!is.numeric(replicate_cv_max) || length(replicate_cv_max) != 1L ||
+      !is.finite(replicate_cv_max) || replicate_cv_max < 0)
+    stop("replicate_cv_max must be a single finite non-negative number")
   
   conc_raw      <- data[[conc_col]]
   ctrl_rows     <- which(is.na(conc_raw))
@@ -524,6 +593,30 @@ rout_outliers <- function(data,
       }
       fit$outlier.adj <- outlier_flags
     }
+
+    # ---- Replicate-consensus safeguard (>= 3 replicates only) ----
+    if (any(fit$outlier.adj)) {
+      consensus_result <- .clear_concordant_replicate_flags(
+        outlier_flags = fit$outlier.adj,
+        x_log_fit     = x_log_fit,
+        y_fit         = y_fit,
+        cv_max        = replicate_cv_max
+      )
+      fit$outlier.adj <- consensus_result$flags
+
+      if (nrow(consensus_result$cleared) > 0L && verbose) {
+        message(sprintf(
+          paste0(
+            "%s: replicate-consensus safeguard cleared %d flag(s) at ",
+            "%d concentration(s) (>=3 replicates; CV <= %.1f%%)"
+          ),
+          cmpd,
+          sum(consensus_result$cleared$n_cleared),
+          nrow(consensus_result$cleared),
+          replicate_cv_max
+        ))
+      }
+    }
     
     # ---- Systematic-residual filter ----
     sys_result <- NULL
@@ -711,5 +804,6 @@ rout_outliers <- function(data,
                                                   direction   = direction,
                                                   log_base    = log_base,
                                                   ntry_retry  = ntry_retry,
-                                                  seed        = seed))))
+                                                  seed        = seed,
+                                                  replicate_cv_max = replicate_cv_max))))
 }

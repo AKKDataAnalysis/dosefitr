@@ -176,6 +176,52 @@ test_that("rout_outliers only removes synthetic outliers after convergence", {
   }
 })
 
+test_that("replicate consensus safeguard requires at least three replicates", {
+  consensus_filter <- dosefitr:::.clear_concordant_replicate_flags
+
+  # Two concordant replicates retain the historical behaviour: flags remain.
+  two_reps <- consensus_filter(
+    outlier_flags = c(TRUE, TRUE),
+    x_log_fit     = c(-7, -7),
+    y_fit         = c(100, 103),
+    cv_max        = 15
+  )
+  expect_equal(two_reps$flags, c(TRUE, TRUE))
+  expect_equal(nrow(two_reps$cleared), 0L)
+
+  # Three concordant replicates are preserved, even if ROUT flagged only a
+  # subset of the concentration group.
+  three_reps <- consensus_filter(
+    outlier_flags = c(TRUE, TRUE, FALSE),
+    x_log_fit     = c(-7, -7, -7),
+    y_fit         = c(100, 106, 103),
+    cv_max        = 15
+  )
+  expect_false(any(three_reps$flags))
+  expect_equal(three_reps$cleared$n_replicates, 3L)
+  expect_equal(three_reps$cleared$n_cleared, 2L)
+
+  # The same protection applies when more than three replicates agree.
+  four_reps <- consensus_filter(
+    outlier_flags = c(TRUE, TRUE, TRUE, FALSE),
+    x_log_fit     = rep(-7, 4L),
+    y_fit         = c(100, 104, 98, 102),
+    cv_max        = 15
+  )
+  expect_false(any(four_reps$flags))
+  expect_equal(four_reps$cleared$n_replicates, 4L)
+
+  # A discordant triplicate is not rescued.
+  discordant <- consensus_filter(
+    outlier_flags = c(TRUE, TRUE, FALSE),
+    x_log_fit     = c(-7, -7, -7),
+    y_fit         = c(100, 105, 200),
+    cv_max        = 15
+  )
+  expect_equal(discordant$flags, c(TRUE, TRUE, FALSE))
+  expect_equal(nrow(discordant$cleared), 0L)
+})
+
 test_that("merge_plate_replicates combines shared compounds across plates", {
   work_dir <- stage_nanobret_dir()
   on.exit(unlink(work_dir, recursive = TRUE), add = TRUE)

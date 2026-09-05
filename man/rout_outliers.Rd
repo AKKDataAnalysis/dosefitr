@@ -14,7 +14,8 @@ rout_outliers(
   min_dynamic_range = 20,
   ntry_retry = 3L,
   verbose = TRUE,
-  seed = 42L
+  seed = 42L,
+  replicate_cv_max = 15
 )
 }
 \arguments{
@@ -46,6 +47,13 @@ before the first \code{rout_fitter} call, so any random-restart
 perturbations (\code{ntry_retry > 0}) use the same RNG sequence every
 time.  Set to \code{NULL} to disable seeding and restore the previous
 non-deterministic behaviour.}
+
+\item{replicate_cv_max}{Numeric. Maximum coefficient of variation, in
+percent, for the replicate-consensus safeguard (default \code{15}). At a
+concentration with at least three finite replicates, all final outlier
+flags are cleared when the replicate CV is at or below this threshold.
+Concentrations with only one or two replicates keep the original ROUT
+behaviour unchanged.}
 }
 \value{
 A list with the following elements:
@@ -75,6 +83,8 @@ The function performs the following steps:
   \item Suppresses all final outlier calls when the selected fit has not
   converged, so no observation from an unreliable fit is removed.
   \item Applies replicate-consistency filtering.
+  \item Preserves concordant groups of three or more replicates according
+  to \code{replicate_cv_max}.
   \item Removes systematic residual patterns (model misfit safeguard).
   \item Replaces detected outliers with NA in the cleaned dataset.
 }

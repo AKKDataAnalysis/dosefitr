@@ -13,7 +13,8 @@ rout_outliers_batch(
   ntry_retry = 3L,
   keep_cytotoxic = FALSE,
   verbose = TRUE,
-  seed = 42L
+  seed = 42L,
+  replicate_cv_max = 15
 )
 }
 \arguments{
@@ -63,6 +64,12 @@ high-concentration drops are more likely to be technical artefacts
 \code{\link{rout_outliers}} call to ensure reproducible outlier
 detection across runs (default \code{42L}).  Set to \code{NULL}
 to disable seeding and restore non-deterministic behaviour.}
+
+\item{replicate_cv_max}{Numeric. Maximum replicate CV, in percent, used by
+the replicate-consensus safeguard (default \code{15}). At concentrations
+with at least three finite replicates, final ROUT flags are cleared when
+the group CV is at or below this threshold. Datasets with only two
+replicates retain the previous behaviour.}
 }
 \value{
 A list containing:
