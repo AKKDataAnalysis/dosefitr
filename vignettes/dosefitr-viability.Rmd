@@ -329,7 +329,7 @@ dir.create(compare_out, showWarnings = FALSE)
 
 cmp_res <- compare_plates_drc(
   batch_drc_result = drc_res,
-  compare_by       = "compound",
+  compare_by       = "construct_compound",
   output_dir       = compare_out,
   min_plates       = 2,
   verbose          = FALSE

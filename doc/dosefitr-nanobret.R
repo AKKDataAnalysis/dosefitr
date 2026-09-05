@@ -153,7 +153,7 @@ dir.create(compare_out, showWarnings = FALSE)
 
 cmp_res <- compare_plates_drc(
   batch_drc_result = drc_res,
-  compare_by       = "compound",
+  compare_by       = "construct_compound",
   output_dir       = compare_out,
   min_plates       = 2,
   verbose          = FALSE
@@ -174,18 +174,6 @@ sc_01 <- scarab_table(
 dim(sc_01)
 
 head(sc_01[, 1:5], 6)
-
-## ----save-multi---------------------------------------------------------------
-xlsx_out <- file.path(tempdir(), "dosefitr_nanobret_export.xlsx")
-
-save_multiple_sheets(
-  file_name     = xlsx_out,
-  Ratios        = mrt,
-  Fit_Summary   = sum_01,
-  decimal_comma = FALSE
-)
-
-file.exists(xlsx_out)
 
 ## ----session-info, echo=FALSE-------------------------------------------------
 sessionInfo()

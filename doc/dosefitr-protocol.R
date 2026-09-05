@@ -165,7 +165,7 @@ dir.create(cmp_out, showWarnings = FALSE)
 cmp_res <- compare_plates_drc(
     drc_res,
     compare_by        = "compound",
-    selected_entities = c("KinaseA:Cpd1", "KinaseB:Cpd9"),
+    selected_entities = c("Cpd1", "Cpd9"),
     min_plates        = 2,
     output_dir        = cmp_out,
     plot_dpi          = 72,

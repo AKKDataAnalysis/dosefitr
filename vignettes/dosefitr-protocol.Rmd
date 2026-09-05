@@ -400,9 +400,10 @@ directory, or a file path to save with an explicit name.
 (via `compare_by = "construct"`) and produces side-by-side fits for each
 match. It is the standard cross-plate consistency check.
 
-The two bundled plates share four "bridging" compounds
-(`KinaseA:Cpd1`, `KinaseA:Cpd5`, `KinaseB:Cpd9`, `KinaseB:Cpd13`). We
-compare a two-compound subset to keep the output small:
+The two bundled plates share four "bridging" compounds (`Cpd1`, `Cpd5`,
+`Cpd9`, and `Cpd13`). We compare a two-compound subset to keep the output
+small. Because `compare_by = "compound"`, `selected_entities` receives
+compound names only (without the construct prefix):
 
 ```{r compare}
 cmp_out <- file.path(tempdir(), "dosefitr_protocol_cmp")
@@ -411,7 +412,7 @@ dir.create(cmp_out, showWarnings = FALSE)
 cmp_res <- compare_plates_drc(
     drc_res,
     compare_by        = "compound",
-    selected_entities = c("KinaseA:Cpd1", "KinaseB:Cpd9"),
+    selected_entities = c("Cpd1", "Cpd9"),
     min_plates        = 2,
     output_dir        = cmp_out,
     plot_dpi          = 72,
@@ -425,7 +426,10 @@ names(cmp_res)
 **In your own project.** Drop `selected_entities` to compare every
 bridging compound. Use `compare_by = "construct"` when you want the
 same target aggregated across plates (useful for tracking compound
-libraries against a single kinase across weeks of screening).
+libraries against a single kinase across weeks of screening). To preserve
+the original one-plot-per-pair behavior, use
+`compare_by = "construct_compound"`; in that mode, entity names have the
+form `"KinaseA:Cpd1"`.
 
 # Build the Scarab table (optional, lab-specific)
 
