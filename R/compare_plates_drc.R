@@ -36,6 +36,21 @@
   )
 }
 
+# Internal legend-mode normaliser. "auto" preserves the mode-dependent labels
+# used before legend_by was introduced.
+.normalise_compare_plates_legend <- function(legend_by) {
+  if (!is.character(legend_by) || length(legend_by) != 1L ||
+      is.na(legend_by) || !nzchar(trimws(legend_by))) {
+    stop("legend_by must be one non-empty character value.")
+  }
+  mode <- tolower(trimws(legend_by))
+  valid <- c("auto", "construct", "compound")
+  if (!mode %in% valid) {
+    stop("legend_by must be one of 'auto', 'construct', or 'compound'.")
+  }
+  mode
+}
+
 #' Compare Dose-Response Curves Across Plates
 #'
 #' @description
@@ -90,10 +105,18 @@
 #' @param show_grid Logical.  Show background grid lines.  Default: `FALSE`.
 #' @param legend_position Character.  One of `"right"`, `"left"`, `"top"`,
 #'   `"bottom"`, `"none"`.  Default: `"right"`.
+#' @param legend_by Character. Controls the text used for each curve in the
+#'   legend. `"auto"` (default) preserves the current behaviour: plate name in
+#'   `compare_by = "construct_compound"`, `"plate (construct)"` in
+#'   `compare_by = "compound"`, and `"plate (compound)"` in
+#'   `compare_by = "construct"`. Use `"construct"` or `"compound"` to show
+#'   only that component. Curve identities remain distinct internally even
+#'   when two displayed legend labels are equal.
 #' @param legend_title Character.  Title printed above the legend.
-#'   Default: `"Plate"`.
-#' @param legend_text_size Numeric.  Font size for the legend item labels
-#'   (plate names).  Default: `11`.
+#'   `"auto"` (default) shows `"Plate"`, `"Construct"`, or `"Compound"`
+#'   according to `legend_by`. Supply another string to override it.
+#' @param legend_text_size Numeric. Font size for the legend item labels.
+#'   Default: `11`.
 #' @param legend_title_size Numeric.  Font size for the legend title.
 #'   Default: `11`.
 #' @param legend_ncol Integer.  Number of columns in the legend.  `NULL`
@@ -175,6 +198,7 @@
 #'     \item{`entity`}{The grouping key selected by `compare_by`.}
 #'     \item{`constructs`, `compounds`}{Character vectors represented in the plot.}
 #'     \item{`compare_by`}{The normalized grouping mode.}
+#'     \item{`legend_by`}{The normalized legend-label mode.}
 #'     \item{`plates`}{Character vector of plate names included.}
 #'     \item{`n_plates`}{Number of plates overlaid.}
 #'     \item{`plot`}{The `ggplot2` object.}
@@ -244,7 +268,8 @@ compare_plates_drc <- function(batch_drc_result,
                                show_error_bars   = TRUE,
                                show_grid         = FALSE,
                                legend_position   = "right",
-                               legend_title      = "Plate",
+                               legend_by         = "auto",
+                               legend_title      = "auto",
                                legend_text_size  = 11,
                                legend_title_size = 11,
                                legend_ncol       = NULL,
@@ -280,6 +305,18 @@ compare_plates_drc <- function(batch_drc_result,
   # ============================================================================
   
   compare_by <- .normalise_compare_plates_mode(compare_by)
+  legend_by  <- .normalise_compare_plates_legend(legend_by)
+
+  legend_title_final <- if (identical(legend_title, "auto")) {
+    switch(
+      legend_by,
+      auto = "Plate",
+      construct = "Construct",
+      compound = "Compound"
+    )
+  } else {
+    legend_title
+  }
   
   if (!is.list(batch_drc_result) || is.null(batch_drc_result$drc_results))
     stop("batch_drc_result must be the list returned by batch_drc_analysis().")
@@ -442,24 +479,35 @@ compare_plates_drc <- function(batch_drc_result,
     # Use the plate-level normalisation flag collected during data gathering
     is_norm <- any(sapply(entries, function(e) isTRUE(e$is_norm)))
     
-    synthetic_detailed <- lapply(entries, function(e) {
+    synthetic_detailed <- lapply(seq_along(entries), function(entry_idx) {
+      e <- entries[[entry_idx]]
       r <- e$result
-      # Keep every curve uniquely identifiable. In the legacy pair mode, the
-      # plate alone is sufficient. Broader groupings also identify the varying
-      # dimension so two curves from the same plate cannot be collapsed.
-      legend_label <- switch(
-        compare_by,
-        construct_compound = e$plate_name,
-        compound = paste0(e$plate_name, " (", e$construct, ")"),
-        construct = paste0(e$plate_name, " (", e$compound, ")")
-      )
-      r$compound <- paste0("comparison:", legend_label)
+      legend_label <- if (legend_by == "auto") {
+        switch(
+          compare_by,
+          construct_compound = e$plate_name,
+          compound = paste0(e$plate_name, " (", e$construct, ")"),
+          construct = paste0(e$plate_name, " (", e$compound, ")")
+        )
+      } else {
+        switch(
+          legend_by,
+          construct = e$construct,
+          compound = e$compound
+        )
+      }
+
+      # The left-hand component is a unique internal curve identifier. The
+      # right-hand component is the user-facing legend label selected above.
+      # plot_multiple_compounds() is asked to display only that right-hand part.
+      r$compound <- paste0(sprintf("curve_%03d", entry_idx), ":", legend_label)
       r
     })
     
     list(
       detailed_results = synthetic_detailed,
-      normalized       = is_norm
+      normalized       = is_norm,
+      legend_label     = "compound"
     )
   }
   
@@ -560,7 +608,8 @@ compare_plates_drc <- function(batch_drc_result,
               show_error_bars = show_error_bars,
               show_grid       = show_grid,
               legend_position = legend_position,
-              legend_title      = legend_title,
+              legend_title      = legend_title_final,
+              legend_label      = synthetic$legend_label,
               legend_text_size  = legend_text_size,
               legend_title_size = legend_title_size,
               legend_ncol       = legend_ncol,
@@ -666,6 +715,7 @@ compare_plates_drc <- function(batch_drc_result,
         constructs = meta$constructs,
         compounds  = meta$compounds,
         compare_by = meta$compare_by,
+        legend_by  = legend_by,
         plates    = meta$plates,
         n_plates  = meta$n_plates,
         plot      = p,

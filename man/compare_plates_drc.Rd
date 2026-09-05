@@ -18,7 +18,8 @@ compare_plates_drc(
   show_error_bars = TRUE,
   show_grid = FALSE,
   legend_position = "right",
-  legend_title = "Plate",
+  legend_by = "auto",
+  legend_title = "auto",
   legend_text_size = 11,
   legend_title_size = 11,
   legend_ncol = NULL,
@@ -104,11 +105,20 @@ points.  Default: `TRUE`.}
 \item{legend_position}{Character.  One of `"right"`, `"left"`, `"top"`,
 `"bottom"`, `"none"`.  Default: `"right"`.}
 
-\item{legend_title}{Character.  Title printed above the legend.
-Default: `"Plate"`.}
+\item{legend_by}{Character. Controls the text used for each curve in the
+legend. `"auto"` (default) preserves the current behaviour: plate name in
+`compare_by = "construct_compound"`, `"plate (construct)"` in
+`compare_by = "compound"`, and `"plate (compound)"` in
+`compare_by = "construct"`. Use `"construct"` or `"compound"` to show
+only that component. Curve identities remain distinct internally even
+when two displayed legend labels are equal.}
 
-\item{legend_text_size}{Numeric.  Font size for the legend item labels
-(plate names).  Default: `11`.}
+\item{legend_title}{Character.  Title printed above the legend.
+`"auto"` (default) shows `"Plate"`, `"Construct"`, or `"Compound"`
+according to `legend_by`. Supply another string to override it.}
+
+\item{legend_text_size}{Numeric. Font size for the legend item labels.
+Default: `11`.}
 
 \item{legend_title_size}{Numeric.  Font size for the legend title.
 Default: `11`.}
@@ -219,6 +229,7 @@ Invisibly returns a named list with one entry per entity plotted.
     \item{`entity`}{The grouping key selected by `compare_by`.}
     \item{`constructs`, `compounds`}{Character vectors represented in the plot.}
     \item{`compare_by`}{The normalized grouping mode.}
+    \item{`legend_by`}{The normalized legend-label mode.}
     \item{`plates`}{Character vector of plate names included.}
     \item{`n_plates`}{Number of plates overlaid.}
     \item{`plot`}{The `ggplot2` object.}
