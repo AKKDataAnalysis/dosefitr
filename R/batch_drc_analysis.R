@@ -626,9 +626,9 @@ batch_drc_analysis <- function(batch_results,
             NA_character_
           }
           ic50_nM_display <- if (ic50_above_range) {
-            sprintf(">%g", highest_conc_uM * 1e3)
+            sprintf(">%.1f", highest_conc_uM * 1e3)
           } else if (!is.na(ic50_nM)) {
-            as.character(round(ic50_nM, 3))
+            sprintf("%.1f", ic50_nM)
           } else {
             NA_character_
           }
