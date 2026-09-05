@@ -651,9 +651,9 @@ batch_drc_analysis <- function(batch_results,
             pic50_diff_upper <- pic50 - (-ci_log_upper_bound)
           }
 
-          # Actual CI bounds on the linear uM scale (for the Pharmacology_Summary_CI
-          # sheet, whose potency values are displayed as uM/nM). Formatted to match the
-          # sheet's own display: 3 decimals, or ">25" when beyond the tested range.
+          # Actual CI bounds on the linear uM scale for CI warning messages.
+          # Keep the uM representation at 3 decimals, or ">25" when beyond
+          # the tested range; the nM summary column is formatted separately.
           format_ci_uM <- function(x) {
             if (is.na(x)) return("N/D")
             .cap <- if (!is.na(highest_conc_uM)) highest_conc_uM else 25
@@ -897,8 +897,8 @@ batch_drc_analysis <- function(batch_results,
           # Convert LogIC50 CI bounds back to uM/nM for display
           ci_uM_lower <- if (!is.na(ci_log_lower_bound)) round(10^ci_log_lower_bound * 1e6, 3) else NA_real_
           ci_uM_upper <- if (!is.na(ci_log_upper_bound)) round(10^ci_log_upper_bound * 1e6, 3) else NA_real_
-          ci_nM_lower <- if (!is.na(ci_log_lower_bound)) round(10^ci_log_lower_bound * 1e9, 3) else NA_real_
-          ci_nM_upper <- if (!is.na(ci_log_upper_bound)) round(10^ci_log_upper_bound * 1e9, 3) else NA_real_
+          ci_nM_lower <- if (!is.na(ci_log_lower_bound)) 10^ci_log_lower_bound * 1e9 else NA_real_
+          ci_nM_upper <- if (!is.na(ci_log_upper_bound)) 10^ci_log_upper_bound * 1e9 else NA_real_
 
           # Format IC50 (uM) with CI: "0.128 (0.080 - 0.204)"
           ic50_uM_ci_display <- if (is_nd) {
@@ -916,18 +916,21 @@ batch_drc_analysis <- function(batch_results,
             NA_character_
           }
 
-          # Format IC50 (nM) with CI
+          # Format IC50 (nM) with CI using one decimal place throughout.
           ic50_nM_ci_display <- if (is_nd) {
             "N/D"
           } else if (ic50_above_range) {
-            sprintf(">%g (>%g - >%g)", highest_conc_uM * 1e3, highest_conc_uM * 1e3, highest_conc_uM * 1e3)
+            sprintf(">%.1f (>%.1f - >%.1f)",
+                    highest_conc_uM * 1e3,
+                    highest_conc_uM * 1e3,
+                    highest_conc_uM * 1e3)
           } else if (!is.na(ic50_nM) && !is.na(ci_nM_lower) && !is.na(ci_nM_upper)) {
-            sprintf("%s (%s - %s)",
-                    as.character(round(ic50_nM, 3)),
-                    as.character(min(ci_nM_lower, ci_nM_upper)),
-                    as.character(max(ci_nM_lower, ci_nM_upper)))
+            sprintf("%.1f (%.1f - %.1f)",
+                    ic50_nM,
+                    min(ci_nM_lower, ci_nM_upper),
+                    max(ci_nM_lower, ci_nM_upper))
           } else if (!is.na(ic50_nM)) {
-            sprintf("%s (NA)", as.character(round(ic50_nM, 3)))
+            sprintf("%.1f (NA)", ic50_nM)
           } else {
             NA_character_
           }
@@ -1452,4 +1455,3 @@ batch_drc_analysis <- function(batch_results,
     report_info = report_info
   )))
 }
-

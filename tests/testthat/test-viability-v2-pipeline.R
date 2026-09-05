@@ -659,7 +659,7 @@ test_that("batch v2 stores control_mean_scope and defaults it to 'row'", {
   )
 })
 
-test_that("batch v2 QC: fixed 0% -> Mean_Background scalar, SD=0, CV=NA", {
+test_that("batch v2 QC: fixed 0% without SD leaves SD, CV and Z' as NA", {
   bd <- .v2_write_batch_dir(1L, 8L, 12L)
   on.exit(unlink(bd$dir, recursive = TRUE), add = TRUE)
   out_dir <- tmp_out_dir(); on.exit(unlink(out_dir, recursive = TRUE), add = TRUE)
@@ -684,11 +684,70 @@ test_that("batch v2 QC: fixed 0% -> Mean_Background scalar, SD=0, CV=NA", {
   mean_bg <- suppressWarnings(as.numeric(get_metric("Mean_Background")))
   sd_bg   <- suppressWarnings(as.numeric(get_metric("SD_Background")))
   cv_bg   <- get_metric("CV_Background_pct")
+  z_prime <- get_metric("Z'_factor")
 
   expect_true(all(mean_bg == 0))              # fixed 0% scalar
-  expect_true(all(sd_bg == 0))                # constant -> SD 0
+  expect_true(all(is.na(sd_bg)))              # variability was not supplied
   # CV should be NA (blank / non-numeric) for every construct.
   expect_true(all(is.na(suppressWarnings(as.numeric(cv_bg)))))
+  # A fixed 0% scalar without an explicit SD cannot support Z'-factor QC.
+  expect_true(all(is.na(suppressWarnings(as.numeric(z_prime)))))
+  expect_false(any(qm$Metric %in% c("N_Control_0", "N_Control_100")))
+})
+
+test_that("batch v2 uses control_0perc_sd for Z'-factor and overall quality", {
+  bd <- .v2_write_batch_dir(1L, 8L, 12L)
+  on.exit(unlink(bd$dir, recursive = TRUE), add = TRUE)
+  out_dir <- tmp_out_dir(); on.exit(unlink(out_dir, recursive = TRUE), add = TRUE)
+
+  res <- suppressWarnings(batch_viability_analysis(
+    directory = bd$dir, control_0perc = 0, control_0perc_sd = 500,
+    # The fixture disambiguates repeated construct/compound rows as
+    # KinaseA, KinaseA_2, etc.  Use two positive-control columns so every
+    # resulting construct has the minimum two observations required for Z'.
+    control_100perc = c(11, 12),
+    info_file = "info_tables.xlsx", data_pattern = "_\\d+\\.xlsx$",
+    output_dir = out_dir, version = "v2", generate_reports = TRUE,
+    verbose = FALSE
+  ))
+
+  expect_equal(res[[1]]$control_0perc_sd, 500)
+  expect_equal(res[[1]]$result$processing_info$control_0_info$fixed_sd, 500)
+
+  qc_file <- file.path(out_dir, "drc_quality", "viability_results_1.xlsx")
+  qm <- openxlsx::read.xlsx(qc_file, sheet = "Quality_Metrics")
+  z_rows <- qm[qm$Metric == "Z'_factor", , drop = FALSE]
+  expect_equal(nrow(z_rows), 1L)
+  z_values <- suppressWarnings(as.numeric(unlist(
+    z_rows[, setdiff(colnames(z_rows), "Metric"), drop = FALSE],
+    use.names = FALSE
+  )))
+  expect_true(all(is.finite(z_values)))
+
+  overall <- qm[qm$Metric == "Overall_Quality", , drop = FALSE]
+  overall_values <- unlist(
+    overall[, setdiff(colnames(overall), "Metric"), drop = FALSE],
+    use.names = FALSE
+  )
+  expect_true(all(overall_values == "insufficient"))
+  expect_false(any(qm$Metric %in% c("N_Control_0", "N_Control_100")))
+})
+
+test_that("batch viability validates control_0perc_sd by version", {
+  expect_error(
+    batch_viability_analysis(
+      directory = tempfile("does_not_exist_"), version = "v2",
+      control_0perc = 0, control_0perc_sd = -1, verbose = FALSE
+    ),
+    "non-negative"
+  )
+  expect_error(
+    batch_viability_analysis(
+      directory = tempfile("does_not_exist_"), version = "v1",
+      control_0perc = 1, control_0perc_sd = 1, verbose = FALSE
+    ),
+    "only when version = 'v2'"
+  )
 })
 
 test_that("batch v2 output is compatible with batch_drc_analysis(normalize=TRUE)", {

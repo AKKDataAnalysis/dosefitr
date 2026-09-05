@@ -80,6 +80,13 @@
 #'   measured background signal. Non-numeric, length \eqn{\neq} 1, or \code{NA}
 #'   values raise an error.
 #'
+#' @param control_0perc_sd Optional non-negative numeric scalar giving the
+#'   standard deviation associated with the fixed \code{control_0perc}. It is
+#'   stored for Z'-factor quality assessment by
+#'   \code{\link{batch_viability_analysis}} and does not modify the processed
+#'   viability values. If \code{NULL} (default), the Z'-factor is not assessed
+#'   because a fixed scalar alone has no observed variability.
+#'
 #' @param control_100perc \strong{Required.} The 100\% (positive / untreated)
 #'   control column(s). Accepts \strong{either}:
 #'   \itemize{
@@ -197,6 +204,7 @@
 #' out <- process_viability_data_v2(
 #'   data               = raw_plate,
 #'   control_0perc      = 0,          # fixed 0% baseline (first row)
+#'   control_0perc_sd   = 2,          # optional SD used only for Z'-factor QC
 #'   control_100perc    = 12,         # column 12 averaged into last row
 #'   info_table         = info_table,
 #'   selected_columns   = 2:12,       # 10 experimental wells + the 100% column
@@ -219,7 +227,8 @@ process_viability_data_v2 <- function(data,
                                       low_value_threshold = 0,
                                       verbose             = TRUE,
                                       control_mean_scope  = c("row", "construct", "global"),
-                                      auto_detect         = TRUE) {
+                                      auto_detect         = TRUE,
+                                      control_0perc_sd    = NULL) {
 
   # -- 1. Argument sanity -----------------------------------------------------
   control_mean_scope <- match.arg(control_mean_scope)
@@ -235,6 +244,13 @@ process_viability_data_v2 <- function(data,
       !is.finite(control_0perc))
     stop("control_0perc must be a single numeric value (the fixed 0% baseline).")
   fixed_0_value <- as.numeric(control_0perc)
+
+  if (!is.null(control_0perc_sd) &&
+      (!is.numeric(control_0perc_sd) || length(control_0perc_sd) != 1L ||
+       is.na(control_0perc_sd) || !is.finite(control_0perc_sd) ||
+       control_0perc_sd < 0)) {
+    stop("control_0perc_sd must be NULL or a single finite non-negative numeric value.")
+  }
 
   if (is.null(control_100perc))
     stop("v2 requires control_100perc (one or more 100% control columns).")
@@ -629,7 +645,9 @@ process_viability_data_v2 <- function(data,
     name        = "Fixed_0perc",
     user_index  = NA_integer_,
     is_relative = FALSE,
-    fixed_value = fixed_0_value
+    fixed_value = fixed_0_value,
+    fixed_sd    = if (is.null(control_0perc_sd)) NA_real_ else control_0perc_sd,
+    sd_source   = if (is.null(control_0perc_sd)) "Not_Supplied" else "User_Supplied"
   )
   control_100_info <- list(
     name         = ctrl100_names,     # character vector of the 100% column names

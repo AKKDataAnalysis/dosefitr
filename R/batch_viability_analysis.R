@@ -18,6 +18,13 @@
 #'   \code{Fixed_0perc} of the output. If NULL, no background normalization is
 #'   applied.
 #'
+#' @param control_0perc_sd Optional non-negative numeric scalar giving the
+#'   standard deviation associated with a fixed numeric \code{control_0perc}.
+#'   Available only for \code{version = "v2"}. It is used solely to calculate
+#'   the Z'-factor and does not modify the viability table. With the default
+#'   \code{NULL}, the Z'-factor is returned as \code{NA} because a fixed scalar
+#'   does not provide an observed standard deviation.
+#'
 #' @param control_100perc For \code{version = "v1"}/\code{"v3"}: integer (1-24) or
 #'   NULL, the column index of the 100\% viability control (e.g. untreated cells).
 #'   For \code{version = "v2"}: one or more 100\% control columns given as numeric
@@ -117,6 +124,7 @@
 #'   \item data_file: Name of the processed data file
 #'   \item info_sheet: Metadata sheet used
 #'   \item sheet_number: Plate identifier extracted from file/sheet name
+#'   \item control_0perc_sd: SD supplied for a fixed v2 0\% control, or NULL
 #'   \item result: Output list returned by process_viability_data
 #' }
 #'
@@ -134,7 +142,11 @@
 #' }
 #'
 #' Quality metrics are calculated per construct using plate row mappings
-#' defined in the metadata table.
+#' defined in the metadata table. The Z'-factor is reported as
+#' \code{"Z'_factor"} and requires at least two finite observations from each
+#' measured control. A fixed v2 0\% control instead requires
+#' \code{control_0perc_sd}; otherwise its Z'-factor is \code{NA}. An unavailable
+#' Z'-factor is excluded from \code{Overall_Quality}.
 #'
 #' @section Input Requirements:
 #' \itemize{
@@ -197,7 +209,8 @@ batch_viability_analysis <- function(directory           = getwd(),
                                      verbose             = TRUE,
                                      file_map            = NULL,
                                      version             = c("v1", "v2", "v3"),
-                                     control_mean_scope  = NULL) {
+                                     control_mean_scope  = NULL,
+                                     control_0perc_sd    = NULL) {
   
   # -- Dependency check -------------------------------------------------------
   if (!requireNamespace("openxlsx", quietly = TRUE))
@@ -205,6 +218,20 @@ batch_viability_analysis <- function(directory           = getwd(),
   
   # -- Resolve processing version --------------------------------------------
   version <- match.arg(version)
+
+  if (!is.null(control_0perc_sd)) {
+    if (!is.numeric(control_0perc_sd) || length(control_0perc_sd) != 1L ||
+        is.na(control_0perc_sd) || !is.finite(control_0perc_sd) ||
+        control_0perc_sd < 0) {
+      stop("control_0perc_sd must be NULL or a single finite non-negative numeric value.")
+    }
+    if (version != "v2")
+      stop("control_0perc_sd is available only when version = 'v2'.")
+    if (!is.numeric(control_0perc) || length(control_0perc) != 1L ||
+        is.na(control_0perc) || !is.finite(control_0perc)) {
+      stop("control_0perc_sd requires control_0perc to be a fixed numeric value.")
+    }
+  }
 
   # -- Resolve control_mean_scope across versions ----------------------------
   # `control_mean_scope` selects how control wells are aggregated: "row",
@@ -342,6 +369,8 @@ batch_viability_analysis <- function(directory           = getwd(),
   #   SD_Positive_Ctrl       : SD of 100% control replicates
   #   CV_Positive_Ctrl_pct   : CV% of 100% control (SD/Mean * 100)
   #   Signal_to_Background   : Mean_Positive / Mean_Background (descriptive only)
+  #   Z'_factor              : Z'-factor from the two control distributions
+  #   Z'_factor_Comment      : quality classification for a valid Z'-factor
   #   CV_Background_Comment  : high (<=10%), medium (10-20%), low (>20%)
   #   CV_PosCtrl_Comment     : high (<=10%), medium (10-20%), low (>20%)
   #   Overall_Quality        : lowest of CV_Background and CV_PosCtrl assessments
@@ -386,7 +415,8 @@ batch_viability_analysis <- function(directory           = getwd(),
     ctrl100_col <- control_100_info$name
     
     # v2 (NanoBRET-style) marker: the 0% baseline is a fixed scalar
-    # not a plate column. Mean_Background is then the scalar itself (SD = 0,
+    # not a plate column. Mean_Background is then the scalar itself (SD is
+    # supplied separately or NA,
     # CV = NA) and the positive control is the mean of the 100% column(s) -- which
     # may be a vector of names -- over each construct's rows.
     is_fixed0_scalar <- !is.null(control_0_info$fixed_value) ||
@@ -414,11 +444,12 @@ batch_viability_analysis <- function(directory           = getwd(),
       quality_order <- c("insufficient", "low", "medium", "high")
       lvls <- c(...)
       first_words <- vapply(lvls, function(x) {
-        if (is.null(x) || is.na(x) || identical(x, "")) return("insufficient")
+        if (is.null(x) || is.na(x) || identical(x, "")) return(NA_character_)
         strsplit(as.character(x), " ", fixed = TRUE)[[1L]][1L]
       }, character(1L), USE.NAMES = FALSE)
       scores <- match(first_words, quality_order)
-      scores[is.na(scores)] <- 1L
+      scores <- scores[!is.na(scores)]
+      if (length(scores) == 0L) return("insufficient")
       quality_order[min(scores)]
     }
     
@@ -430,9 +461,12 @@ batch_viability_analysis <- function(directory           = getwd(),
       if (length(valid_rows) == 0L) return(NULL)
       
       if (is_fixed0_scalar) {
-        # 0% baseline is the fixed scalar: constant, so SD = 0 and CV = NA.
+        # 0% baseline is fixed: its SD is available only when supplied by the
+        # user, and its CV remains undefined.
         mean_bg <- as.numeric(control_0_info$fixed_value)
-        sd_bg   <- 0
+        sd_bg   <- if (!is.null(control_0_info$fixed_sd)) {
+          as.numeric(control_0_info$fixed_sd)
+        } else NA_real_
         # 100% control: pool all cells of the 100% column(s) for these rows.
         pos_vals <- as.numeric(unlist(
           viability_data[valid_rows, ctrl100_col, drop = FALSE],
@@ -463,13 +497,31 @@ batch_viability_analysis <- function(directory           = getwd(),
       # Signal-to-background ratio
       sb_ratio <- if (!is.na(mean_bg) && abs(mean_bg) > 1e-9)
         mean_pos / mean_bg else NA_real_
+
+      z_metrics <- if (is_fixed0_scalar) {
+        .dosefitr_z_prime(
+          control_100_values   = pos_vals,
+          fixed_control_0_mean = mean_bg,
+          fixed_control_0_sd   = sd_bg
+        )
+      } else {
+        .dosefitr_z_prime(
+          control_0_values   = bg_vals,
+          control_100_values = pos_vals
+        )
+      }
       
       # Quality comments - CV% only; S/B has no comment (descriptive only)
       cv_bg_comment  <- cv_quality_level(cv_bg)
       cv_pos_comment <- cv_quality_level(cv_pos)
       
-      # Overall driven by CV% of both controls only
-      overall <- lowest_quality(cv_bg_comment, cv_pos_comment)
+      # A fixed 0% scalar has no empirical background CV. Z' participates in
+      # the overall assessment only when it could be calculated.
+      overall <- if (is_fixed0_scalar) {
+        lowest_quality(cv_pos_comment, z_metrics$comment)
+      } else {
+        lowest_quality(cv_bg_comment, cv_pos_comment, z_metrics$comment)
+      }
       
       row_range <- paste(LETTERS[range(valid_rows)], collapse = "-")
       
@@ -481,13 +533,16 @@ batch_viability_analysis <- function(directory           = getwd(),
         Mean_Positive_Ctrl     = round(mean_pos,  3L),
         SD_Positive_Ctrl       = round(sd_pos,    3L),
         CV_Positive_Ctrl_pct   = round(cv_pos,    2L),
+        `Z'_factor`            = round(z_metrics$value, 3L),
+        `Z'_factor_Comment`    = z_metrics$comment,
         CV_Background_Comment  = cv_bg_comment,
         CV_PosCtrl_Comment     = cv_pos_comment,
         Overall_Quality        = overall,
         Signal_to_Background   = round(sb_ratio,  3L),
         Rows                   = paste0(cn, " (", row_range, ")"),
         Rows_Count             = length(valid_rows),
-        stringsAsFactors       = FALSE
+        stringsAsFactors       = FALSE,
+        check.names            = FALSE
       )
     })
     
@@ -533,6 +588,8 @@ batch_viability_analysis <- function(directory           = getwd(),
         Data_File        = entry$data_file,
         Control_0perc    = ifelse(is.null(entry$control_0perc),
                                   "not set", as.character(entry$control_0perc)),
+        Control_0perc_SD = ifelse(is.null(entry$control_0perc_sd),
+                                  "not set", as.character(entry$control_0perc_sd)),
         Control_100perc  = ifelse(is.null(entry$control_100perc),
                                   "not set", as.character(entry$control_100perc)),
         Selected_Columns = ifelse(is.null(entry$selected_columns),
@@ -627,7 +684,8 @@ batch_viability_analysis <- function(directory           = getwd(),
           low_value_threshold = low_value_threshold,
           verbose             = verbose,
           control_mean_scope  = control_mean_scope,
-          auto_detect         = auto_detect
+          auto_detect         = auto_detect,
+          control_0perc_sd    = control_0perc_sd
         )
       } else if (version == "v3") {
         process_viability_data_v3(
@@ -740,7 +798,7 @@ batch_viability_analysis <- function(directory           = getwd(),
         proc_info_df <- data.frame(
           Parameter = c(
             "Data File", "Info Sheet", "Sheet Number",
-            "Control 0%", "Control 100%",
+            "Control 0%", "Control 0% SD", "Control 100%",
             "Split Replicates", "Low Value Threshold",
             "Apply Control Means", "Auto Detect",
             "Selected Columns", "Processing Date"
@@ -749,6 +807,8 @@ batch_viability_analysis <- function(directory           = getwd(),
             data_filename, info_sheet, sheet_number,
             ifelse(is.null(control_0perc),  "not set",
                    as.character(control_0perc)),
+            ifelse(is.null(control_0perc_sd), "not set",
+                   as.character(control_0perc_sd)),
             ifelse(is.null(control_100perc), "not set",
                    as.character(control_100perc)),
             as.character(split_replicates),
@@ -779,6 +839,7 @@ batch_viability_analysis <- function(directory           = getwd(),
         info_sheet       = info_sheet,
         sheet_number     = sheet_number,
         control_0perc    = control_0perc,
+        control_0perc_sd = control_0perc_sd,
         control_100perc  = control_100perc,
         selected_columns = selected_columns,
         result           = result

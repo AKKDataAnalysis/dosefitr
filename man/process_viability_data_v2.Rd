@@ -15,7 +15,8 @@ process_viability_data_v2(
   low_value_threshold = 0,
   verbose = TRUE,
   control_mean_scope = c("row", "construct", "global"),
-  auto_detect = TRUE
+  auto_detect = TRUE,
+  control_0perc_sd = NULL
 )
 }
 \arguments{
@@ -72,6 +73,13 @@ worked definitions of each mode. Does not affect the fixed 0\% row.}
 \item{auto_detect}{Logical. If \code{TRUE} (default), auto-detect the plate
 block. If \code{FALSE}, fall back to fixed 96-well positions analogous to
 v2's fallback.}
+
+\item{control_0perc_sd}{Optional non-negative numeric scalar giving the
+standard deviation associated with the fixed \code{control_0perc}. It is
+stored for Z'-factor quality assessment by
+\code{\link{batch_viability_analysis}} and does not modify the processed
+viability values. If \code{NULL} (default), the Z'-factor is not assessed
+because a fixed scalar alone has no observed variability.}
 }
 \value{
 A list with the same shape as \code{\link{process_viability_data_v3}}:
@@ -210,6 +218,7 @@ info_table <- data.frame(
 out <- process_viability_data_v2(
   data               = raw_plate,
   control_0perc      = 0,          # fixed 0\% baseline (first row)
+  control_0perc_sd   = 2,          # optional SD used only for Z'-factor QC
   control_100perc    = 12,         # column 12 averaged into last row
   info_table         = info_table,
   selected_columns   = 2:12,       # 10 experimental wells + the 100\% column

@@ -20,7 +20,8 @@ batch_viability_analysis(
   verbose = TRUE,
   file_map = NULL,
   version = c("v1", "v2", "v3"),
-  control_mean_scope = NULL
+  control_mean_scope = NULL,
+  control_0perc_sd = NULL
 )
 }
 \arguments{
@@ -127,6 +128,13 @@ Behaviour depends on version:
 }
 Default \code{NULL} lets each version pick its own default (\code{"row"} for
 v2; \code{"construct"} for v1/v3).}
+
+\item{control_0perc_sd}{Optional non-negative numeric scalar giving the
+standard deviation associated with a fixed numeric \code{control_0perc}.
+Available only for \code{version = "v2"}. It is used solely to calculate
+the Z'-factor and does not modify the viability table. With the default
+\code{NULL}, the Z'-factor is returned as \code{NA} because a fixed scalar
+does not provide an observed standard deviation.}
 }
 \value{
 A named list where each element corresponds to a processed plate.
@@ -135,6 +143,7 @@ Each entry contains:
   \item data_file: Name of the processed data file
   \item info_sheet: Metadata sheet used
   \item sheet_number: Plate identifier extracted from file/sheet name
+  \item control_0perc_sd: SD supplied for a fixed v2 0\% control, or NULL
   \item result: Output list returned by process_viability_data
 }
 }
@@ -161,7 +170,11 @@ For each plate:
 }
 
 Quality metrics are calculated per construct using plate row mappings
-defined in the metadata table.
+defined in the metadata table. The Z'-factor is reported as
+\code{"Z'_factor"} and requires at least two finite observations from each
+measured control. A fixed v2 0\% control instead requires
+\code{control_0perc_sd}; otherwise its Z'-factor is \code{NA}. An unavailable
+Z'-factor is excluded from \code{Overall_Quality}.
 }
 \section{Input Requirements}{
 
