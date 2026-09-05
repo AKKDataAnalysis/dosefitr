@@ -1,29 +1,68 @@
+# Internal mode normaliser used by compare_plates_drc() and its unit tests.
+.normalise_compare_plates_mode <- function(compare_by) {
+  if (!is.character(compare_by) || length(compare_by) != 1L ||
+      is.na(compare_by) || !nzchar(trimws(compare_by))) {
+    stop("compare_by must be one non-empty character value.")
+  }
+
+  mode <- tolower(trimws(compare_by))
+  mode <- gsub("[- ]", "_", mode)
+  aliases <- c(
+    pair = "construct_compound",
+    pairs = "construct_compound",
+    both = "construct_compound",
+    constructcompound = "construct_compound"
+  )
+  if (mode %in% names(aliases)) mode <- unname(aliases[[mode]])
+
+  valid <- c("construct_compound", "compound", "construct")
+  if (!mode %in% valid) {
+    stop(
+      "compare_by must be one of 'construct_compound', 'compound', or 'construct'."
+    )
+  }
+  mode
+}
+
+# Internal grouping key kept separate so grouping semantics can be unit tested
+# without invoking the plotting stack.
+.compare_plates_group_key <- function(entry, compare_by) {
+  mode <- .normalise_compare_plates_mode(compare_by)
+  switch(
+    mode,
+    construct_compound = paste0(entry$construct, ":", entry$compound),
+    compound = entry$compound,
+    construct = entry$construct
+  )
+}
+
 #' Compare Dose-Response Curves Across Plates
 #'
 #' @description
 #' `compare_plates_drc()` takes the output of [`batch_drc_analysis()`] and
-#' generates one overlay plot per unique **compound** or **construct**,
-#' showing the fitted dose-response curves from every plate side-by-side.
+#' generates overlay plots according to the grouping selected in `compare_by`,
+#' showing the fitted dose-response curves from every eligible plate.
 #' This is the primary tool for assessing inter-plate reproducibility.
 #'
-#' Each plot overlays the curves from all plates that contain the selected
-#' construct-compound pair, with each plate rendered in a distinct colour.
-#' Plots are always separated by the full `Construct:Compound` combination, so
-#' the same compound tested on different constructs always produces separate
-#' images.  The plot title is always `"Construct - Compound"` and the filename
-#' is `Construct__Compound.png`.  Mean +- SD data points and error bars are
+#' The legacy/default mode keeps each full `Construct:Compound` pair separate.
+#' Alternatively, curves may be grouped by compound across constructs or by
+#' construct across compounds. Mean +- SD data points and error bars are
 #' included by default.
 #'
 #' @param batch_drc_result The list returned by [`batch_drc_analysis()`].
 #'   Must contain a `drc_results` element (one entry per plate), each with
 #'   a `drc_result` sub-list that holds `detailed_results`.
-#' @param compare_by Character.  Controls the **plot title** shown inside
-#'   each image.  Plots are always separated by the full `Construct:Compound`
-#'   pair regardless of this setting, so the same compound on different
-#'   constructs always produces separate files.
+#' @param compare_by Character. Controls how fits are grouped across plates.
 #'   \describe{
-#'     \item{`"compound"`}{(default) Title shows the compound name.}
-#'     \item{`"construct"`}{Title shows the construct / target name.}
+#'     \item{`"construct_compound"`}{Default and backward-compatible mode.
+#'       Compares only identical `Construct:Compound` pairs. Legend labels show
+#'       the plate name. Alias: `"pair"`.}
+#'     \item{`"compound"`}{Compares every successful fit having the same
+#'       compound name, even when constructs differ. Legend labels show both
+#'       plate and construct.}
+#'     \item{`"construct"`}{Compares every successful fit having the same
+#'       construct / target, even when compounds differ. Legend labels show
+#'       both plate and compound.}
 #'   }
 #' @param output_dir Character.  Directory where the PNG files are saved.
 #'   Created automatically if it does not exist.  Defaults to
@@ -85,9 +124,11 @@
 #'   Default: `12`.
 #' @param point_size Numeric.  Override the automatic point size.  `NULL`
 #'   (default) uses the same adaptive logic as [`plot_multiple_compounds()`].
-#' @param selected_entities Character vector.  Restrict the comparison to a
-#'   subset of compound or construct names.  `NULL` (default) processes all
-#'   entities found across plates.
+#' @param selected_entities Character vector. Restrict the comparison to a
+#'   subset of grouping keys: `Construct:Compound` values in
+#'   `compare_by = "construct_compound"`, compound names in
+#'   `compare_by = "compound"`, or construct names in
+#'   `compare_by = "construct"`. `NULL` processes all entities.
 #' @param min_plates Integer.  Minimum number of plates that must contain an
 #'   entity for a plot to be generated.  Default: `2` (skip entities that
 #'   appear on only one plate, as there is nothing to compare).
@@ -131,7 +172,9 @@
 #' @return Invisibly returns a named list with one entry per entity plotted.
 #'   Each entry contains:
 #'   \describe{
-#'     \item{`entity`}{The compound or construct name.}
+#'     \item{`entity`}{The grouping key selected by `compare_by`.}
+#'     \item{`constructs`, `compounds`}{Character vectors represented in the plot.}
+#'     \item{`compare_by`}{The normalized grouping mode.}
 #'     \item{`plates`}{Character vector of plate names included.}
 #'     \item{`n_plates`}{Number of plates overlaid.}
 #'     \item{`plot`}{The `ggplot2` object.}
@@ -171,7 +214,7 @@
 #'
 #' cmp <- compare_plates_drc(
 #'   batch_drc_result  = drc_res,
-#'   compare_by        = "compound",
+#'   compare_by        = "construct_compound",
 #'   output_dir        = out_dir,
 #'   # Only two bridging compounds ("construct:compound" keys) so the example
 #'   # stays under 5s.
@@ -189,7 +232,7 @@
 #' @export
 
 compare_plates_drc <- function(batch_drc_result,
-                               compare_by        = "compound",
+                               compare_by        = "construct_compound",
                                output_dir        = "plate_comparison_plots",
                                plot_width        = 10,
                                plot_height       = 8,
@@ -236,9 +279,7 @@ compare_plates_drc <- function(batch_drc_result,
   # 1. VALIDATION
   # ============================================================================
   
-  compare_by <- tolower(compare_by)
-  if (!compare_by %in% c("compound", "construct"))
-    stop("compare_by must be either 'compound' or 'construct'.")
+  compare_by <- .normalise_compare_plates_mode(compare_by)
   
   if (!is.list(batch_drc_result) || is.null(batch_drc_result$drc_results))
     stop("batch_drc_result must be the list returned by batch_drc_analysis().")
@@ -348,13 +389,12 @@ compare_plates_drc <- function(batch_drc_result,
   # 4. GROUP BY CHOSEN DIMENSION
   # ============================================================================
   
-  # Always group by the full construct:compound pair so that the same compound
-  # tested on different constructs always produces separate plots.
+  # Group according to the user-selected comparison scope.
   group_key <- function(entry) {
-    paste0(entry$construct, ":", entry$compound)
+    .compare_plates_group_key(entry, compare_by)
   }
   
-  entity_map <- list()   # "construct:compound" -> list of entries
+  entity_map <- list()   # grouping key -> list of entries
   for (entry in all_entries) {
     key <- group_key(entry)
     entity_map[[key]] <- c(entity_map[[key]], list(entry))
@@ -391,7 +431,7 @@ compare_plates_drc <- function(batch_drc_result,
     ))
   
   if (verbose)
-    message(sprintf("Will generate %d comparison plot(s) (titles showing %s name).",
+    message(sprintf("Will generate %d comparison plot(s), grouped by %s.",
                     length(entity_map), compare_by))
   
   # ============================================================================
@@ -404,8 +444,16 @@ compare_plates_drc <- function(batch_drc_result,
     
     synthetic_detailed <- lapply(entries, function(e) {
       r <- e$result
-      # Relabel compound so the legend shows only the plate name.
-      r$compound <- paste0("plate:", e$plate_name)
+      # Keep every curve uniquely identifiable. In the legacy pair mode, the
+      # plate alone is sufficient. Broader groupings also identify the varying
+      # dimension so two curves from the same plate cannot be collapsed.
+      legend_label <- switch(
+        compare_by,
+        construct_compound = e$plate_name,
+        compound = paste0(e$plate_name, " (", e$construct, ")"),
+        construct = paste0(e$plate_name, " (", e$compound, ")")
+      )
+      r$compound <- paste0("comparison:", legend_label)
       r
     })
     
@@ -426,10 +474,11 @@ compare_plates_drc <- function(batch_drc_result,
     entity_name <- names(entity_map)[ei]
     entries     <- entity_map[[entity_name]]
 
-    key_parts        <- strsplit(entity_name, ":", fixed = TRUE)[[1]]
-    entity_construct <- key_parts[1]
-    entity_compound  <- if (length(key_parts) > 1)
-      paste(key_parts[-1], collapse = ":") else key_parts[1]
+    constructs <- unique(vapply(entries, `[[`, character(1L), "construct"))
+    compounds  <- unique(vapply(entries, `[[`, character(1L), "compound"))
+
+    entity_construct <- if (length(constructs) == 1L) constructs[[1L]] else NA_character_
+    entity_compound  <- if (length(compounds) == 1L) compounds[[1L]] else NA_character_
 
     plates_present <- unique(sapply(entries, `[[`, "plate_name"))
     n_pl           <- length(plates_present)
@@ -450,17 +499,37 @@ compare_plates_drc <- function(batch_drc_result,
       }
     }
 
-    plot_title_str <- if (compare_by == "compound") entity_compound else entity_construct
+    plot_title_str <- switch(
+      compare_by,
+      construct_compound = paste(constructs[[1L]], compounds[[1L]], sep = " - "),
+      compound = compounds[[1L]],
+      construct = constructs[[1L]]
+    )
 
-    fname <- file.path(
-      output_dir,
-      paste0(safe_filename(entity_construct), "__",
-             safe_filename(entity_compound), ".png")
+    file_stem <- switch(
+      compare_by,
+      construct_compound = paste0(
+        safe_filename(constructs[[1L]]), "__", safe_filename(compounds[[1L]])
+      ),
+      compound = paste0("compound__", safe_filename(compounds[[1L]])),
+      construct = paste0("construct__", safe_filename(constructs[[1L]]))
+    )
+    fname <- file.path(output_dir, paste0(file_stem, ".png"))
+
+    display_label <- switch(
+      compare_by,
+      construct_compound = paste(constructs[[1L]], compounds[[1L]], sep = " - "),
+      compound = compounds[[1L]],
+      construct = constructs[[1L]]
     )
 
     entity_meta[[entity_name]] <- list(
       construct     = entity_construct,
       compound      = entity_compound,
+      constructs    = constructs,
+      compounds     = compounds,
+      compare_by    = compare_by,
+      display_label = display_label,
       plates        = plates_present,
       n_plates      = n_pl,
       synthetic     = synthetic,
@@ -546,8 +615,8 @@ compare_plates_drc <- function(batch_drc_result,
       meta        <- entity_meta[[entity_name]]
 
       if (verbose)
-        message(sprintf("  [%d/%d] Measuring '%s - %s'",
-                        ei, total, meta$construct, meta$compound))
+        message(sprintf("  [%d/%d] Measuring '%s'",
+                        ei, total, meta$display_label))
 
       p <- plot_one_entity(entity_name, lw = "auto", save_file = NULL)
       if (!is.null(p)) {
@@ -581,8 +650,8 @@ compare_plates_drc <- function(batch_drc_result,
     meta        <- entity_meta[[entity_name]]
 
     if (verbose)
-      message(sprintf("\n[%d/%d] '%s - %s'  (%d plate%s: %s)",
-                      ei, total, meta$construct, meta$compound,
+      message(sprintf("\n[%d/%d] '%s'  (%d plate%s: %s)",
+                      ei, total, meta$display_label,
                       meta$n_plates, if (meta$n_plates == 1) "" else "s",
                       paste(meta$plates, collapse = ", ")))
 
@@ -594,6 +663,9 @@ compare_plates_drc <- function(batch_drc_result,
         entity    = entity_name,
         construct = meta$construct,
         compound  = meta$compound,
+        constructs = meta$constructs,
+        compounds  = meta$compounds,
+        compare_by = meta$compare_by,
         plates    = meta$plates,
         n_plates  = meta$n_plates,
         plot      = p,

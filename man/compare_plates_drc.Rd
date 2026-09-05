@@ -6,7 +6,7 @@
 \usage{
 compare_plates_drc(
   batch_drc_result,
-  compare_by = "compound",
+  compare_by = "construct_compound",
   output_dir = "plate_comparison_plots",
   plot_width = 10,
   plot_height = 8,
@@ -55,13 +55,17 @@ compare_plates_drc(
 Must contain a `drc_results` element (one entry per plate), each with
 a `drc_result` sub-list that holds `detailed_results`.}
 
-\item{compare_by}{Character.  Controls the **plot title** shown inside
-each image.  Plots are always separated by the full `Construct:Compound`
-pair regardless of this setting, so the same compound on different
-constructs always produces separate files.
+\item{compare_by}{Character. Controls how fits are grouped across plates.
 \describe{
-  \item{`"compound"`}{(default) Title shows the compound name.}
-  \item{`"construct"`}{Title shows the construct / target name.}
+  \item{`"construct_compound"`}{Default and backward-compatible mode.
+    Compares only identical `Construct:Compound` pairs. Legend labels show
+    the plate name. Alias: `"pair"`.}
+  \item{`"compound"`}{Compares every successful fit having the same
+    compound name, even when constructs differ. Legend labels show both
+    plate and construct.}
+  \item{`"construct"`}{Compares every successful fit having the same
+    construct / target, even when compounds differ. Legend labels show
+    both plate and compound.}
 }}
 
 \item{output_dir}{Character.  Directory where the PNG files are saved.
@@ -149,9 +153,11 @@ are easier to see; filled shapes (16,17,15,18) are unaffected. \code{NULL}
 \item{error_bar_width}{Numeric.  Width of the error bar caps.  Default:
 `0.05`.}
 
-\item{selected_entities}{Character vector.  Restrict the comparison to a
-subset of compound or construct names.  `NULL` (default) processes all
-entities found across plates.}
+\item{selected_entities}{Character vector. Restrict the comparison to a
+subset of grouping keys: `Construct:Compound` values in
+`compare_by = "construct_compound"`, compound names in
+`compare_by = "compound"`, or construct names in
+`compare_by = "construct"`. `NULL` processes all entities.}
 
 \item{min_plates}{Integer.  Minimum number of plates that must contain an
 entity for a plot to be generated.  Default: `2` (skip entities that
@@ -210,7 +216,9 @@ disables padding.}
 Invisibly returns a named list with one entry per entity plotted.
   Each entry contains:
   \describe{
-    \item{`entity`}{The compound or construct name.}
+    \item{`entity`}{The grouping key selected by `compare_by`.}
+    \item{`constructs`, `compounds`}{Character vectors represented in the plot.}
+    \item{`compare_by`}{The normalized grouping mode.}
     \item{`plates`}{Character vector of plate names included.}
     \item{`n_plates`}{Number of plates overlaid.}
     \item{`plot`}{The `ggplot2` object.}
@@ -219,16 +227,13 @@ Invisibly returns a named list with one entry per entity plotted.
 }
 \description{
 `compare_plates_drc()` takes the output of [`batch_drc_analysis()`] and
-generates one overlay plot per unique **compound** or **construct**,
-showing the fitted dose-response curves from every plate side-by-side.
+generates overlay plots according to the grouping selected in `compare_by`,
+showing the fitted dose-response curves from every eligible plate.
 This is the primary tool for assessing inter-plate reproducibility.
 
-Each plot overlays the curves from all plates that contain the selected
-construct-compound pair, with each plate rendered in a distinct colour.
-Plots are always separated by the full `Construct:Compound` combination, so
-the same compound tested on different constructs always produces separate
-images.  The plot title is always `"Construct - Compound"` and the filename
-is `Construct__Compound.png`.  Mean +- SD data points and error bars are
+The legacy/default mode keeps each full `Construct:Compound` pair separate.
+Alternatively, curves may be grouped by compound across constructs or by
+construct across compounds. Mean +- SD data points and error bars are
 included by default.
 }
 \examples{
@@ -264,7 +269,7 @@ dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
 
 cmp <- compare_plates_drc(
   batch_drc_result  = drc_res,
-  compare_by        = "compound",
+  compare_by        = "construct_compound",
   output_dir        = out_dir,
   # Only two bridging compounds ("construct:compound" keys) so the example
   # stays under 5s.
