@@ -353,6 +353,23 @@ scarab_table <- function(results_list, drc_results_list,
   quality_table <- plate_results$result$interval_means
   final_summary <- plate_drc$drc_result$final_summary_table
 
+  # Local compatibility reader. Keeping this helper inside scarab_table()
+  # makes the function self-contained when vignettes are rebuilt and also
+  # supports final-summary objects created by older dosefitr versions, in
+  # which '/' was converted to '.' by make.names().
+  get_final_summary_value <- function(parameter, column) {
+    if (is.null(final_summary) ||
+        is.null(rownames(final_summary)) ||
+        is.null(colnames(final_summary)) ||
+        !column %in% colnames(final_summary)) {
+      return(NA)
+    }
+    candidates <- unique(c(parameter, make.names(parameter)))
+    matched <- candidates[candidates %in% rownames(final_summary)]
+    if (length(matched) == 0L) return(NA)
+    final_summary[matched[[1L]], column]
+  }
+
   # Identify compound columns (excluding log(inhibitor).[M])
   compound_cols <- names(modified_table)[!names(modified_table) %in% c("log(inhibitor).[M]", "NA:NA", "NA:NA.2", "NA_2:NA", "NA_2:NA.2")]
 
@@ -481,16 +498,16 @@ scarab_table <- function(results_list, drc_results_list,
     if(summary_col_name %in% colnames(final_summary)) {
 
       # Row 11: LogIC50
-      log_ic50 <- final_summary_value(
-        final_summary, "LogIC50/LogEC50", summary_col_name
+      log_ic50 <- get_final_summary_value(
+        "LogIC50/LogEC50", summary_col_name
       )
       if(!is.na(log_ic50) && log_ic50 != "<NA>") {
         col_data[11] <- format_number(log_ic50, digits = 2)
       }
 
       # Row 12: IC50, [M]
-      ic50 <- final_summary_value(
-        final_summary, "IC50/EC50", summary_col_name
+      ic50 <- get_final_summary_value(
+        "IC50/EC50", summary_col_name
       )
       if(!is.na(ic50) && ic50 != "<NA>") {
         if(decimal_separator == ",") {

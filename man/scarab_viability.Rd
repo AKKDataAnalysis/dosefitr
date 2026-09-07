@@ -119,8 +119,9 @@ This function is designed to work with the output of:
 }
 
 Quality metrics are recomputed from the raw viability data stored in
-\code{processing_info} and use CV\%-based quality assessment (not Z'/assay window,
-which are NanoBRET-specific).
+\code{processing_info}. CV\% and a valid Z'-factor contribute to the overall
+quality assessment; unavailable Z'-factors are ignored. A fixed v2 0\%
+control requires a user-supplied SD for Z'-factor assessment.
 
 Compounds or constructs whose name is \code{NA}, \code{NA_2}, \code{NA:NA},
 or similar NA-derived placeholders are automatically excluded from the output.

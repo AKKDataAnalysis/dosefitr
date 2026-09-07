@@ -70,8 +70,9 @@
 #' }
 #'
 #' Quality metrics are recomputed from the raw viability data stored in
-#' \code{processing_info} and use CV\%-based quality assessment (not Z'/assay window,
-#' which are NanoBRET-specific).
+#' \code{processing_info}. CV\% and a valid Z'-factor contribute to the overall
+#' quality assessment; unavailable Z'-factors are ignored. A fixed v2 0\%
+#' control requires a user-supplied SD for Z'-factor assessment.
 #'
 #' Compounds or constructs whose name is \code{NA}, \code{NA_2}, \code{NA:NA},
 #' or similar NA-derived placeholders are automatically excluded from the output.
@@ -203,9 +204,17 @@ scarab_viability <- function(results_list,
   
     ctrl0_col   <- control_0_info$name
     ctrl100_col <- control_100_info$name
-  
-    if (!ctrl0_col   %in% colnames(viability_data) ||
-        !ctrl100_col %in% colnames(viability_data)) return(NULL)
+
+    is_fixed0_scalar <- !is.null(control_0_info$fixed_value) ||
+      identical(ctrl0_col, "Fixed_0perc")
+
+    if (is_fixed0_scalar) {
+      if (is.null(ctrl100_col) ||
+          !all(ctrl100_col %in% colnames(viability_data))) return(NULL)
+    } else if (!ctrl0_col %in% colnames(viability_data) ||
+               !ctrl100_col %in% colnames(viability_data)) {
+      return(NULL)
+    }
   
     cv_quality_level <- function(cv_val) {
       if (is.na(cv_val))  return("insufficient (NA)")
@@ -218,11 +227,12 @@ scarab_viability <- function(results_list,
       quality_order <- c("insufficient", "low", "medium", "high")
       lvls <- c(...)
       first_words <- vapply(lvls, function(x) {
-        if (is.null(x) || is.na(x) || identical(x, "")) return("insufficient")
+        if (is.null(x) || is.na(x) || identical(x, "")) return(NA_character_)
         strsplit(as.character(x), " ", fixed = TRUE)[[1L]][1L]
       }, character(1L), USE.NAMES = FALSE)
       scores <- match(first_words, quality_order)
-      scores[is.na(scores)] <- 1L
+      scores <- scores[!is.na(scores)]
+      if (length(scores) == 0L) return("insufficient")
       quality_order[min(scores)]
     }
   
@@ -233,25 +243,55 @@ scarab_viability <- function(results_list,
       ]
       if (length(valid_rows) == 0L) return(NULL)
   
-      bg_vals  <- viability_data[valid_rows, ctrl0_col]
-      pos_vals <- viability_data[valid_rows, ctrl100_col]
+      if (is_fixed0_scalar) {
+        mean_bg <- as.numeric(control_0_info$fixed_value)
+        sd_bg   <- if (!is.null(control_0_info$fixed_sd)) {
+          as.numeric(control_0_info$fixed_sd)
+        } else NA_real_
+        pos_vals <- as.numeric(unlist(
+          viability_data[valid_rows, ctrl100_col, drop = FALSE],
+          use.names = FALSE
+        ))
+        mean_pos <- mean(pos_vals, na.rm = TRUE)
+        sd_pos   <- stats::sd(pos_vals, na.rm = TRUE)
+      } else {
+        bg_vals  <- viability_data[valid_rows, ctrl0_col]
+        pos_vals <- viability_data[valid_rows, ctrl100_col]
+        mean_bg  <- mean(bg_vals,  na.rm = TRUE)
+        sd_bg    <- stats::sd(bg_vals,  na.rm = TRUE)
+        mean_pos <- mean(pos_vals, na.rm = TRUE)
+        sd_pos   <- stats::sd(pos_vals, na.rm = TRUE)
+      }
   
-      mean_bg  <- mean(bg_vals,  na.rm = TRUE)
-      sd_bg    <- stats::sd(bg_vals,  na.rm = TRUE)
-      mean_pos <- mean(pos_vals, na.rm = TRUE)
-      sd_pos   <- stats::sd(pos_vals, na.rm = TRUE)
-  
-      cv_bg  <- if (!is.na(mean_bg)  && abs(mean_bg)  > 1e-9)
+      cv_bg  <- if (is_fixed0_scalar) NA_real_
+      else if (!is.na(mean_bg)  && abs(mean_bg)  > 1e-9)
         (sd_bg  / mean_bg)  * 100 else NA_real_
       cv_pos <- if (!is.na(mean_pos) && abs(mean_pos) > 1e-9)
         (sd_pos / mean_pos) * 100 else NA_real_
   
       sb_ratio <- if (!is.na(mean_bg) && abs(mean_bg) > 1e-9)
         mean_pos / mean_bg else NA_real_
+
+      z_metrics <- if (is_fixed0_scalar) {
+        .dosefitr_z_prime(
+          control_100_values   = pos_vals,
+          fixed_control_0_mean = mean_bg,
+          fixed_control_0_sd   = sd_bg
+        )
+      } else {
+        .dosefitr_z_prime(
+          control_0_values   = bg_vals,
+          control_100_values = pos_vals
+        )
+      }
   
       cv_bg_comment  <- cv_quality_level(cv_bg)
       cv_pos_comment <- cv_quality_level(cv_pos)
-      overall        <- lowest_quality(cv_bg_comment, cv_pos_comment)
+      overall <- if (is_fixed0_scalar) {
+        lowest_quality(cv_pos_comment, z_metrics$comment)
+      } else {
+        lowest_quality(cv_bg_comment, cv_pos_comment, z_metrics$comment)
+      }
   
       row_range <- paste(LETTERS[range(valid_rows)], collapse = "-")
   
@@ -263,13 +303,16 @@ scarab_viability <- function(results_list,
         SD_Background        = round(sd_bg,     3L),
         CV_Background_pct    = round(cv_bg,     2L),
         CV_Positive_Ctrl_pct = round(cv_pos,    2L),
+        `Z'_factor`          = round(z_metrics$value, 3L),
+        `Z'_factor_Comment`  = z_metrics$comment,
         CV_Background_Comment = cv_bg_comment,
         CV_PosCtrl_Comment   = cv_pos_comment,
         Overall_Quality      = overall,
         Signal_to_Background = round(sb_ratio,  3L),
         Rows                 = paste0(cn, " (", row_range, ")"),
         Rows_Count           = length(valid_rows),
-        stringsAsFactors     = FALSE
+        stringsAsFactors     = FALSE,
+        check.names          = FALSE
       )
     })
   
@@ -300,6 +343,21 @@ scarab_viability <- function(results_list,
   result         <- plate_results$result
   modified_table <- result$modified_ratio_table
   final_summary  <- plate_drc$drc_result$final_summary_table
+
+  # Accept both current labels containing '/' and legacy labels in which R
+  # replaced '/' with '.' during construction of the transposed table.
+  get_final_summary_value <- function(parameter, column) {
+    if (is.null(final_summary) ||
+        is.null(rownames(final_summary)) ||
+        is.null(colnames(final_summary)) ||
+        !column %in% colnames(final_summary)) {
+      return(NA)
+    }
+    candidates <- unique(c(parameter, make.names(parameter)))
+    matched <- candidates[candidates %in% rownames(final_summary)]
+    if (length(matched) == 0L) return(NA)
+    final_summary[matched[[1L]], column]
+  }
 
   if (is.null(modified_table))
     stop("Could not find modified_ratio_table in results_list[['", plate_name,
@@ -450,11 +508,11 @@ scarab_viability <- function(results_list,
     if (!is.null(final_summary) && compound_full %in% colnames(final_summary)) {
       sc <- compound_full
 
-      v <- final_summary["LogIC50/LogEC50", sc]
+      v <- get_final_summary_value("LogIC50/LogEC50", sc)
       if (!is.na(v) && v != "<NA>")
         col_data[8] <- format_number(v, digits = 2)
 
-      v <- final_summary["IC50/EC50", sc]
+      v <- get_final_summary_value("IC50/EC50", sc)
       if (!is.na(v) && v != "<NA>")
         col_data[9] <- if (decimal_separator == ",") gsub("\\.", ",", v) else v
 
