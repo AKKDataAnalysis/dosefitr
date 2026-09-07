@@ -1236,6 +1236,9 @@ batch_drc_analysis <- function(batch_results,
         st <- plate_drc_result$summary_table
         if (nrow(st) > 0) {
           t_data <- as.data.frame(t(plain_for_transpose(st[, -1, drop = FALSE])))
+          # Preserve labels containing '/', which as.data.frame.matrix()
+          # otherwise converts to syntactic names containing '.'.
+          rownames(t_data) <- names(st)[-1]
           colnames(t_data) <- st$Compound
           plate_drc_result$final_summary_table <- t_data
         }
@@ -1342,6 +1345,7 @@ batch_drc_analysis <- function(batch_results,
           .st2 <- plate_drc_result$summary_table
           if (nrow(.st2) > 0L) {
             .td2 <- as.data.frame(t(plain_for_transpose(.st2[, -1, drop = FALSE])))
+            rownames(.td2) <- names(.st2)[-1]
             colnames(.td2) <- .st2$Compound
             plate_drc_result$final_summary_table <- .td2
           }
