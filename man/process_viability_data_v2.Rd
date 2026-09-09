@@ -16,7 +16,8 @@ process_viability_data_v2(
   verbose = TRUE,
   control_mean_scope = c("row", "construct", "global"),
   auto_detect = TRUE,
-  control_0perc_sd = NULL
+  control_0perc_sd = NULL,
+  repeated_rows = c("separate", "combine")
 )
 }
 \arguments{
@@ -51,9 +52,9 @@ is dropped (a one-line warning is emitted).}
 
 \item{info_table}{\strong{Required.} A data.frame with at least four columns,
 in this order: \code{log(inhibitor)}, \code{Plate_Row} (A-H or A-P),
-\code{Construct}, \code{Compound}. Repeated \code{Construct}+\code{Compound}
-pairs are treated as biological replicates and disambiguated with
-\code{_2}, \code{_3}, ... suffixes on the construct name (as in v1).}
+\code{Construct}, \code{Compound}. Handling of repeated
+\code{Construct}+\code{Compound} pairs is controlled by
+\code{repeated_rows}.}
 
 \item{selected_columns}{Optional integer vector of well/column indices in
 \code{[1, n_cols]} to keep. Default \code{NULL} means all columns. Must
@@ -80,6 +81,11 @@ stored for Z'-factor quality assessment by
 \code{\link{batch_viability_analysis}} and does not modify the processed
 viability values. If \code{NULL} (default), the Z'-factor is not assessed
 because a fixed scalar alone has no observed variability.}
+
+\item{repeated_rows}{Character; \code{"separate"} (default) keeps repeated
+Construct+Compound rows as distinct entries by suffixing the construct.
+\code{"combine"} treats them as replicates of one curve and assigns
+sequential \code{.2}, \code{.3}, \code{.4}, ... column suffixes.}
 }
 \value{
 A list with the same shape as \code{\link{process_viability_data_v3}}:

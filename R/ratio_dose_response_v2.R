@@ -61,6 +61,11 @@
 #' @param split_replicates Logical. If TRUE, splits experimental rows into two
 #' technical replicates assuming symmetrical layout.
 #'
+#' @param repeated_rows Character; \code{"separate"} (default) keeps repeated
+#'   Construct+Compound rows as distinct entries by suffixing the construct.
+#'   \code{"combine"} treats them as replicates of one curve and assigns
+#'   sequential \code{.2}, \code{.3}, \code{.4}, ... column suffixes.
+#'
 #' @param info_table Optional data.frame containing metadata. Must contain at least:
 #' \itemize{
 #'   \item Column 1: log(inhibitor)
@@ -189,7 +194,10 @@ ratio_dose_response_v2 <- function(data,
                                    low_value_threshold = 3000,
                                    selected_columns = NULL,
                                    plate_format = NULL,
-                                   control_0perc_sd = NULL) {
+                                   control_0perc_sd = NULL,
+                                   repeated_rows = c("separate", "combine")) {
+
+  repeated_rows <- match.arg(repeated_rows)
 
   if (!is.null(control_0perc_sd)) {
     if (!is.numeric(control_0perc_sd) || length(control_0perc_sd) != 1L ||
@@ -478,7 +486,7 @@ ratio_dose_response_v2 <- function(data,
     id_counts     <- table(base_id_values)
     duplicate_ids <- names(id_counts)[id_counts > 1]
     
-    if (length(duplicate_ids) > 0) {
+    if (length(duplicate_ids) > 0 && repeated_rows == "separate") {
       suffix_counter       <- setNames(rep(1, length(duplicate_ids)), duplicate_ids)
       new_construct_values <- info_table[[3]]
       
@@ -498,8 +506,20 @@ ratio_dose_response_v2 <- function(data,
     } else {
       info_table$Construct_Modified <- info_table[[3]]
     }
-    
-    info_table$ID <- paste(info_table$Construct_Modified, info_table[[4]], sep = ":")
+
+    if (repeated_rows == "combine") {
+      occurrence <- ave(seq_along(base_id_values), base_id_values, FUN = seq_along)
+      info_table$ID <- ifelse(
+        occurrence == 1L,
+        base_id_values,
+        paste0(base_id_values, ".", occurrence)
+      )
+      if (verbose && length(duplicate_ids) > 0)
+        message("Combining repeated Construct+Compound rows as replicates: ",
+                paste(duplicate_ids, collapse = ", "))
+    } else {
+      info_table$ID <- paste(info_table$Construct_Modified, info_table[[4]], sep = ":")
+    }
   }
   
   # -- Quality control calculations -------------------------------------------------------
@@ -690,16 +710,31 @@ ratio_dose_response_v2 <- function(data,
       if (length(r1) != length(r2)) {
         ml <- min(length(r1), length(r2)); r1 <- r1[1:ml]; r2 <- r2[1:ml]
       }
+      input_names <- colnames(df)
+      output_names <- unlist(lapply(input_names, function(col) {
+        c(col, paste0(col, ".2"))
+      }), use.names = FALSE)
+      if (repeated_rows == "combine") {
+        output_bases <- rep(sub("\\.\\d+$", "", input_names), each = 2L)
+        output_occurrence <- ave(seq_along(output_bases), output_bases,
+                                 FUN = seq_along)
+        output_names <- ifelse(
+          output_occurrence == 1L,
+          output_bases,
+          paste0(output_bases, ".", output_occurrence)
+        )
+      }
       out <- data.frame()
-      for (col in colnames(df)) {
-        v1 <- df[c(ctrl[1], r1, ctrl[2]), col]
-        v2 <- df[c(ctrl[1], r2, ctrl[2]), col]
+      for (j in seq_along(input_names)) {
+        name_idx <- (2L * j) - 1L
+        v1 <- df[c(ctrl[1], r1, ctrl[2]), j]
+        v2 <- df[c(ctrl[1], r2, ctrl[2]), j]
         if (ncol(out) == 0) {
-          out <- data.frame(v1, v2)
-          colnames(out) <- c(col, paste0(col, ".2"))
+          out <- data.frame(v1, v2, check.names = FALSE)
+          colnames(out) <- output_names[name_idx + 0:1]
         } else {
-          out[[col]]               <- v1
-          out[[paste0(col, ".2")]] <- v2
+          out[[output_names[name_idx]]]      <- v1
+          out[[output_names[name_idx + 1L]]] <- v2
         }
       }
       rownames(out) <- c(rownames(df)[ctrl[1]], rownames(df)[r1], rownames(df)[ctrl[2]])

@@ -19,7 +19,8 @@ batch_ratio_analysis(
   selected_columns = NULL,
   plate_format = NULL,
   file_map = NULL,
-  control_0perc_sd = NULL
+  control_0perc_sd = NULL,
+  repeated_rows = c("separate", "combine")
 )
 }
 \arguments{
@@ -83,9 +84,20 @@ Default \code{NULL} uses auto-discovery for all sheets.}
 \item{control_0perc_sd}{Optional non-negative numeric scalar passed to
 \code{ratio_dose_response_v2()} as the standard deviation of a fixed
 numeric 0\% control. It affects only quality metrics that use the
-background standard deviation, including the Z-prime score. \code{NULL}
-(default) retains an SD of zero. Available only with
+background standard deviation, including the Z-prime score. With
+\code{NULL} (default), Z-prime is not assessed for a fixed scalar because
+its variability is unknown. Available only with
 \code{function_version = "v2"} and a numeric \code{control_0perc}.}
+
+\item{repeated_rows}{Character; one of \code{"separate"} (default) or
+\code{"combine"}. Controls how repeated Construct+Compound pairs in the
+info table are handled. \code{"separate"} preserves the historical
+behaviour by suffixing the construct (\code{Construct_2},
+\code{Construct_3}, ...). \code{"combine"} treats repeated rows as
+additional replicates of one curve and assigns sequential column suffixes
+(\code{.2}, \code{.3}, \code{.4}, ...). With
+\code{split_replicates = TRUE}, two repeated rows therefore produce four
+replicate columns.}
 }
 \value{
 A named list with one element per successfully processed plate.

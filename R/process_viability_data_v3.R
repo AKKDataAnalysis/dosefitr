@@ -34,6 +34,12 @@
 #'                       \code{info_table}), so if \code{TRUE} the function
 #'                       forces it to \code{FALSE} and emits a one-line
 #'                       message.
+#' @param repeated_rows Character; \code{"combine"} (default, preserving the
+#'                       historical v3 behaviour) treats repeated
+#'                       Target+Compound rows as replicates named \code{.2},
+#'                       \code{.3}, etc. \code{"separate"} keeps them as
+#'                       distinct entries by suffixing the target with
+#'                       \code{_2}, \code{_3}, etc.
 #' @param info_table     data.frame with at least four columns, in this order:
 #'                       \code{log(inhibitor)}, \code{Plate_Row}, \code{Target},
 #'                       \code{Compound}. The first column may contain NAs
@@ -159,9 +165,11 @@ process_viability_data_v3 <- function(data,
                                       verbose             = TRUE,
                                       apply_control_means = TRUE,
                                       control_mean_scope  = c("construct", "row", "global"),
-                                      auto_detect         = TRUE) {
+                                      auto_detect         = TRUE,
+                                      repeated_rows       = c("combine", "separate")) {
 
   control_mean_scope <- match.arg(control_mean_scope)
+  repeated_rows <- match.arg(repeated_rows)
 
   # -- 1. Argument sanity -----------------------------------------------------
   if (is.null(info_table))
@@ -372,16 +380,27 @@ process_viability_data_v3 <- function(data,
   if (anyDuplicated(info_kept[[2L]]) > 0L)
     stop("info_table contains duplicated Plate_Row letters; each plate row must appear at most once.")
 
-  # Suffix assignment: first occurrence keeps base name, subsequent get .2/.3/...
+  # Suffix assignment: combine mode uses .2/.3/...; separate mode mirrors
+  # the historical v1/v2 Construct_2/Construct_3 naming.
   base_id <- paste(info_kept[[3L]], info_kept[[4L]], sep = ":")
   occurrence <- ave(seq_along(base_id), base_id, FUN = seq_along)
-  output_colname <- ifelse(occurrence == 1L,
-                           base_id,
-                           paste0(base_id, ".", occurrence))
+  if (repeated_rows == "combine") {
+    output_colname <- ifelse(occurrence == 1L,
+                             base_id,
+                             paste0(base_id, ".", occurrence))
+    construct_modified <- info_kept[[3L]]
+  } else {
+    construct_modified <- ifelse(
+      occurrence == 1L,
+      info_kept[[3L]],
+      paste0(info_kept[[3L]], "_", occurrence)
+    )
+    output_colname <- paste(construct_modified, info_kept[[4L]], sep = ":")
+  }
 
   info_kept$Base_ID            <- base_id
-  info_kept$Construct_Modified <- info_kept[[3L]]   # construct name NOT suffixed
-  info_kept$ID                 <- output_colname    # output column name (with suffix)
+  info_kept$Construct_Modified <- construct_modified
+  info_kept$ID                 <- output_colname
 
   if (verbose) {
     n_reps <- table(base_id)
@@ -496,6 +515,7 @@ process_viability_data_v3 <- function(data,
       selected_columns              = selected_columns,
       apply_control_means           = apply_control_means,
       control_mean_scope            = control_mean_scope,
+      repeated_rows                 = repeated_rows,
       auto_detected                 = auto_detect,
       detection_method              = if (auto_detect) {
         if (isTRUE(pos$found_by_colnames)) "column_names" else "row_header"

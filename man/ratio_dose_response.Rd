@@ -14,7 +14,8 @@ ratio_dose_response(
   verbose = TRUE,
   low_value_threshold = 1000,
   selected_columns = NULL,
-  plate_format = NULL
+  plate_format = NULL,
+  repeated_rows = c("separate", "combine")
 )
 }
 \arguments{
@@ -52,6 +53,12 @@ A-H) or \code{"384"} (rows A-P).  \code{NULL} (default) auto-detects from
 the number of column-header integers found.  Use this only when
 auto-detection fails, e.g. a 384-well plate read with only 12 columns
 selected (half-plate experiment).}
+
+\item{repeated_rows}{Character; \code{"separate"} (default) keeps repeated
+Construct+Compound rows as distinct biological entries by suffixing the
+construct with \code{_2}, \code{_3}, etc. \code{"combine"} treats them
+as additional replicates of one curve and uses sequential \code{.2},
+\code{.3}, \code{.4}, ... column suffixes.}
 }
 \value{
 A list containing the following components:

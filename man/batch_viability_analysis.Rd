@@ -21,7 +21,8 @@ batch_viability_analysis(
   file_map = NULL,
   version = c("v1", "v2", "v3"),
   control_mean_scope = NULL,
-  control_0perc_sd = NULL
+  control_0perc_sd = NULL,
+  repeated_rows = NULL
 )
 }
 \arguments{
@@ -135,6 +136,15 @@ Available only for \code{version = "v2"}. It is used solely to calculate
 the Z'-factor and does not modify the viability table. With the default
 \code{NULL}, the Z'-factor is returned as \code{NA} because a fixed scalar
 does not provide an observed standard deviation.}
+
+\item{repeated_rows}{Character or \code{NULL}; one of \code{"separate"}
+or \code{"combine"}. Controls repeated Construct+Compound pairs in the
+info table. \code{"separate"} assigns construct suffixes
+(\code{Construct_2}, \code{Construct_3}, ...), whereas
+\code{"combine"} treats the rows as replicates of one curve and assigns
+sequential column suffixes (\code{.2}, \code{.3}, \code{.4}, ...).
+\code{NULL} (default) preserves each processor's historical behaviour:
+\code{"separate"} for v1/v2 and \code{"combine"} for v3.}
 }
 \value{
 A named list where each element corresponds to a processed plate.

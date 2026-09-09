@@ -47,8 +47,9 @@
 #' @param control_0perc_sd Optional non-negative numeric scalar passed to
 #'   \code{ratio_dose_response_v2()} as the standard deviation of a fixed
 #'   numeric 0\% control. It affects only quality metrics that use the
-#'   background standard deviation, including the Z-prime score. \code{NULL}
-#'   (default) retains an SD of zero. Available only with
+#'   background standard deviation, including the Z-prime score. With
+#'   \code{NULL} (default), Z-prime is not assessed for a fixed scalar because
+#'   its variability is unknown. Available only with
 #'   \code{function_version = "v2"} and a numeric \code{control_0perc}.
 #'
 #' @param control_100perc 100\% control specification passed to the ratio
@@ -59,6 +60,16 @@
 #' @param split_replicates Logical.  Split technical replicates into
 #'   separate \code{.2} columns (default \code{TRUE}).  Passed to the
 #'   ratio function.
+#'
+#' @param repeated_rows Character; one of \code{"separate"} (default) or
+#'   \code{"combine"}. Controls how repeated Construct+Compound pairs in the
+#'   info table are handled. \code{"separate"} preserves the historical
+#'   behaviour by suffixing the construct (\code{Construct_2},
+#'   \code{Construct_3}, ...). \code{"combine"} treats repeated rows as
+#'   additional replicates of one curve and assigns sequential column suffixes
+#'   (\code{.2}, \code{.3}, \code{.4}, ...). With
+#'   \code{split_replicates = TRUE}, two repeated rows therefore produce four
+#'   replicate columns.
 #'
 #' @param low_value_threshold Numeric.  Donor-channel values below this
 #'   threshold are replaced with \code{NA} before ratio calculation
@@ -189,7 +200,10 @@ batch_ratio_analysis <- function(directory = getwd(),
                                  selected_columns = NULL,
                                  plate_format = NULL,
                                  file_map = NULL,
-                                 control_0perc_sd = NULL) {
+                                 control_0perc_sd = NULL,
+                                 repeated_rows = c("separate", "combine")) {
+
+  repeated_rows <- match.arg(repeated_rows)
   
   # -- Validate function_version ----------------------------------------------
   valid_versions <- c("v1", "v2")
@@ -453,7 +467,7 @@ batch_ratio_analysis <- function(directory = getwd(),
                 if (results[[plate_sheet]]$function_version == "v2" &&
                     is.numeric(results[[plate_sheet]]$control_0perc)) {
                   if (is.null(results[[plate_sheet]]$control_0perc_sd))
-                    "Default (0)" else results[[plate_sheet]]$control_0perc_sd
+                    "Not supplied (Z' not assessed)" else results[[plate_sheet]]$control_0perc_sd
                 } else "Not applicable"),
           paste("Control 100%:", ifelse(is.numeric(results[[plate_sheet]]$control_100perc),
                                         paste("Positions", paste(results[[plate_sheet]]$control_100perc, collapse = ", ")),
@@ -576,6 +590,7 @@ batch_ratio_analysis <- function(directory = getwd(),
           control_0perc       = control_0perc,
           control_100perc     = control_100perc,
           split_replicates    = split_replicates,
+          repeated_rows       = repeated_rows,
           info_table          = info_table,
           low_value_threshold = low_value_threshold,
           verbose             = verbose,
@@ -590,6 +605,7 @@ batch_ratio_analysis <- function(directory = getwd(),
           control_0perc_sd    = control_0perc_sd,
           control_100perc     = control_100perc,
           split_replicates    = split_replicates,
+          repeated_rows       = repeated_rows,
           info_table          = info_table,
           low_value_threshold = low_value_threshold,
           verbose             = verbose,
@@ -692,7 +708,7 @@ batch_ratio_analysis <- function(directory = getwd(),
                    paste("Fixed value:", control_0perc),
                    ifelse(is.null(control_0perc), "Not specified", control_0perc)),
             if (function_version == "v2" && is.numeric(control_0perc)) {
-              if (is.null(control_0perc_sd)) "Default (0)" else control_0perc_sd
+              if (is.null(control_0perc_sd)) "Not supplied (Z' not assessed)" else control_0perc_sd
             } else "Not applicable",
             ifelse(is.numeric(control_100perc),
                    paste("Positions:", paste(control_100perc, collapse = ", ")),

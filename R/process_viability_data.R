@@ -25,6 +25,11 @@
 #' @param split_replicates Logical. If TRUE (default), splits experimental concentrations
 #'   into two technical replicates.
 #'
+#' @param repeated_rows Character; \code{"separate"} (default) keeps repeated
+#'   Construct+Compound rows as distinct entries by suffixing the construct.
+#'   \code{"combine"} treats them as replicates of one curve and assigns
+#'   sequential \code{.2}, \code{.3}, \code{.4}, ... column suffixes.
+#'
 #' @param info_table Optional data.frame containing metadata. Must contain at least
 #'   four columns:
 #'   \describe{
@@ -131,12 +136,14 @@ process_viability_data <- function(data,
                                    verbose = TRUE,
                                    apply_control_means = TRUE,
                                    control_mean_scope = c("construct", "row", "global"),
-                                   auto_detect = TRUE) {
+                                   auto_detect = TRUE,
+                                   repeated_rows = c("separate", "combine")) {
 
   # Scope for control-mean aggregation (applied jointly to the 0% and 100%
   # control columns when apply_control_means = TRUE). Default "construct"
   # reproduces the legacy per-construct behaviour.
   control_mean_scope <- match.arg(control_mean_scope)
+  repeated_rows <- match.arg(repeated_rows)
   
   # --- SPECIFIC PATTERN DETECTION FUNCTION ---
   detect_specific_pattern <- function(data) {
@@ -628,7 +635,7 @@ process_viability_data <- function(data,
     duplicate_ids <- names(id_counts)[id_counts > 1]
     
     # Distinguish biological replicates by adding suffixes
-    if (length(duplicate_ids) > 0) {
+    if (length(duplicate_ids) > 0 && repeated_rows == "separate") {
       suffix_counter <- setNames(rep(1, length(duplicate_ids)), duplicate_ids)
       new_construct_values <- info_table[[3]]
       
@@ -651,8 +658,20 @@ process_viability_data <- function(data,
     } else {
       info_table$Construct_Modified <- info_table[[3]]
     }
-    
-    info_table$ID <- paste(info_table$Construct_Modified, info_table[[4]], sep = ":")
+
+    if (repeated_rows == "combine") {
+      occurrence <- ave(seq_along(base_id_values), base_id_values, FUN = seq_along)
+      info_table$ID <- ifelse(
+        occurrence == 1L,
+        base_id_values,
+        paste0(base_id_values, ".", occurrence)
+      )
+      if (verbose && length(duplicate_ids) > 0)
+        message("Combining repeated Construct+Compound rows as replicates: ",
+                paste(duplicate_ids, collapse = ", "))
+    } else {
+      info_table$ID <- paste(info_table$Construct_Modified, info_table[[4]], sep = ":")
+    }
   }
   
   # --- APPLY CONTROL MEANS (scope: construct / row / global) ---
@@ -809,19 +828,35 @@ process_viability_data <- function(data,
       
       rep1_rows <- exp_rows[1:split_pt]
       rep2_rows <- exp_rows[(split_pt + 1):length(exp_rows)]
+
+      input_names <- colnames(df)
+      output_names <- unlist(lapply(input_names, function(col) {
+        c(col, paste0(col, ".2"))
+      }), use.names = FALSE)
+      if (repeated_rows == "combine") {
+        output_bases <- rep(sub("\\.\\d+$", "", input_names), each = 2L)
+        output_occurrence <- ave(seq_along(output_bases), output_bases,
+                                 FUN = seq_along)
+        output_names <- ifelse(
+          output_occurrence == 1L,
+          output_bases,
+          paste0(output_bases, ".", output_occurrence)
+        )
+      }
       
       new_table <- data.frame()
       
-      for (col in colnames(df)) {
-        rep1 <- df[c(control_rows[1], rep1_rows, control_rows[2]), col]
-        rep2 <- df[c(control_rows[1], rep2_rows, control_rows[2]), col]
+      for (j in seq_along(input_names)) {
+        name_idx <- (2L * j) - 1L
+        rep1 <- df[c(control_rows[1], rep1_rows, control_rows[2]), j]
+        rep2 <- df[c(control_rows[1], rep2_rows, control_rows[2]), j]
         
         if (ncol(new_table) == 0) {
-          new_table <- data.frame(rep1, rep2)
-          colnames(new_table) <- c(col, paste0(col, ".2"))
+          new_table <- data.frame(rep1, rep2, check.names = FALSE)
+          colnames(new_table) <- output_names[name_idx + 0:1]
         } else {
-          new_table[[col]] <- rep1
-          new_table[[paste0(col, ".2")]] <- rep2
+          new_table[[output_names[name_idx]]]      <- rep1
+          new_table[[output_names[name_idx + 1L]]] <- rep2
         }
       }
       
@@ -882,6 +917,7 @@ process_viability_data <- function(data,
     selected_columns = selected_columns,   # Selected columns info
     apply_control_means = apply_control_means,  # Control flag
     control_mean_scope = control_mean_scope,    # Scope of control-mean aggregation
+    repeated_rows = repeated_rows,              # Repeated-ID handling mode
     auto_detected = auto_detect,           # Whether auto-detection was used
     detection_method = if (auto_detect && exists("found_by_colnames")) {
       if (found_by_colnames) "column_names" else "row_header"

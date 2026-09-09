@@ -15,7 +15,8 @@ ratio_dose_response_v2(
   low_value_threshold = 3000,
   selected_columns = NULL,
   plate_format = NULL,
-  control_0perc_sd = NULL
+  control_0perc_sd = NULL,
+  repeated_rows = c("separate", "combine")
 )
 }
 \arguments{
@@ -68,6 +69,11 @@ the Z-prime score; it does not modify ratios, normalization, or the assay
 window. With \code{NULL} (default), Z-prime is not assessed for a fixed
 scalar because its variability is unknown. This argument cannot
 be used when \code{control_0perc} names a data column.}
+
+\item{repeated_rows}{Character; \code{"separate"} (default) keeps repeated
+Construct+Compound rows as distinct entries by suffixing the construct.
+\code{"combine"} treats them as replicates of one curve and assigns
+sequential \code{.2}, \code{.3}, \code{.4}, ... column suffixes.}
 }
 \value{
 A list containing:

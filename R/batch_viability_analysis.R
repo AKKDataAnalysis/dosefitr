@@ -36,6 +36,15 @@
 #'   two technical replicates after processing. This assumes the plate layout contains
 #'   duplicated concentration series. Default is TRUE.
 #'
+#' @param repeated_rows Character or \code{NULL}; one of \code{"separate"}
+#'   or \code{"combine"}. Controls repeated Construct+Compound pairs in the
+#'   info table. \code{"separate"} assigns construct suffixes
+#'   (\code{Construct_2}, \code{Construct_3}, ...), whereas
+#'   \code{"combine"} treats the rows as replicates of one curve and assigns
+#'   sequential column suffixes (\code{.2}, \code{.3}, \code{.4}, ...).
+#'   \code{NULL} (default) preserves each processor's historical behaviour:
+#'   \code{"separate"} for v1/v2 and \code{"combine"} for v3.
+#'
 #' @param low_value_threshold Numeric. Minimum allowed value for viability signals.
 #'   Values below this threshold are replaced with NA before analysis. Useful for
 #'   removing background noise or invalid measurements. Default is 0.
@@ -210,7 +219,8 @@ batch_viability_analysis <- function(directory           = getwd(),
                                      file_map            = NULL,
                                      version             = c("v1", "v2", "v3"),
                                      control_mean_scope  = NULL,
-                                     control_0perc_sd    = NULL) {
+                                     control_0perc_sd    = NULL,
+                                     repeated_rows       = NULL) {
   
   # -- Dependency check -------------------------------------------------------
   if (!requireNamespace("openxlsx", quietly = TRUE))
@@ -218,6 +228,12 @@ batch_viability_analysis <- function(directory           = getwd(),
   
   # -- Resolve processing version --------------------------------------------
   version <- match.arg(version)
+
+  if (is.null(repeated_rows)) {
+    repeated_rows <- if (version == "v3") "combine" else "separate"
+  } else {
+    repeated_rows <- match.arg(repeated_rows, c("separate", "combine"))
+  }
 
   if (!is.null(control_0perc_sd)) {
     if (!is.numeric(control_0perc_sd) || length(control_0perc_sd) != 1L ||
@@ -679,6 +695,7 @@ batch_viability_analysis <- function(directory           = getwd(),
           control_0perc       = control_0perc,
           control_100perc     = control_100perc,
           split_replicates    = split_replicates,
+          repeated_rows       = repeated_rows,
           info_table          = info_table,
           selected_columns    = selected_columns,
           low_value_threshold = low_value_threshold,
@@ -693,6 +710,7 @@ batch_viability_analysis <- function(directory           = getwd(),
           control_0perc       = control_0perc,
           control_100perc     = control_100perc,
           split_replicates    = split_replicates,
+          repeated_rows       = repeated_rows,
           info_table          = info_table,
           selected_columns    = selected_columns,
           low_value_threshold = low_value_threshold,
@@ -707,6 +725,7 @@ batch_viability_analysis <- function(directory           = getwd(),
           control_0perc       = control_0perc,
           control_100perc     = control_100perc,
           split_replicates    = split_replicates,
+          repeated_rows       = repeated_rows,
           info_table          = info_table,
           selected_columns    = selected_columns,
           low_value_threshold = low_value_threshold,

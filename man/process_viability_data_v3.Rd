@@ -15,7 +15,8 @@ process_viability_data_v3(
   verbose = TRUE,
   apply_control_means = TRUE,
   control_mean_scope = c("construct", "row", "global"),
-  auto_detect = TRUE
+  auto_detect = TRUE,
+  repeated_rows = c("combine", "separate")
 )
 }
 \arguments{
@@ -89,6 +90,13 @@ scope is applied \emph{jointly} to both):
 \item{auto_detect}{Logical. If \code{TRUE} (default), auto-detect the
 plate block. If \code{FALSE}, attempt the same fixed
 fallback positions as v1.}
+
+\item{repeated_rows}{Character; \code{"combine"} (default, preserving the
+historical v3 behaviour) treats repeated
+Target+Compound rows as replicates named \code{.2},
+\code{.3}, etc. \code{"separate"} keeps them as
+distinct entries by suffixing the target with
+\code{_2}, \code{_3}, etc.}
 }
 \value{
 A list with the same shape as v1's \code{\link{process_viability_data}}:
