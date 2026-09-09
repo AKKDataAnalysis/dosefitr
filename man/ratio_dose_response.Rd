@@ -58,7 +58,8 @@ selected (half-plate experiment).}
 Construct+Compound rows as distinct biological entries by suffixing the
 construct with \code{_2}, \code{_3}, etc. \code{"combine"} treats them
 as additional replicates of one curve and uses sequential \code{.2},
-\code{.3}, \code{.4}, ... column suffixes.}
+\code{.3}, \code{.4}, ... column suffixes, grouping the columns by curve
+and ordering them by replicate number.}
 }
 \value{
 A list containing the following components:

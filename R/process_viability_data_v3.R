@@ -37,7 +37,8 @@
 #' @param repeated_rows Character; \code{"combine"} (default, preserving the
 #'                       historical v3 behaviour) treats repeated
 #'                       Target+Compound rows as replicates named \code{.2},
-#'                       \code{.3}, etc. \code{"separate"} keeps them as
+#'                       \code{.3}, etc., grouped by curve and ordered by
+#'                       replicate number. \code{"separate"} keeps them as
 #'                       distinct entries by suffixing the target with
 #'                       \code{_2}, \code{_3}, etc.
 #' @param info_table     data.frame with at least four columns, in this order:
@@ -474,6 +475,10 @@ process_viability_data_v3 <- function(data,
     warning("Plate rows without info_table entry kept their letter names: ",
             paste(unmapped, collapse = ", "))
   colnames(via_t) <- ifelse(is.na(new_colnames), colnames(via_t), new_colnames)
+
+  if (repeated_rows == "combine") {
+    via_t <- .order_combined_replicate_columns(via_t)
+  }
 
   # -- 12. Build the leading log(inhibitor) column ---------------------------
   raw_log <- info_raw[[1L]]

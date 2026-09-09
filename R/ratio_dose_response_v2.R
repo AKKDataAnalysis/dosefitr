@@ -64,7 +64,8 @@
 #' @param repeated_rows Character; \code{"separate"} (default) keeps repeated
 #'   Construct+Compound rows as distinct entries by suffixing the construct.
 #'   \code{"combine"} treats them as replicates of one curve and assigns
-#'   sequential \code{.2}, \code{.3}, \code{.4}, ... column suffixes.
+#'   sequential \code{.2}, \code{.3}, \code{.4}, ... column suffixes, grouped
+#'   by curve and ordered by replicate number.
 #'
 #' @param info_table Optional data.frame containing metadata. Must contain at least:
 #' \itemize{
@@ -743,6 +744,10 @@ ratio_dose_response_v2 <- function(data,
     split_replicates_func(ratio_t)
   } else {
     ratio_t
+  }
+
+  if (repeated_rows == "combine") {
+    final_table <- .order_combined_replicate_columns(final_table)
   }
   
   if (is.null(info_table) && verbose)

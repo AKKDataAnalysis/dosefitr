@@ -108,7 +108,8 @@
 #' @param repeated_rows Character; \code{"separate"} (default) keeps repeated
 #'   Construct+Compound rows as distinct entries by suffixing the construct.
 #'   \code{"combine"} treats them as replicates of one curve and assigns
-#'   sequential \code{.2}, \code{.3}, \code{.4}, ... column suffixes.
+#'   sequential \code{.2}, \code{.3}, \code{.4}, ... column suffixes, grouped
+#'   by curve and ordered by replicate number.
 #'
 #' @param info_table \strong{Required.} A data.frame with at least four columns,
 #'   in this order: \code{log(inhibitor)}, \code{Plate_Row} (A-H or A-P),
@@ -644,6 +645,10 @@ process_viability_data_v2 <- function(data,
     split_replicates_func(via_t)
   } else {
     via_t
+  }
+
+  if (repeated_rows == "combine") {
+    final_table <- .order_combined_replicate_columns(final_table)
   }
 
   # -- 15. Build the leading log(inhibitor) column ----------------------------

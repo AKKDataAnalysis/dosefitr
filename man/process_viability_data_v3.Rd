@@ -94,7 +94,8 @@ fallback positions as v1.}
 \item{repeated_rows}{Character; \code{"combine"} (default, preserving the
 historical v3 behaviour) treats repeated
 Target+Compound rows as replicates named \code{.2},
-\code{.3}, etc. \code{"separate"} keeps them as
+\code{.3}, etc., grouped by curve and ordered by
+replicate number. \code{"separate"} keeps them as
 distinct entries by suffixing the target with
 \code{_2}, \code{_3}, etc.}
 }

@@ -28,7 +28,8 @@
 #' @param repeated_rows Character; \code{"separate"} (default) keeps repeated
 #'   Construct+Compound rows as distinct entries by suffixing the construct.
 #'   \code{"combine"} treats them as replicates of one curve and assigns
-#'   sequential \code{.2}, \code{.3}, \code{.4}, ... column suffixes.
+#'   sequential \code{.2}, \code{.3}, \code{.4}, ... column suffixes, grouped
+#'   by curve and ordered by replicate number.
 #'
 #' @param info_table Optional data.frame containing metadata. Must contain at least
 #'   four columns:
@@ -872,6 +873,10 @@ process_viability_data <- function(data,
     split_replicates_func(viability_transposed)
   } else {
     viability_transposed
+  }
+
+  if (repeated_rows == "combine") {
+    final_table <- .order_combined_replicate_columns(final_table)
   }
   
   # --- ADD LOG(INHIBITOR) COLUMN ---

@@ -18,7 +18,8 @@
 #'   Construct+Compound rows as distinct biological entries by suffixing the
 #'   construct with \code{_2}, \code{_3}, etc. \code{"combine"} treats them
 #'   as additional replicates of one curve and uses sequential \code{.2},
-#'   \code{.3}, \code{.4}, ... column suffixes.
+#'   \code{.3}, \code{.4}, ... column suffixes, grouping the columns by curve
+#'   and ordering them by replicate number.
 #' @param info_table Data frame with experimental metadata containing at least 4 columns:
 #'   log(inhibitor), Plate_Row, Construct, and Compound information.
 #' @param save_to_excel Character string specifying Excel file path for saving processed results
@@ -630,6 +631,10 @@ ratio_dose_response <- function(data,
     split_replicates_func(ratio_t)
   } else {
     ratio_t
+  }
+
+  if (repeated_rows == "combine") {
+    final_table <- .order_combined_replicate_columns(final_table)
   }
   
   # -- Add log(inhibitor) column ----------------------------------------------

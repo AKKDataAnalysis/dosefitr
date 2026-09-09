@@ -73,7 +73,8 @@ be used when \code{control_0perc} names a data column.}
 \item{repeated_rows}{Character; \code{"separate"} (default) keeps repeated
 Construct+Compound rows as distinct entries by suffixing the construct.
 \code{"combine"} treats them as replicates of one curve and assigns
-sequential \code{.2}, \code{.3}, \code{.4}, ... column suffixes.}
+sequential \code{.2}, \code{.3}, \code{.4}, ... column suffixes, grouped
+by curve and ordered by replicate number.}
 }
 \value{
 A list containing:
