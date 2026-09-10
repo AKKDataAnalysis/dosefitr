@@ -54,7 +54,8 @@ color_labels <- function(gg) {
 # so callers can peek at its scales.  save_plot must be a real path per
 # plot_multiple_compounds' contract (FALSE is rejected).
 render_with_mode <- function(drc_result, mode, out_dir,
-                             indices = c(1, 4, 7, 10, 13)) {
+                             indices = c(1, 4, 7, 10, 13),
+                             legend_order = NULL) {
   args <- list(
     results          = drc_result,
     compound_indices = indices,
@@ -62,6 +63,7 @@ render_with_mode <- function(drc_result, mode, out_dir,
     verbose          = FALSE
   )
   if (!is.null(mode)) args$legend_label <- mode
+  if (!is.null(legend_order)) args$legend_order <- legend_order
   do.call(plot_multiple_compounds, args)
 }
 
@@ -194,6 +196,63 @@ test_that("legend_label rejects invalid modes with a clear error", {
       verbose          = FALSE
     ),
     regexp = "legend_label"
+  )
+})
+
+test_that("legend_order alphabetizes the displayed labels only", {
+  bundle <- build_plate01_drc()
+  on.exit(unlink(bundle$work_dir, recursive = TRUE), add = TRUE)
+  out_dir <- tempfile("plmc_legend_order_"); dir.create(out_dir)
+  on.exit(unlink(out_dir, recursive = TRUE), add = TRUE)
+
+  gg_original <- render_with_mode(
+    bundle$drc_result,
+    mode = "compound",
+    out_dir = out_dir,
+    indices = c(3, 1, 2),
+    legend_order = "original"
+  )
+  gg <- render_with_mode(
+    bundle$drc_result,
+    mode = "compound",
+    out_dir = out_dir,
+    indices = c(3, 1, 2),
+    legend_order = "alphabetical"
+  )
+  labs <- color_labels(gg)
+
+  expect_identical(
+    tolower(unname(labs)),
+    sort(tolower(unname(labs)), method = "radix")
+  )
+  expect_identical(attr(gg, "metadata")$legend_order, "alphabetical")
+  # The selected-curve order remains the user-supplied order.
+  expect_identical(
+    attr(gg, "metadata")$selected_compounds,
+    attr(gg_original, "metadata")$selected_compounds
+  )
+  expect_identical(
+    attr(gg, "metadata")$colors,
+    attr(gg_original, "metadata")$colors
+  )
+})
+
+test_that("legend_order keeps the backward-compatible default and validates input", {
+  expect_identical(
+    eval(formals(plot_multiple_compounds)$legend_order),
+    c("original", "alphabetical")
+  )
+
+  bundle <- build_plate01_drc()
+  on.exit(unlink(bundle$work_dir, recursive = TRUE), add = TRUE)
+  expect_error(
+    plot_multiple_compounds(
+      bundle$drc_result,
+      compound_indices = 1:2,
+      legend_order = "reverse",
+      verbose = FALSE
+    ),
+    regexp = "legend_order"
   )
 })
 

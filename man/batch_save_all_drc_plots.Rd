@@ -30,6 +30,7 @@ batch_save_all_drc_plots(
   subplot_title = "auto",
   label_sep = NULL,
   y_number_format = c("integer", "scientific", "si"),
+  panel_order = c("original", "alphabetical"),
   ...
 )
 }
@@ -141,6 +142,12 @@ across every sub-plot in the panel. Example:
 \code{batch_save_all_drc_plots(res, output_dir = "plots",}
 \code{y_number_format = "integer")}.}
 
+\item{panel_order}{Character. Order of sub-plots within each plate panel.
+\code{"original"} (default) preserves the order in the DRC results;
+\code{"alphabetical"} sorts case-insensitively by the title actually shown
+for each sub-plot, after resolving \code{subplot_title = "auto"}. Individual
+plot files and the input result object are not reordered.}
+
 \item{...}{Additional arguments passed to \code{\link{plot_dose_response}}.}
 }
 \value{
@@ -154,6 +161,7 @@ Invisibly returns a list with summary information:
   \item \code{output_dir} Output directory path
   \item \code{organization} Directory structure used
   \item \code{point_color} Point color used in plots
+  \item \code{panel_order} Panel ordering mode used
   \item \code{timestamp} Time of execution
 }
 }

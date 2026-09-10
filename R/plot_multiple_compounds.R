@@ -127,7 +127,7 @@
 #' @param legend_width Numeric, \code{"auto"}, or NULL. Target width (in cm) for the legend
 #'   column, including the legend keys, labels, and any internal margins.
 #'   When specified, the legend column is padded via
-#'   \code{legend.box.margin} so it occupies exactly this width — guaranteeing
+#'   \code{legend.box.margin} so it occupies exactly this width, guaranteeing
 #'   that the data panel is identically sized across plots with different
 #'   label lengths. Use \code{legend_width = "auto"} to measure and return
 #'   the current legend width without padding (useful for determining the
@@ -188,6 +188,12 @@
 #'   Labels that do not contain the display separator (bare compound
 #'   names) are passed through unchanged in every mode.  Line-wrapping
 #'   via \code{legend_label_wrap} is applied after this choice.
+#' @param legend_order Character. Order of entries in the legend.
+#'   \code{"original"} (default) preserves the order of the selected curves;
+#'   \code{"alphabetical"} sorts case-insensitively by the final displayed
+#'   legend text, after applying \code{legend_label} and before line wrapping.
+#'   This changes only the legend; curve colours, point shapes, plotted data,
+#'   and the input result object remain unchanged.
 #' @param plot_margin Margin or NULL. Plot margin applied via
 #'   \code{theme(plot.margin = )}. Accepts a \code{ggplot2::margin()} object.
 #'   \code{NULL} (default) uses the built-in margin
@@ -254,6 +260,8 @@
 #'   Metadata includes \code{legend_width_cm} (measured legend width in cm).
 #'   \item{selected_compounds}{Character vector of selected compound names}
 #'   \item{smart_legend_names}{Automatically generated legend labels}
+#'   \item{legend_order}{Legend ordering mode used}
+#'   \item{legend_breaks}{Raw compound keys in displayed legend order}
 #'   \item{n_compounds}{Number of compounds plotted}
 #'   \item{match_type}{How compounds were selected (position, indices, pattern match)}
 #'   \item{colors}{Vector of colors used in the plot}
@@ -477,7 +485,8 @@ plot_multiple_compounds <- function(results,
                                     plate = NULL,
                                     show_display_overrides = FALSE,
                                     show_display_badge = FALSE,
-                                    nd_if_activation = FALSE) {
+                                    nd_if_activation = FALSE,
+                                    legend_order = c("original", "alphabetical")) {
 
 
   # Null-coalescing operator
@@ -519,6 +528,21 @@ plot_multiple_compounds <- function(results,
          paste0("\"", LEGEND_LABEL_MODES, "\"", collapse = ", "),
          ". Got: ", paste(deparse(legend_label), collapse = " "),
          call. = FALSE)
+  }
+
+  LEGEND_ORDER_MODES <- c("original", "alphabetical")
+  if (length(legend_order) < 1L || !is.character(legend_order) ||
+      anyNA(legend_order)) {
+    stop("`legend_order` must be one of: \"original\", \"alphabetical\".",
+         call. = FALSE)
+  }
+  legend_order <- tolower(legend_order)
+  if (length(legend_order) > 1L && identical(legend_order, LEGEND_ORDER_MODES)) {
+    legend_order <- legend_order[[1L]]
+  }
+  if (length(legend_order) != 1L || !legend_order %in% LEGEND_ORDER_MODES) {
+    stop("`legend_order` must be one of: \"original\", \"alphabetical\". Got: ",
+         paste(deparse(legend_order), collapse = " "), call. = FALSE)
   }
 
   # Validate `format`.  Mirrors batch_save_all_drc_plots(): no whitelist,
@@ -1725,6 +1749,16 @@ plot_multiple_compounds <- function(results,
 
   wrapped_labels <- smart_label_wrap(smart_legend_names, legend_label_wrap)
 
+  # The legend can be ordered independently of the plotted data. Sorting by
+  # the final unwrapped display label makes the behaviour agree with
+  # legend_label = "auto", "compound", "construct", or "full".
+  legend_order_index <- .panel_order_index(smart_legend_names, legend_order)
+  legend_breaks <- compound_labels[legend_order_index]
+  legend_scale_labels <- stats::setNames(
+    wrapped_labels[legend_order_index],
+    legend_breaks
+  )
+
   legend_title_final <- legend_title
 
   # Factor compounds to preserve order
@@ -2061,7 +2095,8 @@ plot_multiple_compounds <- function(results,
   # Apply colors and smart legend labels
   p <- p + ggplot2::scale_color_manual(
     values = setNames(colors_final[1:n_valid_compounds], compound_labels),
-    labels = setNames(wrapped_labels, compound_labels)
+    breaks = legend_breaks,
+    labels = legend_scale_labels
   )
 
   # Configure legend guide
@@ -2081,7 +2116,7 @@ plot_multiple_compounds <- function(results,
 
   # Add shapes to legend override when shape mapping is active
   if (nrow(plot_data$points) > 0 && use_shape_mapping) {
-    guide_args$override.aes$shape <- point_shapes[1:n_valid_compounds]
+    guide_args$override.aes$shape <- point_shapes[legend_order_index]
   }
 
   p <- p + ggplot2::guides(color = do.call(ggplot2::guide_legend, guide_args))
@@ -2290,6 +2325,9 @@ plot_multiple_compounds <- function(results,
     legend_title = legend_title_final,
     legend_text_size = legend_text_size,
     legend_title_size = legend_title_size,
+    legend_order = legend_order,
+    legend_breaks = legend_breaks,
+    legend_names_displayed = smart_legend_names[legend_order_index],
     legend_width_cm = legend_width_cm,
     wrapped_labels = wrapped_labels,
     x_limits = x_limits,

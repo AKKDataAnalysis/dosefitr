@@ -76,7 +76,8 @@ plot_multiple_compounds(
   plate = NULL,
   show_display_overrides = FALSE,
   show_display_badge = FALSE,
-  nd_if_activation = FALSE
+  nd_if_activation = FALSE,
+  legend_order = c("original", "alphabetical")
 )
 }
 \arguments{
@@ -309,7 +310,7 @@ via \code{legend_label_wrap} is applied after this choice.}
 \item{legend_width}{Numeric, \code{"auto"}, or NULL. Target width (in cm) for the legend
 column, including the legend keys, labels, and any internal margins.
 When specified, the legend column is padded via
-\code{legend.box.margin} so it occupies exactly this width — guaranteeing
+\code{legend.box.margin} so it occupies exactly this width, guaranteeing
 that the data panel is identically sized across plots with different
 label lengths. Use \code{legend_width = "auto"} to measure and return
 the current legend width without padding (useful for determining the
@@ -390,12 +391,21 @@ for each affected compound (\code{"IC50: <compound> N/D"} or
 same as flat curves (their IC50 line is not drawn).  Default \code{FALSE}
 mirrors \code{\link{batch_drc_analysis}}'s default and only omits the IC50
 line for flat curves.}
+
+\item{legend_order}{Character. Order of entries in the legend.
+\code{"original"} (default) preserves the order of the selected curves;
+\code{"alphabetical"} sorts case-insensitively by the final displayed
+legend text, after applying \code{legend_label} and before line wrapping.
+This changes only the legend; curve colours, point shapes, plotted data,
+and the input result object remain unchanged.}
 }
 \value{
 A ggplot2 object with the generated plot, containing metadata attributes.
   Metadata includes \code{legend_width_cm} (measured legend width in cm).
   \item{selected_compounds}{Character vector of selected compound names}
   \item{smart_legend_names}{Automatically generated legend labels}
+  \item{legend_order}{Legend ordering mode used}
+  \item{legend_breaks}{Raw compound keys in displayed legend order}
   \item{n_compounds}{Number of compounds plotted}
   \item{match_type}{How compounds were selected (position, indices, pattern match)}
   \item{colors}{Vector of colors used in the plot}

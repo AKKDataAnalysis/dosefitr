@@ -46,6 +46,11 @@
 #'   or \code{"construct"} (e.g. \code{"KinaseA"}). \code{"auto"} shows only
 #'   the compound name when all compounds share one construct, only the construct
 #'   name when all share one compound, and the full string otherwise.
+#' @param panel_order Character. Order of sub-plots within each plate panel.
+#'   \code{"original"} (default) preserves the order in the input results;
+#'   \code{"alphabetical"} sorts case-insensitively by the title actually shown
+#'   for each sub-plot, after resolving \code{subplot_title = "auto"}. This does
+#'   not modify \code{batch_rout_output}.
 #' @param label_sep Character separator used in display labels between
 #'   construct and compound names.  Defaults to \code{":"}.  Change to
 #'   e.g. \code{"/"} to show \code{"EPHA1/KK135"} instead of
@@ -230,7 +235,8 @@ plot_outliers_batch_curves <- function(batch_rout_output,
                                        outlier_alpha        = 0.7,
                                        curve_alpha          = 1.0,
                                        show_n               = TRUE,
-                                       theme                = "prism") {
+                                       theme                = "prism",
+                                       panel_order          = c("original", "alphabetical")) {
   
   # --------------------------------------------------------------------------
   # 1. Dependency checks
@@ -253,6 +259,8 @@ plot_outliers_batch_curves <- function(batch_rout_output,
                 "Please source('rout_outliers.R') before calling this function."))
   
   subplot_title <- match.arg(subplot_title, c("auto", "full", "compound", "construct"))
+  panel_order <- match.arg(tolower(panel_order),
+                           c("original", "alphabetical"))
   
   # --------------------------------------------------------------------------
   # 2. Input validation
@@ -469,6 +477,33 @@ plot_outliers_batch_curves <- function(batch_rout_output,
       }
     }
     
+    # plot_outliers_curves() follows the first occurrence of each compound in
+    # rout_out$results. Reorder this local copy only when requested, using the
+    # same label mode that will be displayed in the panel.
+    if (panel_order == "alphabetical") {
+      .compound_order <- unique(rout_out$results$compound)
+      .sort_labels <- vapply(.compound_order, function(.cmpd) {
+        switch(
+          effective_subplot_mode,
+          full = gsub(":", label_sep, .cmpd, fixed = TRUE),
+          compound = .extract_compound(.cmpd),
+          construct = {
+            .construct_label <- .extract_construct(.cmpd)
+            if (is.na(.construct_label)) .cmpd else .construct_label
+          }
+        )
+      }, character(1L))
+      .compound_order <- .compound_order[
+        .panel_order_index(.sort_labels, panel_order)
+      ]
+      .row_order <- order(
+        match(rout_out$results$compound, .compound_order),
+        seq_len(nrow(rout_out$results)),
+        method = "radix"
+      )
+      rout_out$results <- rout_out$results[.row_order, , drop = FALSE]
+    }
+
     # ---- 5g. Compute plot dimensions ----
     n_compounds <- length(unique(rout_out$results$compound))
     n_rows_grid <- ceiling(n_compounds / ncol)

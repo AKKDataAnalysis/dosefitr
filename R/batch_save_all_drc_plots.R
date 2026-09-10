@@ -59,6 +59,11 @@
 #'   \code{"auto"} mirrors the same logic used for individual plots: shows only
 #'   the compound name when all compounds in the batch share a single construct,
 #'   and the full \code{Construct:Compound} string otherwise.
+#' @param panel_order Character. Order of sub-plots within each plate panel.
+#'   \code{"original"} (default) preserves the order in the DRC results;
+#'   \code{"alphabetical"} sorts case-insensitively by the title actually shown
+#'   for each sub-plot, after resolving \code{subplot_title = "auto"}. Individual
+#'   plot files and the input result object are not reordered.
 #' @param save_panel Logical. If \code{TRUE} (default), saves one combined panel
 #'   image per plate containing all individual compound plots assembled with
 #'   \pkg{patchwork}.  Set to \code{FALSE} to skip panel generation.
@@ -118,6 +123,7 @@
 #'   \item \code{output_dir} Output directory path
 #'   \item \code{organization} Directory structure used
 #'   \item \code{point_color} Point color used in plots
+#'   \item \code{panel_order} Panel ordering mode used
 #'   \item \code{timestamp} Time of execution
 #' }
 #'
@@ -196,6 +202,7 @@ batch_save_all_drc_plots <- function(batch_drc_results,
                                      subplot_title = "auto",
                                      label_sep = NULL,
                                      y_number_format = c("integer", "scientific", "si"),
+                                     panel_order = c("original", "alphabetical"),
                                      ...) {
   
   # ============================================================================
@@ -209,6 +216,8 @@ batch_save_all_drc_plots <- function(batch_drc_results,
   # value errors here with a clear message rather than deep inside a
   # per-compound plot_dose_response() call. Forwarded explicitly below.
   y_number_format <- match.arg(y_number_format)
+  panel_order <- match.arg(tolower(panel_order),
+                           c("original", "alphabetical"))
 
 # Resolve label_sep: the separator used for DISPLAY purposes (titles, labels,
   # filenames). 
@@ -501,6 +510,7 @@ batch_save_all_drc_plots <- function(batch_drc_results,
   state$failed_list   <- character()
   state$error_messages <- list()
   state$plate_plots   <- list()   # plate_name -> list of ggplot objects for panel
+  state$plate_plot_labels <- list() # plate_name -> displayed labels for sorting
   
   # Progress bar
   if (verbose) {
@@ -590,6 +600,9 @@ batch_save_all_drc_plots <- function(batch_drc_results,
           )
         }
         state$plate_plots[[info$plate]] <- c(state$plate_plots[[info$plate]], list(p_panel))
+        state$plate_plot_labels[[info$plate]] <- c(
+          state$plate_plot_labels[[info$plate]], panel_label
+        )
       }
     }, error = function(e) {
       state$failures      <- state$failures + 1L
@@ -607,6 +620,7 @@ batch_save_all_drc_plots <- function(batch_drc_results,
   failed_list   <- state$failed_list
   error_messages <- state$error_messages
   plate_plots   <- state$plate_plots
+  plate_plot_labels <- state$plate_plot_labels
   
   if (verbose) close(pb)
   
@@ -621,6 +635,12 @@ batch_save_all_drc_plots <- function(batch_drc_results,
     
     for (plate_name in names(plate_plots)) {
       plot_list <- plate_plots[[plate_name]]
+      if (panel_order == "alphabetical") {
+        .sort_idx <- .panel_order_index(
+          plate_plot_labels[[plate_name]], panel_order
+        )
+        plot_list <- plot_list[.sort_idx]
+      }
       n_plots   <- length(plot_list)
       if (n_plots == 0L) next
       
@@ -717,6 +737,7 @@ batch_save_all_drc_plots <- function(batch_drc_results,
     output_dir = output_dir,
     organization = organize_by,
     point_color = point_color,
+    panel_order = panel_order,
     panel_files = panel_files,
     timestamp = Sys.time()
   ))

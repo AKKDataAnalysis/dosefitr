@@ -42,7 +42,8 @@ plot_outliers_batch_curves(
   outlier_alpha = 0.7,
   curve_alpha = 1,
   show_n = TRUE,
-  theme = "prism"
+  theme = "prism",
+  panel_order = c("original", "alphabetical")
 )
 }
 \arguments{
@@ -160,6 +161,12 @@ auto-computed from data).}
 
 \item{theme}{Character. Plot theme: "prism" (default, ggprism) or "bw"
 (classic black-and-white).}
+
+\item{panel_order}{Character. Order of sub-plots within each plate panel.
+\code{"original"} (default) preserves the order in the input results;
+\code{"alphabetical"} sorts case-insensitively by the title actually shown
+for each sub-plot, after resolving \code{subplot_title = "auto"}. This does
+not modify \code{batch_rout_output}.}
 }
 \value{
 Invisibly returns a character vector of the PNG file paths
