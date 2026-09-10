@@ -12,9 +12,25 @@
 
   labels <- as.character(labels)
   labels[is.na(labels)] <- ""
-  labels_utf8 <- enc2utf8(labels)
+  labels_utf8 <- tolower(enc2utf8(labels))
 
-  # The final integer key makes ties stable, preserving their input order.
-  order(tolower(labels_utf8), labels_utf8, seq_along(labels_utf8),
-        method = "radix")
+  # Build natural-sort keys without converting digit runs to numeric values.
+  # Padding every run to the longest run in the selected labels makes, for
+  # example, "Compound 3" sort before "Compound 10" while also supporting
+  # arbitrarily long identifiers and preserving leading-zero ties.
+  digit_matches <- gregexpr("[0-9]+", labels_utf8, perl = TRUE)
+  digit_runs <- regmatches(labels_utf8, digit_matches)
+  all_digit_runs <- unlist(digit_runs, use.names = FALSE)
+  pad_width <- max(c(1L, nchar(all_digit_runs)))
+  padded_runs <- lapply(digit_runs, function(runs) {
+    if (length(runs) == 0L) return(character())
+    paste0(vapply(nchar(runs), function(n) {
+      strrep("0", pad_width - n)
+    }, character(1L)), runs)
+  })
+  natural_keys <- labels_utf8
+  regmatches(natural_keys, digit_matches) <- padded_runs
+
+  # The integer key makes case-insensitive/numeric ties stable.
+  order(natural_keys, seq_along(natural_keys), method = "radix")
 }
