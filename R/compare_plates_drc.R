@@ -44,11 +44,34 @@
     stop("legend_by must be one non-empty character value.")
   }
   mode <- tolower(trimws(legend_by))
-  valid <- c("auto", "construct", "compound")
+  valid <- c("auto", "plate", "construct", "compound")
   if (!mode %in% valid) {
-    stop("legend_by must be one of 'auto', 'construct', or 'compound'.")
+    stop("legend_by must be one of 'auto', 'plate', 'construct', or 'compound'.")
   }
   mode
+}
+
+# Internal label builder kept separate so every legend mode can be tested
+# without invoking the plotting stack.
+.compare_plates_legend_label <- function(entry, compare_by, legend_by) {
+  compare_mode <- .normalise_compare_plates_mode(compare_by)
+  legend_mode <- .normalise_compare_plates_legend(legend_by)
+
+  if (legend_mode == "auto") {
+    return(switch(
+      compare_mode,
+      construct_compound = entry$plate_name,
+      compound = paste0(entry$plate_name, " (", entry$construct, ")"),
+      construct = paste0(entry$plate_name, " (", entry$compound, ")")
+    ))
+  }
+
+  switch(
+    legend_mode,
+    plate = entry$plate_name,
+    construct = entry$construct,
+    compound = entry$compound
+  )
 }
 
 #' Compare Dose-Response Curves Across Plates
@@ -109,9 +132,11 @@
 #'   legend. `"auto"` (default) preserves the current behaviour: plate name in
 #'   `compare_by = "construct_compound"`, `"plate (construct)"` in
 #'   `compare_by = "compound"`, and `"plate (compound)"` in
-#'   `compare_by = "construct"`. Use `"construct"` or `"compound"` to show
-#'   only that component. Curve identities remain distinct internally even
-#'   when two displayed legend labels are equal.
+#'   `compare_by = "construct"`. Use `"plate"`, `"construct"`, or
+#'   `"compound"` to show only that component. In particular,
+#'   `legend_by = "plate"` always produces labels such as `"plate_01"`, with
+#'   no construct or compound in parentheses. Curve identities remain distinct
+#'   internally even when two displayed legend labels are equal.
 #' @param legend_title Character.  Title printed above the legend.
 #'   `"auto"` (default) shows `"Plate"`, `"Construct"`, or `"Compound"`
 #'   according to `legend_by`. Supply another string to override it.
@@ -311,6 +336,7 @@ compare_plates_drc <- function(batch_drc_result,
     switch(
       legend_by,
       auto = "Plate",
+      plate = "Plate",
       construct = "Construct",
       compound = "Compound"
     )
@@ -482,20 +508,7 @@ compare_plates_drc <- function(batch_drc_result,
     synthetic_detailed <- lapply(seq_along(entries), function(entry_idx) {
       e <- entries[[entry_idx]]
       r <- e$result
-      legend_label <- if (legend_by == "auto") {
-        switch(
-          compare_by,
-          construct_compound = e$plate_name,
-          compound = paste0(e$plate_name, " (", e$construct, ")"),
-          construct = paste0(e$plate_name, " (", e$compound, ")")
-        )
-      } else {
-        switch(
-          legend_by,
-          construct = e$construct,
-          compound = e$compound
-        )
-      }
+      legend_label <- .compare_plates_legend_label(e, compare_by, legend_by)
 
       # The left-hand component is a unique internal curve identifier. The
       # right-hand component is the user-facing legend label selected above.

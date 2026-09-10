@@ -109,9 +109,11 @@ points.  Default: `TRUE`.}
 legend. `"auto"` (default) preserves the current behaviour: plate name in
 `compare_by = "construct_compound"`, `"plate (construct)"` in
 `compare_by = "compound"`, and `"plate (compound)"` in
-`compare_by = "construct"`. Use `"construct"` or `"compound"` to show
-only that component. Curve identities remain distinct internally even
-when two displayed legend labels are equal.}
+`compare_by = "construct"`. Use `"plate"`, `"construct"`, or
+`"compound"` to show only that component. In particular,
+`legend_by = "plate"` always produces labels such as `"plate_01"`, with
+no construct or compound in parentheses. Curve identities remain distinct
+internally even when two displayed legend labels are equal.}
 
 \item{legend_title}{Character.  Title printed above the legend.
 `"auto"` (default) shows `"Plate"`, `"Construct"`, or `"Compound"`
