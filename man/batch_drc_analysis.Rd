@@ -14,6 +14,7 @@ batch_drc_analysis(
   generate_reports = TRUE,
   model = "3pl",
   nd_if_activation = FALSE,
+  outside_range = c("legacy", "estimate", "censor", "na"),
   verbose = TRUE,
   hook_effect = FALSE,
   hook_threshold = 2,
@@ -62,6 +63,26 @@ fitting function: a curve is flat when the difference between the
 mean of the first three and last three responses
 is below `max(15, 15\% of the response range)`; it is activation when the
 final responses are higher than the initial ones by that same threshold.}
+
+\item{outside_range}{Character. Controls how fitted IC50/EC50 values outside
+the concentrations actually tested for each plate are presented in the
+pharmacology reports. Accepted values are:
+\itemize{
+  \item \code{"legacy"} (default): preserves the historical behaviour;
+    values above the highest tested concentration are displayed as
+    \code{">highest"} in the pharmacology reports, whereas values below
+    the lowest tested concentration remain as fitted estimates.
+  \item \code{"estimate"}: reports the fitted value on both sides of the
+    tested interval and records its range status.
+  \item \code{"censor"}: reports \code{"<lowest"} or \code{">highest"}
+    when the fitted potency lies outside the tested interval.
+  \item \code{"na"}: reports out-of-range potency as \code{"N/D"} in the
+    pharmacology reports.
+}
+Explicit non-legacy modes add range-status and reported-potency fields to
+the returned summary tables. Raw fitted parameters and confidence
+intervals remain available in \code{detailed_results}, so curve drawing
+and SCARAB numeric extraction are not altered.}
 
 \item{verbose}{Logical. If `TRUE`, prints progress details.}
 
@@ -176,6 +197,12 @@ For each plate in `batch_results`, the function:
    * Full DRC results for each compound
    * Summary tables, final tables, and curve quality metrics
    * Optional Excel result files per plate
+
+Potency-range classification uses the minimum and maximum finite
+concentrations present in the first column of each plate's processed data
+table. Values exactly on either boundary are considered within range. The
+`outside_range` argument changes only how an extrapolated potency is reported;
+it does not refit the curve or overwrite the original fitted parameters.
 
 After processing all plates, if `generate_reports = TRUE`, a consolidated
 Excel file (`batch_drc_analysis_report.xlsx`) is created, containing:

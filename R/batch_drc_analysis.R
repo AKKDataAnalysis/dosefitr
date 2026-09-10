@@ -41,6 +41,25 @@
 #'   mean of the first three and last three responses
 #'   is below `max(15, 15\% of the response range)`; it is activation when the
 #'   final responses are higher than the initial ones by that same threshold.
+#' @param outside_range Character. Controls how fitted IC50/EC50 values outside
+#'   the concentrations actually tested for each plate are presented in the
+#'   pharmacology reports. Accepted values are:
+#'   \itemize{
+#'     \item \code{"legacy"} (default): preserves the historical behaviour;
+#'       values above the highest tested concentration are displayed as
+#'       \code{">highest"} in the pharmacology reports, whereas values below
+#'       the lowest tested concentration remain as fitted estimates.
+#'     \item \code{"estimate"}: reports the fitted value on both sides of the
+#'       tested interval and records its range status.
+#'     \item \code{"censor"}: reports \code{"<lowest"} or \code{">highest"}
+#'       when the fitted potency lies outside the tested interval.
+#'     \item \code{"na"}: reports out-of-range potency as \code{"N/D"} in the
+#'       pharmacology reports.
+#'   }
+#'   Explicit non-legacy modes add range-status and reported-potency fields to
+#'   the returned summary tables. Raw fitted parameters and confidence
+#'   intervals remain available in \code{detailed_results}, so curve drawing
+#'   and SCARAB numeric extraction are not altered.
 #' @param verbose Logical. If `TRUE`, prints progress details.
 #' @param hook_effect Controls automatic hook-effect detection at the two highest
 #'   concentration points of inhibition curves. A hook is declared when the mean
@@ -111,6 +130,12 @@
 #'    * Full DRC results for each compound
 #'    * Summary tables, final tables, and curve quality metrics
 #'    * Optional Excel result files per plate
+#'
+#' Potency-range classification uses the minimum and maximum finite
+#' concentrations present in the first column of each plate's processed data
+#' table. Values exactly on either boundary are considered within range. The
+#' `outside_range` argument changes only how an extrapolated potency is reported;
+#' it does not refit the curve or overwrite the original fitted parameters.
 #'
 #' After processing all plates, if `generate_reports = TRUE`, a consolidated
 #' Excel file (`batch_drc_analysis_report.xlsx`) is created, containing:
@@ -189,6 +214,7 @@ batch_drc_analysis <- function(batch_results,
                                generate_reports = TRUE,
                                model = "3pl",
                                nd_if_activation = FALSE,
+                               outside_range = c("legacy", "estimate", "censor", "na"),
                                verbose = TRUE,
                                hook_effect    = FALSE,
                                hook_threshold = 2,
@@ -221,11 +247,16 @@ batch_drc_analysis <- function(batch_results,
     if (nchar(clean) > max_len) clean <- substr(clean, 1, max_len)
     return(clean)
   }
-  
+
   # Model validation
   model <- tolower(model)
   if (!model %in% c("3pl", "4pl"))
     stop("model must be either '3pl' or '4pl'.")
+
+  if (!is.character(outside_range) || length(outside_range) < 1L)
+    stop("outside_range must be one of 'legacy', 'estimate', 'censor', or 'na'.")
+  outside_range <- match.arg(tolower(outside_range),
+                             c("legacy", "estimate", "censor", "na"))
 
   # Fail fast on malformed plausibility-limit arguments (before any fitting).
   .validate_all_limit_args(environment())
@@ -580,14 +611,20 @@ batch_drc_analysis <- function(batch_results,
           construct_name <- parts[1]
           compound_name  <- if (length(parts) > 1) parts[2] else parts[1]
           
-          # --- Highest tested concentration (from concentration column of data table) ---
-          # Rounded to the nearest integer for clean display (e.g. 24.55 uM -> 25 uM).
+          # --- Concentration range tested on this plate ----------------------
+          log_concs <- numeric(0)
+          lowest_conc_uM <- NA_real_
+          highest_conc_uM_exact <- NA_real_
           highest_conc_uM <- NA_real_
           if (!is.null(full_data_df) && nrow(full_data_df) >= 2) {
             log_concs <- suppressWarnings(as.numeric(full_data_df[, 1]))
             log_concs <- log_concs[!is.na(log_concs)]
-            if (length(log_concs) > 0)
+            if (length(log_concs) > 0) {
+              lowest_conc_uM <- min(10^log_concs * 1e6)
+              highest_conc_uM_exact <- max(10^log_concs * 1e6)
+              # Legacy output rounded this boundary to the nearest integer.
               highest_conc_uM <- round(max(10^log_concs * 1e6))
+            }
           }
           
           # --- pIC50 ---
@@ -605,9 +642,18 @@ batch_drc_analysis <- function(batch_results,
           is_nd <- (res_curve_type == "flat") ||
             (nd_if_activation && res_curve_type == "activation")
           
-          # --- IC50 display: replace with ">highest" if IC50 exceeds tested range ---
-          ic50_above_range <- !is.na(ic50_uM) && !is.na(highest_conc_uM) &&
-            ic50_uM > highest_conc_uM
+          range_report <- .potency_reporting(
+            log_ic50,
+            log_concs,
+            if (outside_range == "legacy") "estimate" else outside_range
+          )
+          ic50_below_range <- identical(range_report$status, "Below tested range")
+          ic50_above_range <- if (outside_range == "legacy") {
+            !is.na(ic50_uM) && !is.na(highest_conc_uM) &&
+              ic50_uM > highest_conc_uM
+          } else {
+            identical(range_report$status, "Above tested range")
+          }
           # Suppress the ">highest" flag on N/D rows unless the engine itself
           # diagnosed a genuinely above-range response: for flat / no-response
           # curves the fitted IC50 comes from a diverged fit and is meaningless,
@@ -618,19 +664,44 @@ batch_drc_analysis <- function(batch_results,
               ic50_above_range <- FALSE
             }
           }
-          ic50_uM_display <- if (ic50_above_range) {
-            sprintf(">%g", highest_conc_uM)
-          } else if (!is.na(ic50_uM)) {
-            as.character(round(ic50_uM, 3))
+          if (outside_range == "legacy") {
+            ic50_uM_display <- if (ic50_above_range) {
+              sprintf(">%g", highest_conc_uM)
+            } else if (!is.na(ic50_uM)) {
+              as.character(round(ic50_uM, 3))
+            } else {
+              NA_character_
+            }
+            ic50_nM_display <- if (ic50_above_range) {
+              sprintf(">%.1f", highest_conc_uM * 1e3)
+            } else if (!is.na(ic50_nM)) {
+              sprintf("%.1f", ic50_nM)
+            } else {
+              NA_character_
+            }
+          } else if (outside_range == "censor" &&
+                     (ic50_below_range || ic50_above_range)) {
+            .boundary_uM <- if (ic50_below_range) lowest_conc_uM else highest_conc_uM_exact
+            .range_symbol <- if (ic50_below_range) "<" else ">"
+            ic50_uM_display <- paste0(.range_symbol,
+                                      as.character(signif(.boundary_uM, 4L)))
+            ic50_nM_display <- sprintf("%s%.1f", .range_symbol,
+                                       .boundary_uM * 1e3)
+          } else if (outside_range == "na" &&
+                     (ic50_below_range || ic50_above_range)) {
+            ic50_uM_display <- NA_character_
+            ic50_nM_display <- NA_character_
           } else {
-            NA_character_
-          }
-          ic50_nM_display <- if (ic50_above_range) {
-            sprintf(">%.1f", highest_conc_uM * 1e3)
-          } else if (!is.na(ic50_nM)) {
-            sprintf("%.1f", ic50_nM)
-          } else {
-            NA_character_
+            ic50_uM_display <- if (!is.na(ic50_uM)) {
+              as.character(round(ic50_uM, 3))
+            } else {
+              NA_character_
+            }
+            ic50_nM_display <- if (!is.na(ic50_nM)) {
+              sprintf("%.1f", ic50_nM)
+            } else {
+              NA_character_
+            }
           }
           
           # --- CI ---
@@ -838,12 +909,26 @@ batch_drc_analysis <- function(batch_results,
             }
           }
 
-          # IC50 above tested range -> add to exclusion
-          if (ic50_above_range) {
-            exclusion_collector <- c(exclusion_collector,
-                                     sprintf("IC50 above tested range (>%g uM)", highest_conc_uM))
-            exclusion_collector_ci <- c(exclusion_collector_ci,
-                                        sprintf("IC50 above tested range (>%g uM)", highest_conc_uM))
+          # Potency outside the tested range is always documented for explicit
+          # policies. Legacy mode retains the historical above-range-only note.
+          if (outside_range == "legacy" && ic50_above_range) {
+            .range_message <- sprintf("IC50 above tested range (>%g uM)",
+                                      highest_conc_uM)
+            exclusion_collector <- c(exclusion_collector, .range_message)
+            exclusion_collector_ci <- c(exclusion_collector_ci, .range_message)
+          } else if (outside_range != "legacy" &&
+                     (ic50_below_range || ic50_above_range) && !is_nd) {
+            .range_symbol <- if (ic50_below_range) "<" else ">"
+            .boundary_uM <- if (ic50_below_range) lowest_conc_uM else highest_conc_uM_exact
+            .range_message <- sprintf(
+              "Potency %s tested range (%s%s uM; policy: %s)",
+              if (ic50_below_range) "below" else "above",
+              .range_symbol,
+              as.character(signif(.boundary_uM, 4L)),
+              outside_range
+            )
+            exclusion_collector <- c(exclusion_collector, .range_message)
+            exclusion_collector_ci <- c(exclusion_collector_ci, .range_message)
           }
           
           # Set "OK" for empty collectors
@@ -852,10 +937,20 @@ batch_drc_analysis <- function(batch_results,
           final_warnings_ci <- if (length(warning_collector_ci) > 0) paste(warning_collector_ci, collapse = "; ") else "OK"
           final_exclusions_ci <- if (length(exclusion_collector_ci) > 0) paste(exclusion_collector_ci, collapse = "; ") else "OK"
           
-          # Apply N/D for flat (always) or activation (if nd_if_activation = TRUE)
-          ic50_uM_final <- if (is_nd) "N/D" else ic50_uM_display
-          ic50_nM_final <- if (is_nd) "N/D" else ic50_nM_display
-          pic50_final   <- if (is_nd) "N/D" else as.character(round(pic50, 3))
+          # Apply N/D for flat curves, selected activation curves, or an
+          # explicit out-of-range `na` reporting policy.
+          range_as_nd <- outside_range == "na" &&
+            (ic50_below_range || ic50_above_range)
+          ic50_uM_final <- if (is_nd || range_as_nd) "N/D" else ic50_uM_display
+          ic50_nM_final <- if (is_nd || range_as_nd) "N/D" else ic50_nM_display
+          pic50_final <- if (is_nd || range_as_nd) {
+            "N/D"
+          } else if (outside_range == "censor" &&
+                     (ic50_below_range || ic50_above_range)) {
+            range_report$reported_p
+          } else {
+            as.character(round(pic50, 3))
+          }
           
           # Count outliers removed for this compound (base name match)
           compound_base_name <- res$compound %||% ""
@@ -874,7 +969,7 @@ batch_drc_analysis <- function(batch_results,
             ""
           }
 
-          pharm_list[[length(pharm_list) + 1]] <- data.frame(
+          .pharm_row <- data.frame(
             Plate = plate_name,
             Construct = construct_name,
             Compound = compound_name,
@@ -892,6 +987,13 @@ batch_drc_analysis <- function(batch_results,
             Hook_Excluded_Conc = hook_excluded_str,
             stringsAsFactors = FALSE
           )
+          if (outside_range != "legacy") {
+            .pharm_row$Potency_Range_Status <-
+              if (is_nd) "Not determined" else range_report$status
+            .pharm_row$`Lowest_Tested_Concentration (uM)` <- lowest_conc_uM
+            .pharm_row$`Highest_Tested_Concentration (uM)` <- highest_conc_uM_exact
+          }
+          pharm_list[[length(pharm_list) + 1]] <- .pharm_row
 
           # --- CI95% SUMMARY ROW ---
           # Convert LogIC50 CI bounds back to uM/nM for display
@@ -901,10 +1003,13 @@ batch_drc_analysis <- function(batch_results,
           ci_nM_upper <- if (!is.na(ci_log_upper_bound)) 10^ci_log_upper_bound * 1e9 else NA_real_
 
           # Format IC50 (uM) with CI: "0.128 (0.080 - 0.204)"
-          ic50_uM_ci_display <- if (is_nd) {
+          ic50_uM_ci_display <- if (is_nd || range_as_nd) {
             "N/D"
-          } else if (ic50_above_range) {
+          } else if (outside_range == "legacy" && ic50_above_range) {
             sprintf(">%g (>%g - >%g)", highest_conc_uM, highest_conc_uM, highest_conc_uM)
+          } else if (outside_range == "censor" &&
+                     (ic50_below_range || ic50_above_range)) {
+            paste0(ic50_uM_display, " (censored)")
           } else if (!is.na(ic50_uM) && !is.na(ci_uM_lower) && !is.na(ci_uM_upper)) {
             sprintf("%s (%s - %s)",
                     as.character(round(ic50_uM, 3)),
@@ -917,13 +1022,16 @@ batch_drc_analysis <- function(batch_results,
           }
 
           # Format IC50 (nM) with CI using one decimal place throughout.
-          ic50_nM_ci_display <- if (is_nd) {
+          ic50_nM_ci_display <- if (is_nd || range_as_nd) {
             "N/D"
-          } else if (ic50_above_range) {
+          } else if (outside_range == "legacy" && ic50_above_range) {
             sprintf(">%.1f (>%.1f - >%.1f)",
                     highest_conc_uM * 1e3,
                     highest_conc_uM * 1e3,
                     highest_conc_uM * 1e3)
+          } else if (outside_range == "censor" &&
+                     (ic50_below_range || ic50_above_range)) {
+            paste0(ic50_nM_display, " (censored)")
           } else if (!is.na(ic50_nM) && !is.na(ci_nM_lower) && !is.na(ci_nM_upper)) {
             sprintf("%.1f (%.1f - %.1f)",
                     ic50_nM,
@@ -935,7 +1043,7 @@ batch_drc_analysis <- function(batch_results,
             NA_character_
           }
 
-          pharm_ci_list[[length(pharm_ci_list) + 1]] <- data.frame(
+          .pharm_ci_row <- data.frame(
             Plate = plate_name,
             Construct = construct_name,
             Compound = compound_name,
@@ -949,6 +1057,13 @@ batch_drc_analysis <- function(batch_results,
             Hook_Excluded_Conc = hook_excluded_str,
             stringsAsFactors = FALSE
           )
+          if (outside_range != "legacy") {
+            .pharm_ci_row$Potency_Range_Status <-
+              if (is_nd) "Not determined" else range_report$status
+            .pharm_ci_row$`Lowest_Tested_Concentration (uM)` <- lowest_conc_uM
+            .pharm_ci_row$`Highest_Tested_Concentration (uM)` <- highest_conc_uM_exact
+          }
+          pharm_ci_list[[length(pharm_ci_list) + 1]] <- .pharm_ci_row
         }
       }
     }
@@ -1082,6 +1197,7 @@ batch_drc_analysis <- function(batch_results,
     message("==========================================================")
     message("Model: ", toupper(model), " (", if (model == "3pl") "Hill slope fixed at +/-1" else "Hill slope freely estimated", ")")
     message("Assay type: ", assay_type)
+    message("Outside-range reporting: ", outside_range)
     message("Main Output: ", output_dir)
   }
   
@@ -1351,6 +1467,102 @@ batch_drc_analysis <- function(batch_results,
           }
         }
       }  # end hook_effect block
+
+      # -- Classify fitted potency against the concentrations actually tested --
+      # This annotation is always retained in detailed_results. Explicit
+      # non-legacy modes additionally add separate reported-potency columns to
+      # Summary/Final_Summary; the original fitted columns remain untouched.
+      if (!is.null(plate_drc_result$detailed_results) &&
+          length(plate_drc_result$detailed_results) > 0L) {
+        .tested_logs <- suppressWarnings(as.numeric(data_table[[1L]]))
+        .tested_logs <- .tested_logs[is.finite(.tested_logs)]
+
+        if (outside_range != "legacy" &&
+            !is.null(plate_drc_result$summary_table) &&
+            nrow(plate_drc_result$summary_table) > 0L) {
+          .n_summary <- nrow(plate_drc_result$summary_table)
+          plate_drc_result$summary_table$Potency_Range_Status <-
+            rep(NA_character_, .n_summary)
+          plate_drc_result$summary_table$Lowest_Tested_Log10_M <-
+            rep(NA_real_, .n_summary)
+          plate_drc_result$summary_table$Highest_Tested_Log10_M <-
+            rep(NA_real_, .n_summary)
+          plate_drc_result$summary_table$`Reported_LogIC50/LogEC50` <-
+            rep(NA_character_, .n_summary)
+          plate_drc_result$summary_table$`Reported_IC50/EC50` <-
+            rep(NA_character_, .n_summary)
+          plate_drc_result$summary_table$`Reported_pIC50/pEC50` <-
+            rep(NA_character_, .n_summary)
+          plate_drc_result$summary_table$IC50_comment <-
+            rep(NA_character_, .n_summary)
+        }
+
+        for (.pi in seq_along(plate_drc_result$detailed_results)) {
+          .pres <- plate_drc_result$detailed_results[[.pi]]
+          .pidx <- if (!is.null(.pres$parameters)) {
+            match("LogIC50", .pres$parameters$Parameter)
+          } else {
+            NA_integer_
+          }
+          .logp <- if (!is.na(.pidx)) .pres$parameters$Value[.pidx] else NA_real_
+          .preport <- .potency_reporting(.logp, .tested_logs,
+                                         if (outside_range == "legacy") "estimate" else outside_range)
+          .preport$mode <- outside_range
+
+          plate_drc_result$detailed_results[[.pi]]$potency_range <- .preport
+
+          if (outside_range == "legacy" ||
+              is.null(plate_drc_result$summary_table) ||
+              nrow(plate_drc_result$summary_table) == 0L) {
+            next
+          }
+
+          .cpd <- strsplit(.pres$compound %||% "", " \\| ")[[1L]][1L]
+          .srow <- which(plate_drc_result$summary_table$Compound == .cpd)
+          if (length(.srow) == 0L) next
+          .srow <- .srow[1L]
+          .is_nd_report <- identical(.pres$curve_type %||% "unknown", "flat") ||
+            (nd_if_activation && identical(.pres$curve_type %||% "unknown", "activation"))
+
+          plate_drc_result$summary_table$Potency_Range_Status[.srow] <-
+            if (.is_nd_report) "Not determined" else .preport$status
+          plate_drc_result$summary_table$Lowest_Tested_Log10_M[.srow] <-
+            .preport$lowest_log10_M
+          plate_drc_result$summary_table$Highest_Tested_Log10_M[.srow] <-
+            .preport$highest_log10_M
+          plate_drc_result$summary_table$`Reported_LogIC50/LogEC50`[.srow] <-
+            if (.is_nd_report) "N/D" else .preport$reported_log10_M
+          plate_drc_result$summary_table$`Reported_IC50/EC50`[.srow] <-
+            if (.is_nd_report) "N/D" else .preport$reported_M
+          plate_drc_result$summary_table$`Reported_pIC50/pEC50`[.srow] <-
+            if (.is_nd_report) "N/D" else .preport$reported_p
+
+          if (!.is_nd_report && isTRUE(.preport$is_outside)) {
+            .policy_text <- switch(
+              outside_range,
+              estimate = "fitted estimate reported",
+              censor = paste0("reported as ", .preport$relation,
+                              if (.preport$relation == "<") "lowest" else "highest",
+                              " tested concentration"),
+              na = "reported as N/D"
+            )
+            plate_drc_result$summary_table$IC50_comment[.srow] <-
+              paste0(.preport$status, "; ", .policy_text)
+          }
+        }
+
+        if (outside_range != "legacy" &&
+            !is.null(plate_drc_result$summary_table) &&
+            nrow(plate_drc_result$summary_table) > 0L) {
+          .st_range <- plate_drc_result$summary_table
+          .ft_range <- as.data.frame(t(plain_for_transpose(
+            .st_range[, -1L, drop = FALSE]
+          )))
+          rownames(.ft_range) <- names(.st_range)[-1L]
+          colnames(.ft_range) <- .st_range$Compound
+          plate_drc_result$final_summary_table <- .ft_range
+        }
+      }
       
       # -- Write per-plate Excel file with N/D-corrected tables -------------
       if (!is.null(output_file) && requireNamespace("openxlsx", quietly = TRUE)) {
@@ -1454,6 +1666,7 @@ batch_drc_analysis <- function(batch_results,
       model = model,
       assay_type = assay_type,
       normalize = normalize,
+      outside_range = outside_range,
       timestamp = Sys.time()
     ),
     report_info = report_info
