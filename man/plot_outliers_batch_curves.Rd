@@ -164,9 +164,10 @@ auto-computed from data).}
 
 \item{panel_order}{Character. Order of sub-plots within each plate panel.
 \code{"original"} (default) preserves the order in the input results;
-\code{"alphabetical"} sorts case-insensitively by the title actually shown
-for each sub-plot, after resolving \code{subplot_title = "auto"}. This does
-not modify \code{batch_rout_output}.}
+\code{"alphabetical"} uses case-insensitive natural alphanumeric order by
+the title actually shown, so \code{"Compound 3"} precedes
+\code{"Compound 10"}, after resolving \code{subplot_title = "auto"}.
+This does not modify \code{batch_rout_output}.}
 }
 \value{
 Invisibly returns a character vector of the PNG file paths
@@ -243,7 +244,7 @@ ratio_res <- batch_ratio_analysis(
 
 # Suppress benign nls "false convergence" and NaN warnings.
 rout_res <- suppressWarnings(rout_outliers_batch(
-  batch_results = ratio_res, Q = 0.01, n_param = 4L,
+  batch_results = ratio_res, Q = 0.01, model = "auto",
   direction = "inhibition", verbose = FALSE
 ))
 

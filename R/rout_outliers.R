@@ -67,7 +67,15 @@
 #' @param Q False discovery rate (FDR) threshold for ROUT outlier detection.
 #' Must be between 0 and 1 (exclusive). Default is 0.01.
 #'
-#' @param n_param Number of model parameters: 3 (fixed Hill slope) or 4 (free Hill slope).
+#' @param model Character string specifying how the ROUT regression model is
+#'   selected. One of \code{"3pl"}, \code{"4pl"}, or \code{"auto"}.
+#'   \code{"3pl"} fits every curve with a Hill slope fixed at \eqn{+1} for
+#'   inhibition or \eqn{-1} for activation. \code{"4pl"} fits every curve with
+#'   a freely estimated Hill slope and never silently falls back to 3PL.
+#'   \code{"auto"} fits both models and applies the historical stability rule
+#'   on each curve. If a fixed model fails or is rejected by its plausibility
+#'   checks, no observations from that curve are removed. Default is
+#'   \code{"auto"}.
 #'
 #' @param conc_col Index of the concentration column in `data`. Default is 1.
 #'
@@ -121,6 +129,12 @@
 #'   \item Non-converged fits retain every original observation
 #' }
 #'
+#' In \code{model = "auto"} mode, the 4PL fit is selected when its Hill slope
+#' has the expected sign, \eqn{0.1 <= |Hill| <= 5}, and its robust residual
+#' scale is no more than 10 percent greater than that of the 3PL fit. Otherwise,
+#' the 3PL fit is used. This is a stability heuristic rather than a formal AIC,
+#' BIC, or likelihood-ratio comparison.
+#'
 #' @return A list with the following elements:
 #'
 #' \describe{
@@ -159,7 +173,7 @@
 #' rr  <- rout_outliers(
 #'   data      = mrt,
 #'   Q         = 0.01,
-#'   n_param   = 4L,
+#'   model     = "4pl",
 #'   direction = "inhibition",
 #'   verbose   = FALSE
 #' )
@@ -177,7 +191,7 @@
 
 rout_outliers <- function(data,
                           Q                  = 0.01,
-                          n_param            = 4L,
+                          model              = "auto",
                           conc_col           = 1L,
                           log_base           = "log10",
                           direction          = "inhibition",
@@ -381,8 +395,11 @@ rout_outliers <- function(data,
   
   
   # ---- Input validation ----
-  if (!n_param %in% c(3L, 4L))
-    stop("n_param must be 3 or 4")
+  if (!is.character(model) || length(model) != 1L || is.na(model))
+    stop('model must be one of "3pl", "4pl", or "auto"')
+  model <- tolower(model)
+  if (!model %in% c("3pl", "4pl", "auto"))
+    stop('model must be one of "3pl", "4pl", or "auto"')
   if (!direction %in% c("inhibition", "agonist"))
     stop('direction must be "inhibition" or "agonist"')
   if (!log_base %in% c("log10", "ln"))
@@ -472,10 +489,7 @@ rout_outliers <- function(data,
         "Warning: %s: low dynamic range (%.1f%% < %.0f%%)  --  curve may be flat or non-responsive",
         cmpd, dyn_range, min_dynamic_range))
     
-    # ---- Fit 3PL (always) and 4PL (when n_param=4) in a single pass ----
-    #
-    # Both models are fitted upfront so the rsdr comparison requires no extra
-    # optimizer call. The decision logic then selects the winner cleanly.
+    # ---- Fit the explicitly requested model, or compare both in auto mode ----
     # ---- Shared robust starting-value grid (mirrors fit_drc_4pl.R) ----
     # Direction is fixed by `direction` (via hill_fixed) to preserve the
     # documented API; the grid seeds rout_fitter with multiple plateau/slope
@@ -488,14 +502,32 @@ rout_outliers <- function(data,
       make_start_grid(x_log_tagged, y_fit, direction = dir_lbl, param = "optim"),
       error = function(e) NULL)
 
-    res3 <- .fit_model(x_fit, y_fit, n_param = 3L, hill_fixed = hill_fixed, Q = Q,
-                       ntry_retry = ntry_retry, start_grid = start_grid)
+    res3 <- NULL
+    res4 <- NULL
 
-    if (n_param == 4L) {
-      res4 <- .fit_model(x_fit, y_fit, n_param = 4L, hill_fixed = hill_fixed, Q = Q,
+    if (model %in% c("3pl", "auto")) {
+      res3 <- .fit_model(x_fit, y_fit, n_param = 3L,
+                         hill_fixed = hill_fixed, Q = Q,
                          ntry_retry = ntry_retry, start_grid = start_grid)
+    }
+
+    if (model %in% c("4pl", "auto")) {
+      res4 <- .fit_model(x_fit, y_fit, n_param = 4L,
+                         hill_fixed = hill_fixed, Q = Q,
+                         ntry_retry = ntry_retry, start_grid = start_grid)
+    }
+
+    if (identical(model, "4pl")) {
+      # A forced 4PL request never falls back to 3PL. If the fit failed or its
+      # slope was rejected by the sign/magnitude guard, the compound is skipped
+      # below and its observations remain unchanged in cleaned_table.
+      res_chosen <- res4
+      if (!is.null(res4$fit) && verbose)
+        message(sprintf("%s: using user-selected 4PL", cmpd))
+    } else if (identical(model, "auto")) {
       
-      # rsdr guard: prefer 4PL only if it provides a meaningfully better fit.
+      # rsdr guard: prefer 4PL when its robust residual scale is not materially
+      # worse than the 3PL fit.
       # Threshold: rsdr(4PL) <= rsdr(3PL) * 1.10.
       # Hill-plausibility gate (salvaged from shared choose_model): also
       # require |Hill(4PL)| within [0.1, 5] so an rsdr-marginal 4PL with a
@@ -506,16 +538,23 @@ rout_outliers <- function(data,
         abs(res4$fit$par[4L]) <= 5
 
       use_4pl <- !is.null(res4$fit) &&
-        !is.null(res3$fit) &&
         hill4_ok &&
-        res4$fit$rsdr <= res3$fit$rsdr * 1.10
+        (is.null(res3$fit) ||
+           res4$fit$rsdr <= res3$fit$rsdr * 1.10)
       
       if (use_4pl) {
         res_chosen <- res4
-        if (verbose) message(sprintf(
-          "%s: using 4PL (Hill=%.3f, rsdr %.1f%% better than 3PL)",
-          cmpd, res4$fit$par[4L],
-          100 * (1 - res4$fit$rsdr / res3$fit$rsdr)))
+        if (verbose) {
+          if (is.null(res3$fit)) {
+            message(sprintf(
+              "%s: using 4PL (Hill=%.3f; 3PL fit unavailable)",
+              cmpd, res4$fit$par[4L]))
+          } else {
+            message(sprintf(
+              "%s: using 4PL (Hill=%.3f; rsdr 4PL=%.4f, 3PL=%.4f)",
+              cmpd, res4$fit$par[4L], res4$fit$rsdr, res3$fit$rsdr))
+          }
+        }
       } else {
         res_chosen <- res3
         if (!is.null(res4$fit) && verbose && !hill4_ok) {
@@ -535,11 +574,22 @@ rout_outliers <- function(data,
       }
     } else {
       res_chosen <- res3
+      if (!is.null(res3$fit) && verbose)
+        message(sprintf("%s: using user-selected 3PL", cmpd))
     }
     
     if (is.null(res_chosen$fit)) {
+      failure_reason <- switch(
+        model,
+        "3pl" = "user-selected 3PL fit failed; no observations removed",
+        "4pl" = paste0(
+          "user-selected 4PL fit failed or failed Hill-slope plausibility; ",
+          "no observations removed"
+        ),
+        "fit failed for both automatic candidates; no observations removed"
+      )
       return(list(skipped = data.frame(
-        compound = cmpd, reason = "fit failed (rout_fitter error)",
+        compound = cmpd, reason = failure_reason,
         n_valid = length(x_fit),
         dynamic_range_pct = if (is.na(dyn_range)) NA_real_ else round(dyn_range, 1),
         stringsAsFactors = FALSE)))
@@ -800,7 +850,7 @@ rout_outliers <- function(data,
                         skipped_table      = skipped_table,
                         cleared_systematic = cleared_systematic,
                         params             = list(Q           = Q,
-                                                  n_param     = n_param,
+                                                  model       = model,
                                                   direction   = direction,
                                                   log_base    = log_base,
                                                   ntry_retry  = ntry_retry,

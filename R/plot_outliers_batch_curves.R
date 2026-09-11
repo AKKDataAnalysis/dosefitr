@@ -48,9 +48,10 @@
 #'   name when all share one compound, and the full string otherwise.
 #' @param panel_order Character. Order of sub-plots within each plate panel.
 #'   \code{"original"} (default) preserves the order in the input results;
-#'   \code{"alphabetical"} sorts case-insensitively by the title actually shown
-#'   for each sub-plot, after resolving \code{subplot_title = "auto"}. This does
-#'   not modify \code{batch_rout_output}.
+#'   \code{"alphabetical"} uses case-insensitive natural alphanumeric order by
+#'   the title actually shown, so \code{"Compound 3"} precedes
+#'   \code{"Compound 10"}, after resolving \code{subplot_title = "auto"}.
+#'   This does not modify \code{batch_rout_output}.
 #' @param label_sep Character separator used in display labels between
 #'   construct and compound names.  Defaults to \code{":"}.  Change to
 #'   e.g. \code{"/"} to show \code{"EPHA1/KK135"} instead of
@@ -156,7 +157,7 @@
 #'
 #' # Suppress benign nls "false convergence" and NaN warnings.
 #' rout_res <- suppressWarnings(rout_outliers_batch(
-#'   batch_results = ratio_res, Q = 0.01, n_param = 4L,
+#'   batch_results = ratio_res, Q = 0.01, model = "auto",
 #'   direction = "inhibition", verbose = FALSE
 #' ))
 #'
@@ -288,7 +289,13 @@ plot_outliers_batch_curves <- function(batch_rout_output,
   # Extract ROUT parameters used during batch processing
   params     <- batch_rout_output$params
   Q          <- params$Q          %||% 0.01
-  n_param    <- params$n_param    %||% 4L
+  model      <- params$model      %||% NULL
+  if (is.null(model)) {
+    # Compatibility with ROUT objects created before the public model
+    # argument replaced n_param.
+    legacy_n_param <- params$n_param %||% 4L
+    model <- if (identical(as.integer(legacy_n_param), 3L)) "3pl" else "auto"
+  }
   direction  <- params$direction  %||% "inhibition"
   ntry_retry <- params$ntry_retry %||% 3L
   log_base   <- params$log_base   %||% "log10"
@@ -443,7 +450,7 @@ plot_outliers_batch_curves <- function(batch_rout_output,
         rout_outliers(
           data              = tbl_for_fit,
           Q                 = Q,
-          n_param           = n_param,
+          model             = model,
           conc_col          = 1L,
           log_base          = log_base,
           direction         = direction,

@@ -7,7 +7,7 @@
 rout_outliers(
   data,
   Q = 0.01,
-  n_param = 4L,
+  model = "auto",
   conc_col = 1L,
   log_base = "log10",
   direction = "inhibition",
@@ -25,7 +25,15 @@ concentrations and the remaining columns contain response values (e.g. BRET rati
 \item{Q}{False discovery rate (FDR) threshold for ROUT outlier detection.
 Must be between 0 and 1 (exclusive). Default is 0.01.}
 
-\item{n_param}{Number of model parameters: 3 (fixed Hill slope) or 4 (free Hill slope).}
+\item{model}{Character string specifying how the ROUT regression model is
+selected. One of \code{"3pl"}, \code{"4pl"}, or \code{"auto"}.
+\code{"3pl"} fits every curve with a Hill slope fixed at \eqn{+1} for
+inhibition or \eqn{-1} for activation. \code{"4pl"} fits every curve with
+a freely estimated Hill slope and never silently falls back to 3PL.
+\code{"auto"} fits both models and applies the historical stability rule
+on each curve. If a fixed model fails or is rejected by its plausibility
+checks, no observations from that curve are removed. Default is
+\code{"auto"}.}
 
 \item{conc_col}{Index of the concentration column in `data`. Default is 1.}
 
@@ -96,6 +104,12 @@ Additional safeguards include:
   \item Minimum data point requirements
   \item Non-converged fits retain every original observation
 }
+
+In \code{model = "auto"} mode, the 4PL fit is selected when its Hill slope
+has the expected sign, \eqn{0.1 <= |Hill| <= 5}, and its robust residual
+scale is no more than 10 percent greater than that of the 3PL fit. Otherwise,
+the 3PL fit is used. This is a stability heuristic rather than a formal AIC,
+BIC, or likelihood-ratio comparison.
 }
 \examples{
 stopifnot(requireNamespace("dosefitr", quietly = TRUE))
@@ -124,7 +138,7 @@ mrt <- ratio_res$plate_01$result$modified_ratio_table
 rr  <- rout_outliers(
   data      = mrt,
   Q         = 0.01,
-  n_param   = 4L,
+  model     = "4pl",
   direction = "inhibition",
   verbose   = FALSE
 )

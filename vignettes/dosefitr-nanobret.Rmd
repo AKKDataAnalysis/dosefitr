@@ -221,13 +221,16 @@ the 0 % and 100 % inhibition control means.
 `rout_outliers_batch()` runs the ROUT test
 (Motulsky & Brown 2006, BMC Bioinformatics) on every fitted curve.
 Wells that diverge by more than the ROUT Q-threshold (default 1 %)
-**and** disagree with their replicate are flagged:
+**and** disagree with their replicate are flagged. The model argument
+sets a common 3PL or 4PL model for every curve; "auto" is available
+when a documented curve-specific stability fallback is desired. Here a
+fixed 4PL model is used throughout:
 
 ```{r rout}
 rout_res <- rout_outliers_batch(
   batch_results = ratio_res,
   Q             = 0.01,
-  n_param       = 4L,
+  model         = "4pl",
   direction     = "inhibition",
   verbose       = FALSE
 )

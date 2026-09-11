@@ -35,6 +35,58 @@ test_that("ratio_dose_response (v1) processes a single 384-well plate", {
   expect_true("modified_ratio_table" %in% names(res))
   expect_s3_class(res$modified_ratio_table, "data.frame")
   expect_equal(nrow(res$modified_ratio_table), 13L)
+  expect_true("Z'_factor" %in% rownames(res$interval_means))
+  expect_false("Z_Score" %in% rownames(res$interval_means))
+})
+
+test_that("ratio processors optionally combine repeated rows as four replicates", {
+  extdata_dir <- extdata_root()
+  info_table <- openxlsx::read.xlsx(
+    file.path(extdata_dir, "nanobret_info.xlsx"), sheet = 1
+  )
+  raw <- openxlsx::read.xlsx(
+    file.path(extdata_dir, "nanobret_plate_01.xlsx"),
+    sheet = 1, colNames = FALSE
+  )
+
+  # Make non-adjacent rows A and C describe the same Construct+Compound pair.
+  # Each plate row contains two technical series, so combine mode must yield
+  # four adjacent columns even though another curve occurs between the rows.
+  info_table[[3L]][3L] <- info_table[[3L]][1L]
+  info_table[[4L]][3L] <- info_table[[4L]][1L]
+  base <- paste(info_table[[3L]][1L], info_table[[4L]][1L], sep = ":")
+  separate_second <- paste0(info_table[[3L]][1L], "_2:", info_table[[4L]][1L])
+
+  processors <- list(
+    v1 = ratio_dose_response,
+    v2 = ratio_dose_response_v2
+  )
+  for (processor in processors) {
+    common_args <- list(
+      data = raw, control_0perc = "1", control_100perc = "24",
+      split_replicates = TRUE, info_table = info_table,
+      selected_columns = 1:24, verbose = FALSE
+    )
+
+    separate <- suppressWarnings(do.call(
+      processor, c(common_args, list(repeated_rows = "separate"))
+    ))$modified_ratio_table
+    default_mode <- suppressWarnings(do.call(
+      processor, common_args
+    ))$modified_ratio_table
+    expect_equal(default_mode, separate)
+    expect_true(all(c(base, paste0(base, ".2"), separate_second,
+                      paste0(separate_second, ".2")) %in% colnames(separate)))
+
+    combined <- suppressWarnings(do.call(
+      processor, c(common_args, list(repeated_rows = "combine"))
+    ))$modified_ratio_table
+    expected_combined <- c(base, paste0(base, ".", 2:4))
+    expect_identical(colnames(combined)[-1L][1:4], expected_combined)
+    expect_equal(sum(sub("\\.\\d+$", "", colnames(combined)[-1L]) == base), 4L)
+    expect_false(any(grepl(paste0("^", info_table[[3L]][1L], "_2:"),
+                           colnames(combined))))
+  }
 })
 
 test_that("ratio_dose_response_v2 accepts character control indices", {
@@ -63,6 +115,8 @@ test_that("ratio_dose_response_v2 accepts character control indices", {
   mt <- get_modtable(res)
   expect_s3_class(mt, "data.frame")
   expect_gt(nrow(mt), 5L)
+  expect_true("Z'_factor" %in% rownames(res$interval_means))
+  expect_false("Z_Score" %in% rownames(res$interval_means))
 })
 
 test_that("fit_drc_4pl produces a per-compound summary table", {
@@ -141,7 +195,7 @@ test_that("rout_outliers only removes synthetic outliers after convergence", {
   rr <- suppressWarnings(rout_outliers(
     data      = vals,
     Q         = 0.01,
-    n_param   = 4L,
+    model     = "auto",
     direction = "inhibition",
     verbose   = FALSE
   ))
@@ -220,6 +274,45 @@ test_that("replicate consensus safeguard requires at least three replicates", {
   )
   expect_equal(discordant$flags, c(TRUE, TRUE, FALSE))
   expect_equal(nrow(discordant$cleared), 0L)
+})
+
+test_that("compare_plates_drc grouping modes use the requested dimension", {
+  entry <- list(construct = "AGP-01", compound = "TP-0903")
+  key <- dosefitr:::.compare_plates_group_key
+  normalise <- dosefitr:::.normalise_compare_plates_mode
+  normalise_legend <- dosefitr:::.normalise_compare_plates_legend
+  legend_label <- dosefitr:::.compare_plates_legend_label
+
+  expect_equal(key(entry, "construct_compound"), "AGP-01:TP-0903")
+  expect_equal(key(entry, "pair"), "AGP-01:TP-0903")
+  expect_equal(key(entry, "compound"), "TP-0903")
+  expect_equal(key(entry, "construct"), "AGP-01")
+
+  expect_equal(normalise("construct-compound"), "construct_compound")
+  expect_equal(normalise_legend("AUTO"), "auto")
+  expect_equal(normalise_legend("plate"), "plate")
+  expect_equal(normalise_legend("construct"), "construct")
+  expect_equal(normalise_legend("compound"), "compound")
+
+  legend_entry <- list(
+    plate_name = "plate_02",
+    construct = "AGP-01",
+    compound = "TP-0903"
+  )
+  expect_equal(legend_label(legend_entry, "compound", "plate"), "plate_02")
+  expect_equal(
+    legend_label(legend_entry, "compound", "auto"),
+    "plate_02 (AGP-01)"
+  )
+  expect_equal(
+    legend_label(legend_entry, "construct", "auto"),
+    "plate_02 (TP-0903)"
+  )
+  expect_error(
+    normalise("plate"),
+    "construct_compound.*compound.*construct"
+  )
+  expect_error(normalise_legend("invalid"), "auto.*plate.*construct.*compound")
 })
 
 test_that("merge_plate_replicates combines shared compounds across plates", {

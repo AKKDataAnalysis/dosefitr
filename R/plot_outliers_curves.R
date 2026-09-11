@@ -127,7 +127,7 @@
 #' rr <- rout_outliers(
 #'   data      = ratio_res$plate_01$result$modified_ratio_table,
 #'   Q         = 0.01,
-#'   n_param   = 4L,
+#'   model     = "auto",
 #'   direction = "inhibition",
 #'   verbose   = FALSE
 #' )

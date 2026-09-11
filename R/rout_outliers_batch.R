@@ -30,11 +30,13 @@
 #' @param Q Numeric. False discovery rate threshold for ROUT outlier detection.
 #' Must be strictly between 0 and 1 (default = 0.01).
 #'
-#' @param n_param Integer. Number of parameters for the Hill model:
-#' \itemize{
-#'   \item 3: 3-parameter logistic model
-#'   \item 4: 4-parameter logistic model
-#' }
+#' @param model Character string defining the ROUT model strategy:
+#'   \code{"3pl"}, \code{"4pl"}, or \code{"auto"}. Fixed \code{"3pl"} and
+#'   \code{"4pl"} modes apply the same model family to every curve and never
+#'   switch silently. If the requested fixed fit fails or is rejected, the
+#'   original observations for that curve are retained. \code{"auto"} keeps
+#'   the historical per-curve 3PL/4PL stability comparison. Default is
+#'   \code{"auto"}.
 #'
 #' @param direction Character. Curve direction:
 #' \itemize{
@@ -156,7 +158,7 @@
 #' rout_res <- rout_outliers_batch(
 #'   batch_results = ratio_res,
 #'   Q             = 0.01,
-#'   n_param       = 4L,
+#'   model         = "4pl",
 #'   direction     = "inhibition",
 #'   verbose       = FALSE
 #' )
@@ -170,7 +172,7 @@
 
 rout_outliers_batch <- function(batch_results,
                                 Q                 = 0.01,
-                                n_param           = 4L,
+                                model             = "auto",
                                 direction         = "inhibition",
                                 min_dynamic_range = 20,
                                 ntry_retry        = 3L,
@@ -185,8 +187,11 @@ rout_outliers_batch <- function(batch_results,
   if (!is.list(batch_results) || length(batch_results) == 0L)
     stop("batch_results must be a non-empty named list of plate results.")
   
-  if (!n_param %in% c(3L, 4L))
-    stop("n_param must be 3 or 4.")
+  if (!is.character(model) || length(model) != 1L || is.na(model))
+    stop('model must be one of "3pl", "4pl", or "auto".')
+  model <- tolower(model)
+  if (!model %in% c("3pl", "4pl", "auto"))
+    stop('model must be one of "3pl", "4pl", or "auto".')
   
   if (!direction %in% c("inhibition", "activation", "agonist"))
     stop('direction must be "inhibition" or "activation".')
@@ -426,7 +431,7 @@ rout_outliers_batch <- function(batch_results,
       rout_outliers(
         data              = tbl_for_fit,
         Q                 = Q,
-        n_param           = n_param,
+        model             = model,
         conc_col          = 1L,
         log_base          = "log10",
         direction         = direction_engine,
@@ -626,7 +631,7 @@ rout_outliers_batch <- function(batch_results,
   output$rescued_summary <- rescued_summary
   output$params <- list(
     Q                 = Q,
-    n_param           = n_param,
+    model             = model,
     direction         = direction,
     log_base          = "log10",   
     ntry_retry        = ntry_retry,
