@@ -73,6 +73,66 @@ optim_sign_for <- function(direction, param = c("optim", "drc")) {
   invisible(x)
 }
 
+
+# --- Hill-slope warning thresholds ------------------------------------------
+
+#' Select the reference range used for Hill-slope quality warnings
+#'
+#' These are warning thresholds, not fitting bounds.  The 3PL NanoBRET range
+#' intentionally preserves the historical unit-slope diagnostic (0.5--1.5).
+#' NanoBRET 4PL fits use a slightly broader 0.5--2.0 range, while viability
+#' assays use 0.3--3.0 because biologically meaningful slope heterogeneity is
+#' more common in cellular response data.
+#'
+#' @param model Character, either "3pl" or "4pl".
+#' @param assay_type Character, either "nanobret" or "viability".
+#' @return Numeric length-2 vector containing lower and upper limits for the
+#'   absolute Hill-slope magnitude.
+#' @keywords internal
+.hill_warning_limits <- function(model, assay_type) {
+  model <- tolower(model)
+  assay_type <- tolower(assay_type)
+
+  if (!model %in% c("3pl", "4pl"))
+    stop("model must be either '3pl' or '4pl'.", call. = FALSE)
+  if (!assay_type %in% c("nanobret", "viability"))
+    stop("assay_type must be either 'nanobret' or 'viability'.", call. = FALSE)
+
+  if (assay_type == "viability") return(c(0.3, 3.0))
+  if (model == "3pl") return(c(0.5, 1.5))
+  c(0.5, 2.0)
+}
+
+#' Format a direction-aware Hill-slope warning
+#'
+#' @param hill Numeric fitted or diagnostic Hill slope.
+#' @param direction Character, "inhibition" or "activation".
+#' @param model Character, "3pl" or "4pl".
+#' @param assay_type Character, "nanobret" or "viability".
+#' @return An empty string when the slope is inside the reference range;
+#'   otherwise a human-readable warning containing the signed range.
+#' @keywords internal
+.hill_warning_message <- function(hill, direction, model, assay_type) {
+  if (length(hill) != 1L || !is.finite(hill)) return("")
+
+  limits <- .hill_warning_limits(model, assay_type)
+  magnitude <- abs(hill)
+  if (magnitude >= limits[1] && magnitude <= limits[2]) return("")
+
+  signed_limits <- if (direction == "inhibition") {
+    c(-limits[2], -limits[1])
+  } else {
+    limits
+  }
+
+  sprintf(
+    "Hill Slope (expected %s to %s): %.3f",
+    format(signed_limits[1], trim = TRUE, scientific = FALSE),
+    format(signed_limits[2], trim = TRUE, scientific = FALSE),
+    hill
+  )
+}
+
 #' Validate the full set of plausibility-limit arguments
 #'
 #' Convenience wrapper around \code{.validate_limit_arg()} for the ten limit

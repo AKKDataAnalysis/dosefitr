@@ -832,20 +832,17 @@ batch_drc_analysis <- function(batch_results,
             }
           }
 
-          # Hill Slope Analysis (skip for flat/unknown curves — already N/D)
+          # Hill Slope Analysis (skip for flat/unknown curves — already N/D).
+          # Warning ranges are assay- and model-specific.  They do not alter
+          # the fit and are distinct from the broad hill_slope_limits guard.
           if (!is.na(ideal_hill) && res_curve_type %in% c("inhibition", "activation")) {
             curve_type <- res$curve_type %||% "unknown"
-            hill_message <- ""
-            
-            if (curve_type == "activation") {
-              if (ideal_hill < 0.5 || ideal_hill > 1.5) {
-                hill_message <- sprintf("Hill Slope (expected 0.5-1.5): %.3f", ideal_hill)
-              }
-            } else {
-              if (ideal_hill > -0.5 || ideal_hill < -1.5) {
-                hill_message <- sprintf("Hill Slope (expected -1.5 to -0.5): %.3f", ideal_hill)
-              }
-            }
+            hill_message <- .hill_warning_message(
+              hill = ideal_hill,
+              direction = curve_type,
+              model = model,
+              assay_type = assay_type
+            )
             
             if (nchar(hill_message) > 0) {
               warning_collector <- c(warning_collector, hill_message)

@@ -999,16 +999,16 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
         quality_flags <- c(quality_flags, plausibility_check$constrained_label)
       }
       
-      # Flag extreme Hill slopes, direction-aware
+      # Flag atypical Hill slopes using the same assay-specific warning range
+      # as batch_drc_analysis().  This is a quality annotation only and is
+      # separate from the broad hill_slope_limits plausibility guard.
       if (!is.na(hill_slope)) {
-        if (hill_slope < 0) {
-          # Inhibition curve
-          if (hill_slope < -3)  quality_flags <- c(quality_flags, "Steep Hill slope")
-          else if (hill_slope > -0.3) quality_flags <- c(quality_flags, "Shallow Hill slope")
-        } else {
-          # Activation curve
-          if (hill_slope > 3)   quality_flags <- c(quality_flags, "Steep Hill slope")
-          else if (hill_slope < 0.3)  quality_flags <- c(quality_flags, "Shallow Hill slope")
+        hill_warning_limits <- .hill_warning_limits("4pl", assay_type)
+        hill_magnitude <- abs(hill_slope)
+        if (hill_magnitude > hill_warning_limits[2]) {
+          quality_flags <- c(quality_flags, "Steep Hill slope")
+        } else if (hill_magnitude < hill_warning_limits[1]) {
+          quality_flags <- c(quality_flags, "Shallow Hill slope")
         }
       }
       
@@ -1286,6 +1286,7 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
   if (nrow(summary_table) > 0) {
     compound_names <- summary_table$Compound
     transposed_data <- as.data.frame(t(plain_for_transpose(summary_table[, -1])))
+    rownames(transposed_data) <- names(summary_table)[-1]
     colnames(transposed_data) <- compound_names
     final_summary_table <- transposed_data
     
@@ -1433,4 +1434,3 @@ fit_drc_4pl <- function(data, output_file = NULL, normalize = FALSE, verbose = T
     parameter_order_corrections = order_corrections
   )
 }
-
