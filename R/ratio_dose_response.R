@@ -28,6 +28,18 @@
 #' @param low_value_threshold Numeric; values below this threshold in the donor
 #'   channel (subtable1) are replaced with NA. Default is 1000. Helps filter out
 #'   background noise or invalid measurements.
+#' @param luciferase_signal_thresholds Numeric length-three vector containing
+#'   the inclusive upper limits for insufficient, low, and medium donor-signal
+#'   quality, respectively. Values above the third limit are classified as high.
+#'   Default: \code{c(1000, 10000, 100000)}.
+#' @param z_prime_thresholds Numeric length-three vector containing the
+#'   inclusive upper limits for insufficient, low, and medium Z-prime quality.
+#'   Values above the third limit are high. Default:
+#'   \code{c(0.25, 0.5, 0.7)}.
+#' @param assay_window_thresholds Numeric length-three vector containing the
+#'   inclusive upper limits for insufficient, low, and medium assay-window
+#'   quality. Values above the third limit are high. Default:
+#'   \code{c(1.5, 2, 3)}.
 #' @param selected_columns Numeric vector of column indices (0-based) to include
 #'   in the analysis. Useful for selecting specific columns from a multi-well
 #'   plate. If NULL, all columns are used.
@@ -150,9 +162,17 @@ ratio_dose_response <- function(data,
                                 low_value_threshold = 1000,
                                 selected_columns = NULL,
                                 plate_format = NULL,
-                                repeated_rows = c("separate", "combine")) {
+                                repeated_rows = c("separate", "combine"),
+                                luciferase_signal_thresholds = c(1000, 10000, 100000),
+                                z_prime_thresholds = c(0.25, 0.5, 0.7),
+                                assay_window_thresholds = c(1.5, 2, 3)) {
 
   repeated_rows <- match.arg(repeated_rows)
+  luciferase_signal_thresholds <-
+    .validate_luciferase_signal_thresholds(luciferase_signal_thresholds)
+  z_prime_thresholds <- .validate_z_prime_thresholds(z_prime_thresholds)
+  assay_window_thresholds <-
+    .validate_assay_window_thresholds(assay_window_thresholds)
   
   # -- Internal helper: detect plate layout by content ------------------------
   #
@@ -490,11 +510,9 @@ ratio_dose_response <- function(data,
         
         mean_luc <- mean(as.matrix(subtable1_num[valid_rows, ]), na.rm = TRUE)
         
-        luc_comment <- if (is.na(mean_luc))          "insufficient luciferase signal"
-        else if (mean_luc > 100000)   "high (>100000)"
-        else if (mean_luc > 10000)    "medium (10000<x<100000)"
-        else if (mean_luc > 1000)     "low (1000<x<10000)"
-        else                          "insufficient luciferase signal"
+        luc_comment <- .classify_luciferase_signal(
+          mean_luc, luciferase_signal_thresholds
+        )
         
         z_score <- NA; aw <- NA; aw_comment <- NA; zs_comment <- NA
         
@@ -506,17 +524,16 @@ ratio_dose_response <- function(data,
           
           z_metrics <- .dosefitr_z_prime(
             control_0_values   = d0,
-            control_100_values = d100
+            control_100_values = d100,
+            thresholds         = z_prime_thresholds
           )
           z_score <- z_metrics$value
           
           aw <- if (!is.na(m100) && !is.na(m0) && m0 != 0) m100 / m0 else NA
           
-          aw_comment <- if (is.na(aw))    "insufficient"
-          else if (aw > 3)  "high (>3)"
-          else if (aw > 2)  "medium (2<x<3)"
-          else if (aw > 1.5) "low (<2)"
-          else              "insufficient"
+          aw_comment <- .classify_assay_window(
+            aw, assay_window_thresholds
+          )
           
           zs_comment <- z_metrics$comment
         }

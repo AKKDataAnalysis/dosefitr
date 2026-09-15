@@ -83,6 +83,21 @@
 #' @param low_value_threshold Numeric. Values in the luciferase table below this
 #' threshold are replaced with NA to avoid noise artifacts.
 #'
+#' @param luciferase_signal_thresholds Numeric length-three vector containing
+#' the inclusive upper limits for insufficient, low, and medium donor-signal
+#' quality, respectively. Values above the third limit are classified as high.
+#' Default: \code{c(1000, 10000, 100000)}.
+#'
+#' @param z_prime_thresholds Numeric length-three vector containing the
+#' inclusive upper limits for insufficient, low, and medium Z-prime quality.
+#' Values above the third limit are high. Default:
+#' \code{c(0.25, 0.5, 0.7)}.
+#'
+#' @param assay_window_thresholds Numeric length-three vector containing the
+#' inclusive upper limits for insufficient, low, and medium assay-window
+#' quality. Values above the third limit are high. Default:
+#' \code{c(1.5, 2, 3)}.
+#'
 #' @param selected_columns Optional numeric vector specifying which data columns
 #' to use (excluding the first column with row identifiers).
 #'
@@ -196,9 +211,17 @@ ratio_dose_response_v2 <- function(data,
                                    selected_columns = NULL,
                                    plate_format = NULL,
                                    control_0perc_sd = NULL,
-                                   repeated_rows = c("separate", "combine")) {
+                                   repeated_rows = c("separate", "combine"),
+                                   luciferase_signal_thresholds = c(1000, 10000, 100000),
+                                   z_prime_thresholds = c(0.25, 0.5, 0.7),
+                                   assay_window_thresholds = c(1.5, 2, 3)) {
 
   repeated_rows <- match.arg(repeated_rows)
+  luciferase_signal_thresholds <-
+    .validate_luciferase_signal_thresholds(luciferase_signal_thresholds)
+  z_prime_thresholds <- .validate_z_prime_thresholds(z_prime_thresholds)
+  assay_window_thresholds <-
+    .validate_assay_window_thresholds(assay_window_thresholds)
 
   if (!is.null(control_0perc_sd)) {
     if (!is.numeric(control_0perc_sd) || length(control_0perc_sd) != 1L ||
@@ -576,11 +599,9 @@ ratio_dose_response_v2 <- function(data,
         
         mean_luc <- mean(as.matrix(subtable1_num[valid_rows, ]), na.rm = TRUE)
         
-        luc_comment <- if (is.na(mean_luc))          "insufficient luciferase signal"
-        else if (mean_luc > 100000)   "high (>100000)"
-        else if (mean_luc > 10000)    "medium (10000<x<100000)"
-        else if (mean_luc > 1000)     "low (1000<x<10000)"
-        else                          "insufficient luciferase signal"
+        luc_comment <- .classify_luciferase_signal(
+          mean_luc, luciferase_signal_thresholds
+        )
         
         z_score <- NA; aw <- NA; aw_comment <- NA; zs_comment <- NA
         mean_bg <- NA; mean_pos <- NA; sd_bg <- NA; sd_pos <- NA
@@ -596,17 +617,16 @@ ratio_dose_response_v2 <- function(data,
             z_metrics <- .dosefitr_z_prime(
               control_100_values   = d100,
               fixed_control_0_mean = mean_bg,
-              fixed_control_0_sd   = control_0perc_sd
+              fixed_control_0_sd   = control_0perc_sd,
+              thresholds           = z_prime_thresholds
             )
             z_score <- z_metrics$value
             
             aw <- if (mean_bg != 0) mean_pos / mean_bg else NA
             
-            aw_comment <- if (is.na(aw))    "insufficient"
-            else if (aw > 3)  "high (>3)"
-            else if (aw > 2)  "medium (2<x<3)"
-            else if (aw > 1.5) "low (<2)"
-            else              "insufficient"
+            aw_comment <- .classify_assay_window(
+              aw, assay_window_thresholds
+            )
             
             zs_comment <- z_metrics$comment
           } else {

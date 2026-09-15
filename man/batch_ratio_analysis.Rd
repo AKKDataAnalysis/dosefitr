@@ -20,7 +20,10 @@ batch_ratio_analysis(
   plate_format = NULL,
   file_map = NULL,
   control_0perc_sd = NULL,
-  repeated_rows = c("separate", "combine")
+  repeated_rows = c("separate", "combine"),
+  luciferase_signal_thresholds = c(1000, 10000, 1e+05),
+  z_prime_thresholds = c(0.25, 0.5, 0.7),
+  assay_window_thresholds = c(1.5, 2, 3)
 )
 }
 \arguments{
@@ -97,7 +100,40 @@ behaviour by suffixing the construct (\code{Construct_2},
 additional replicates of one curve and assigns sequential column suffixes
 (\code{.2}, \code{.3}, \code{.4}, ...). With
 \code{split_replicates = TRUE}, two repeated rows therefore produce four
-replicate columns.}
+replicate columns. In this mode, columns belonging to the same curve are
+grouped and ordered as the base name, \code{.2}, \code{.3}, ... .}
+
+\item{luciferase_signal_thresholds}{Numeric vector of length three defining
+the inclusive upper limits for the donor/luciferase signal quality classes,
+in the order \code{c(insufficient_max, low_max, medium_max)}. The values
+must be finite, non-negative, and strictly increasing. The default
+\code{c(1000, 10000, 100000)} classifies a mean signal as insufficient when
+\eqn{x <= 1000}, low when \eqn{1000 < x <= 10000}, medium when
+\eqn{10000 < x <= 100000}, and high when \eqn{x > 100000}. To customise all
+cutoffs in this single argument, for example, use
+\code{luciferase_signal_thresholds = c(insufficient = 2000,
+low = 20000, medium = 150000)}. The names are optional; classification
+follows the ascending order of the three values.}
+
+\item{z_prime_thresholds}{Numeric vector of length three defining the
+inclusive upper limits for the Z-prime quality classes, in the order
+\code{c(insufficient_max, low_max, medium_max)}. The values must be finite
+and strictly increasing. The default \code{c(0.25, 0.5, 0.7)} classifies
+Z-prime as insufficient when \eqn{x <= 0.25}, low when
+\eqn{0.25 < x <= 0.5}, medium when \eqn{0.5 < x <= 0.7}, and high when
+\eqn{x > 0.7}. Negative custom limits are permitted because Z-prime can be
+negative. For example, use
+\code{z_prime_thresholds = c(insufficient = 0, low = 0.4, medium = 0.6)}.}
+
+\item{assay_window_thresholds}{Numeric vector of length three defining the
+inclusive upper limits for the assay-window quality classes, in the order
+\code{c(insufficient_max, low_max, medium_max)}. The values must be finite,
+non-negative, and strictly increasing. The default
+\code{c(1.5, 2, 3)} classifies the assay window as insufficient when
+\eqn{x <= 1.5}, low when \eqn{1.5 < x <= 2}, medium when
+\eqn{2 < x <= 3}, and high when \eqn{x > 3}. For example, use
+\code{assay_window_thresholds = c(insufficient = 1.2,
+low = 2.5, medium = 4)}.}
 }
 \value{
 A named list with one element per successfully processed plate.

@@ -69,11 +69,44 @@
 #'   additional replicates of one curve and assigns sequential column suffixes
 #'   (\code{.2}, \code{.3}, \code{.4}, ...). With
 #'   \code{split_replicates = TRUE}, two repeated rows therefore produce four
-#'   replicate columns.
+#'   replicate columns. In this mode, columns belonging to the same curve are
+#'   grouped and ordered as the base name, \code{.2}, \code{.3}, ... .
 #'
 #' @param low_value_threshold Numeric.  Donor-channel values below this
 #'   threshold are replaced with \code{NA} before ratio calculation
 #'   (default \code{1000}).  Passed to the ratio function.
+#'
+#' @param luciferase_signal_thresholds Numeric vector of length three defining
+#'   the inclusive upper limits for the donor/luciferase signal quality classes,
+#'   in the order \code{c(insufficient_max, low_max, medium_max)}. The values
+#'   must be finite, non-negative, and strictly increasing. The default
+#'   \code{c(1000, 10000, 100000)} classifies a mean signal as insufficient when
+#'   \eqn{x <= 1000}, low when \eqn{1000 < x <= 10000}, medium when
+#'   \eqn{10000 < x <= 100000}, and high when \eqn{x > 100000}. To customise all
+#'   cutoffs in this single argument, for example, use
+#'   \code{luciferase_signal_thresholds = c(insufficient = 2000,
+#'   low = 20000, medium = 150000)}. The names are optional; classification
+#'   follows the ascending order of the three values.
+#'
+#' @param z_prime_thresholds Numeric vector of length three defining the
+#'   inclusive upper limits for the Z-prime quality classes, in the order
+#'   \code{c(insufficient_max, low_max, medium_max)}. The values must be finite
+#'   and strictly increasing. The default \code{c(0.25, 0.5, 0.7)} classifies
+#'   Z-prime as insufficient when \eqn{x <= 0.25}, low when
+#'   \eqn{0.25 < x <= 0.5}, medium when \eqn{0.5 < x <= 0.7}, and high when
+#'   \eqn{x > 0.7}. Negative custom limits are permitted because Z-prime can be
+#'   negative. For example, use
+#'   \code{z_prime_thresholds = c(insufficient = 0, low = 0.4, medium = 0.6)}.
+#'
+#' @param assay_window_thresholds Numeric vector of length three defining the
+#'   inclusive upper limits for the assay-window quality classes, in the order
+#'   \code{c(insufficient_max, low_max, medium_max)}. The values must be finite,
+#'   non-negative, and strictly increasing. The default
+#'   \code{c(1.5, 2, 3)} classifies the assay window as insufficient when
+#'   \eqn{x <= 1.5}, low when \eqn{1.5 < x <= 2}, medium when
+#'   \eqn{2 < x <= 3}, and high when \eqn{x > 3}. For example, use
+#'   \code{assay_window_thresholds = c(insufficient = 1.2,
+#'   low = 2.5, medium = 4)}.
 #'
 #' @param info_file Character string.  Name of the info Excel file
 #'   (default \code{"info_tables.xlsx"}).  Must reside in \code{directory}.
@@ -201,9 +234,17 @@ batch_ratio_analysis <- function(directory = getwd(),
                                  plate_format = NULL,
                                  file_map = NULL,
                                  control_0perc_sd = NULL,
-                                 repeated_rows = c("separate", "combine")) {
+                                 repeated_rows = c("separate", "combine"),
+                                 luciferase_signal_thresholds = c(1000, 10000, 100000),
+                                 z_prime_thresholds = c(0.25, 0.5, 0.7),
+                                 assay_window_thresholds = c(1.5, 2, 3)) {
 
   repeated_rows <- match.arg(repeated_rows)
+  luciferase_signal_thresholds <-
+    .validate_luciferase_signal_thresholds(luciferase_signal_thresholds)
+  z_prime_thresholds <- .validate_z_prime_thresholds(z_prime_thresholds)
+  assay_window_thresholds <-
+    .validate_assay_window_thresholds(assay_window_thresholds)
   
   # -- Validate function_version ----------------------------------------------
   valid_versions <- c("v1", "v2")
@@ -475,6 +516,12 @@ batch_ratio_analysis <- function(directory = getwd(),
           paste("Selected columns:", ifelse(!is.null(results[[plate_sheet]]$selected_columns),
                                             paste(results[[plate_sheet]]$selected_columns, collapse = ", "),
                                             "All")),
+          paste("Luciferase signal thresholds:",
+                paste(luciferase_signal_thresholds, collapse = ", ")),
+          paste("Z-prime thresholds:",
+                paste(z_prime_thresholds, collapse = ", ")),
+          paste("Assay window thresholds:",
+                paste(assay_window_thresholds, collapse = ", ")),
           ""
         )
         openxlsx::writeData(wb, plate_sheet, info_text, startRow = 1)
@@ -593,6 +640,9 @@ batch_ratio_analysis <- function(directory = getwd(),
           repeated_rows       = repeated_rows,
           info_table          = info_table,
           low_value_threshold = low_value_threshold,
+          luciferase_signal_thresholds = luciferase_signal_thresholds,
+          z_prime_thresholds  = z_prime_thresholds,
+          assay_window_thresholds = assay_window_thresholds,
           verbose             = verbose,
           save_to_excel       = NULL,
           selected_columns    = selected_columns,
@@ -608,6 +658,9 @@ batch_ratio_analysis <- function(directory = getwd(),
           repeated_rows       = repeated_rows,
           info_table          = info_table,
           low_value_threshold = low_value_threshold,
+          luciferase_signal_thresholds = luciferase_signal_thresholds,
+          z_prime_thresholds  = z_prime_thresholds,
+          assay_window_thresholds = assay_window_thresholds,
           verbose             = verbose,
           save_to_excel       = NULL,
           selected_columns    = selected_columns,
@@ -701,7 +754,9 @@ batch_ratio_analysis <- function(directory = getwd(),
           Parameter = c("Data File", "Info Sheet", "Function Version",
                         "Control 0%", "Control 0% SD", "Control 100%", "Selected Columns",
                         "Plate Format", "Split Replicates",
-                        "Low Value Threshold", "Processing Date"),
+                        "Low Value Threshold", "Luciferase Signal Thresholds",
+                        "Z-prime Thresholds", "Assay Window Thresholds",
+                        "Processing Date"),
           Value = c(
             data_filename, info_sheet, function_version,
             ifelse(is.numeric(control_0perc),
@@ -717,7 +772,11 @@ batch_ratio_analysis <- function(directory = getwd(),
             ifelse(is.null(selected_columns), "All columns",
                    paste("Data columns:", paste(selected_columns, collapse = ", "))),
             ifelse(is.null(plate_format), "Auto-detect", paste0(plate_format, "-well")),
-            split_replicates, low_value_threshold, as.character(Sys.time())
+            split_replicates, low_value_threshold,
+            paste(luciferase_signal_thresholds, collapse = ", "),
+            paste(z_prime_thresholds, collapse = ", "),
+            paste(assay_window_thresholds, collapse = ", "),
+            as.character(Sys.time())
           ),
           stringsAsFactors = FALSE
         )

@@ -15,7 +15,10 @@ ratio_dose_response(
   low_value_threshold = 1000,
   selected_columns = NULL,
   plate_format = NULL,
-  repeated_rows = c("separate", "combine")
+  repeated_rows = c("separate", "combine"),
+  luciferase_signal_thresholds = c(1000, 10000, 1e+05),
+  z_prime_thresholds = c(0.25, 0.5, 0.7),
+  assay_window_thresholds = c(1.5, 2, 3)
 )
 }
 \arguments{
@@ -60,6 +63,21 @@ construct with \code{_2}, \code{_3}, etc. \code{"combine"} treats them
 as additional replicates of one curve and uses sequential \code{.2},
 \code{.3}, \code{.4}, ... column suffixes, grouping the columns by curve
 and ordering them by replicate number.}
+
+\item{luciferase_signal_thresholds}{Numeric length-three vector containing
+the inclusive upper limits for insufficient, low, and medium donor-signal
+quality, respectively. Values above the third limit are classified as high.
+Default: \code{c(1000, 10000, 100000)}.}
+
+\item{z_prime_thresholds}{Numeric length-three vector containing the
+inclusive upper limits for insufficient, low, and medium Z-prime quality.
+Values above the third limit are high. Default:
+\code{c(0.25, 0.5, 0.7)}.}
+
+\item{assay_window_thresholds}{Numeric length-three vector containing the
+inclusive upper limits for insufficient, low, and medium assay-window
+quality. Values above the third limit are high. Default:
+\code{c(1.5, 2, 3)}.}
 }
 \value{
 A list containing the following components:
