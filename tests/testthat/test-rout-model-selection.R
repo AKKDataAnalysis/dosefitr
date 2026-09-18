@@ -28,7 +28,7 @@ test_that("explicit ROUT model modes do not switch silently", {
   expect_true(all(fit4$results$model_used == "4PL"))
 })
 
-test_that("auto is the default and is explicit in metadata", {
+test_that("fixed 4PL is the default and auto remains explicitly available", {
   dat <- make_rout_model_selection_data()
 
   auto <- suppressWarnings(rout_outliers(
@@ -39,7 +39,9 @@ test_that("auto is the default and is explicit in metadata", {
   ))
 
   expect_identical(auto$params$model, "auto")
-  expect_identical(default_fit$params$model, "auto")
+  expect_identical(default_fit$params$model, "4pl")
+  expect_identical(formals(rout_outliers)$model, "4pl")
+  expect_true(all(default_fit$results$model_used == "4PL"))
   expect_false("n_param" %in% names(formals(rout_outliers)))
   expect_false("n_param" %in% names(auto$params))
 })
@@ -64,6 +66,27 @@ test_that("batch ROUT propagates the requested fixed model", {
   expect_false("n_param" %in% names(fit$params))
   expect_true(all(
     fit$plate_01$result$rout_results$results$model_used == "3PL"
+  ))
+})
+
+test_that("batch ROUT defaults to fixed 4PL", {
+  dat <- make_rout_model_selection_data()
+  batch <- list(
+    plate_01 = list(
+      result = list(modified_ratio_table = dat)
+    )
+  )
+
+  fit <- suppressWarnings(rout_outliers_batch(
+    batch,
+    direction = "inhibition",
+    verbose = FALSE
+  ))
+
+  expect_identical(formals(rout_outliers_batch)$model, "4pl")
+  expect_identical(fit$params$model, "4pl")
+  expect_true(all(
+    fit$plate_01$result$rout_results$results$model_used == "4PL"
   ))
 })
 

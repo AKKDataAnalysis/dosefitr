@@ -12,7 +12,7 @@ batch_drc_analysis(
   r_sqr_threshold = 0.8,
   output_dir = NULL,
   generate_reports = TRUE,
-  model = "3pl",
+  model = "4pl",
   nd_if_activation = FALSE,
   outside_range = c("legacy", "estimate", "censor", "na"),
   verbose = TRUE,
@@ -51,9 +51,9 @@ batch reports will be saved. Defaults to the working directory.}
 Excel report summarizing all DRC fits.}
 
 \item{model}{Character. Which dose-response model to use for fitting.
-`"3pl"` (default) calls \code{\link{fit_drc_3pl}} (3-parameter logistic, Hill
-slope fixed at \eqn{\pm 1}).  `"4pl"` calls \code{\link{fit_drc_4pl}}
-(4-parameter logistic, Hill slope freely estimated).}
+`"4pl"` (default) calls \code{\link{fit_drc_4pl}} (4-parameter logistic,
+Hill slope freely estimated). `"3pl"` calls \code{\link{fit_drc_3pl}}
+(3-parameter logistic, Hill slope fixed at \eqn{\pm 1}).}
 
 \item{nd_if_activation}{Logical. If `FALSE` (default), only flat curves have
 their IC50/EC50 and pIC50/pEC50 replaced with `"N/D"` (not determined) in the
@@ -174,8 +174,8 @@ across multiple plates previously processed by \code{\link{batch_ratio_analysis}
 \code{\link{batch_viability_analysis}} or \code{\link{batch_read_tables}}.
 
 It extracts the `modified_ratio_table` from each plate, applies a
-3-parameter logistic regression via \code{\link{fit_drc_3pl}} (default) or a
-4-parameter logistic regression via  \code{\link{fit_drc_4pl}} (selected via the
+4-parameter logistic regression via \code{\link{fit_drc_4pl}} (default) or a
+3-parameter logistic regression via \code{\link{fit_drc_3pl}} (selected via the
 `model` argument), and generates:
 
 * Per-plate DRC result files (optional)
@@ -189,8 +189,8 @@ For each plate in `batch_results`, the function:
 
 1. Extracts the `modified_ratio_table` produced during ratio normalization.
 2. Ensures the table contains valid data (non-empty and with column names).
-3. Performs a dose-response fit via \code{\link{fit_drc_3pl}} (default) or
-   \code{\link{fit_drc_4pl}} (when `model = "4pl"`), where:
+3. Performs a dose-response fit via \code{\link{fit_drc_4pl}} (default) or
+   \code{\link{fit_drc_3pl}} (when `model = "3pl"`), where:
    * The first column is assumed to be log(inhibitor concentration)
    * Remaining columns are compound responses
 4. Stores:

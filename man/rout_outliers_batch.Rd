@@ -7,7 +7,7 @@
 rout_outliers_batch(
   batch_results,
   Q = 0.01,
-  model = "auto",
+  model = "4pl",
   direction = "inhibition",
   min_dynamic_range = 20,
   ntry_retry = 3L,
@@ -30,8 +30,8 @@ Must be strictly between 0 and 1 (default = 0.01).}
 \code{"4pl"} modes apply the same model family to every curve and never
 switch silently. If the requested fixed fit fails or is rejected, the
 original observations for that curve are retained. \code{"auto"} keeps
-the historical per-curve 3PL/4PL stability comparison. Default is
-\code{"auto"}.}
+the historical per-curve 3PL/4PL stability comparison and must be selected
+explicitly. Default is the fixed \code{"4pl"} model.}
 
 \item{direction}{Character. Curve direction:
 \itemize{

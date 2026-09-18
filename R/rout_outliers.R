@@ -75,7 +75,8 @@
 #'   \code{"auto"} fits both models and applies the historical stability rule
 #'   on each curve. If a fixed model fails or is rejected by its plausibility
 #'   checks, no observations from that curve are removed. Default is
-#'   \code{"auto"}.
+#'   \code{"4pl"}, so every curve is evaluated with a freely estimated Hill
+#'   slope unless the user explicitly requests another strategy.
 #'
 #' @param conc_col Index of the concentration column in `data`. Default is 1.
 #'
@@ -191,7 +192,7 @@
 
 rout_outliers <- function(data,
                           Q                  = 0.01,
-                          model              = "auto",
+                          model              = "4pl",
                           conc_col           = 1L,
                           log_base           = "log10",
                           direction          = "inhibition",
